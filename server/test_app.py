@@ -271,6 +271,45 @@ class CrossBanTest(unittest.TestCase):
         db.close()
         self.assertEqual(BANNED, banned_before)
 
+        # Ekip oluşturma belirli hesaplarla sınırlanabilir; davetle katılmak açık kalır.
+        app.CFG["team_creators"] = {10}
+        self.assertEqual(call(self.base, "POST", "/teams", veli, {"name": "Yasak"})[0], 403)
+        _, team_a, _ = call(self.base, "POST", "/teams", ali, {"name": "A"})
+        app.CFG["team_creators"] = set()
+        _, team_b, _ = call(self.base, "POST", "/teams", veli, {"name": "B"})
+        a, b = team_a["id"], team_b["id"]
+        _, info_a, _ = call(self.base, "GET", f"/teams/{a}", ali)
+        self.assertEqual(call(self.base, "POST", "/teams/join", veli, {"invite_code": info_a["invite_code"]})[0], 200)
+
+        # Sıra ekipler arasında dönüşümlüdür: A'nın uzun listesi B'nin tek kaydını bekletmez.
+        call(self.base, "POST", f"/teams/{a}/channels", ali, {"slug": "yayinci-a"})
+        call(self.base, "POST", f"/teams/{b}/channels", veli, {"slug": "yayinci-a"})
+        call(self.base, "POST", f"/teams/{a}/imports", ali, {"usernames": ["yok-1", "yok-2", "yok-3"]})
+        call(self.base, "POST", f"/teams/{b}/imports", veli, {"usernames": ["yok-4"]})
+        app.process_next()
+        app.process_next()
+        self.assertEqual(call(self.base, "GET", f"/teams/{b}/imports", veli)[1]["counts"], {"notfound": 1})
+        self.assertEqual(call(self.base, "GET", f"/teams/{a}/imports", ali)[1]["counts"],
+                         {"notfound": 1, "pending": 2})
+        while app.process_next():
+            pass
+
+        # Bir ekibin sırada bekleyen kayıt sayısı sınırlıdır.
+        app.MAX_QUEUE_PER_TEAM = 2
+        _, res, _ = call(self.base, "POST", f"/teams/{a}/imports", ali, {"usernames": ["yok-5", "yok-6", "yok-7"]})
+        self.assertEqual((res["added"], res["skipped"]), (2, 1))
+        self.assertEqual(call(self.base, "POST", f"/teams/{a}/imports", ali, {"usernames": ["yok-8"]})[0], 400)
+        app.MAX_QUEUE_PER_TEAM = 20_000
+        call(self.base, "DELETE", f"/teams/{a}/imports/pending", ali)
+
+        # Aynı adresten art arda çok fazla giriş başlatılamaz.
+        app.LOGIN_HITS.clear()
+        app.LOGIN_LIMIT = 2
+        login = "/auth/login?redirect=" + urllib.parse.quote(REDIRECT)
+        self.assertEqual([call(self.base, "GET", login)[0] for _ in range(3)], [302, 302, 429])
+        app.LOGIN_LIMIT = 30
+        app.LOGIN_HITS.clear()
+
 
 if __name__ == "__main__":
     unittest.main()

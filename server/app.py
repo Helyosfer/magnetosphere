@@ -45,6 +45,9 @@ CFG = {
     "kick_api": os.environ.get("KICK_API_BASE", "https://api.kick.com").rstrip("/"),
     # Boşsa her extension kimliği kabul edilir; doluysa virgülle ayrılmış kimlikler.
     "extension_ids": [x.strip() for x in os.environ.get("ALLOWED_EXTENSION_IDS", "").split(",") if x.strip()],
+    # Boşsa giriş yapan herkes ekip oluşturabilir; doluysa yalnızca bu Kick kullanıcı kimlikleri.
+    # Davet koduyla ekibe katılmak her durumda açıktır.
+    "team_creators": {int(x) for x in os.environ.get("ALLOWED_TEAM_CREATORS", "").split(",") if x.strip()},
     # Kick tokenlarını veritabanında şifrelemek için anahtar (Fernet). Boşsa tokenlar düz metin kalır.
     "token_key": os.environ.get("TOKEN_ENCRYPTION_KEY", ""),
     # Sırayı aynı anda işleyen işçi sayısı; Kick istek sınırına takılırsa düşürün.
@@ -59,6 +62,9 @@ SCOPES = "user:read channel:read moderation:ban"
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/.*")
 MAX_IMPORT = 5000
 MAX_BODY_BYTES = 1_000_000
+MAX_QUEUE_PER_TEAM = 20_000   # bir ekibin sırada bekleyebilecek en fazla kaydı
+LOGIN_LIMIT = 30              # aynı adresten LOGIN_WINDOW saniyede başlatılabilecek giriş sayısı
+LOGIN_WINDOW = 600
 SESSION_TTL = 30 * 24 * 3600   # son kullanımdan sonra oturumun geçerli kaldığı süre
 LOOKUP_BATCH = 50      # Kick tek sorguda en fazla 50 kanal döndürür
 MAX_PARALLEL_CHANNELS = 8
@@ -468,8 +474,25 @@ def ban_json(db, ban):
 # ---------------------------------------------------------------- handlers
 
 class Req:
-    def __init__(self, db, query, body, user):
-        self.db, self.query, self.body, self.user = db, query, body, user
+    def __init__(self, db, query, body, user, ip=""):
+        self.db, self.query, self.body, self.user, self.ip = db, query, body, user, ip
+
+
+LOGIN_HITS = {}                  # adres -> son giriş denemelerinin zamanları
+LOGIN_LOCK = threading.Lock()
+
+
+def throttle_login(ip):
+    """Giriş başlatma oturum gerektirmez; aynı adresten art arda çağrılıp veritabanı şişirilemesin."""
+    now = time.time()
+    with LOGIN_LOCK:
+        if len(LOGIN_HITS) > 10_000:
+            LOGIN_HITS.clear()
+        hits = [t for t in LOGIN_HITS.get(ip, []) if t > now - LOGIN_WINDOW]
+        LOGIN_HITS[ip] = hits
+        if len(hits) >= LOGIN_LIMIT:
+            raise ApiError(429, "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene")
+        hits.append(now)
 
 
 def team_for(req, team_id, owner=False):
@@ -498,6 +521,7 @@ def auth_login(req):
         raise ApiError(400, "Geçersiz redirect adresi")
     if not CFG["client_id"] or not CFG["client_secret"]:
         raise ApiError(500, "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil")
+    throttle_login(req.ip)
     state, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(48)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     req.db.execute("DELETE FROM oauth_states WHERE created_at < ?", (int(time.time()) - 600,))
@@ -566,6 +590,8 @@ def team_create(req):
     name = str(req.body.get("name", "")).strip()[:60]
     if not name:
         raise ApiError(400, "Ekip adı gerekli")
+    if CFG["team_creators"] and req.user["id"] not in CFG["team_creators"]:
+        raise ApiError(403, "Bu sunucuda ekip oluşturma kapalı; bir davet koduyla ekibe katıl")
     cur = req.db.execute("INSERT INTO teams (name, invite_code, owner_id) VALUES (?,?,?)",
                          (name, secrets.token_urlsafe(9), req.user["id"]))
     req.db.execute("INSERT INTO members VALUES (?,?)", (cur.lastrowid, req.user["id"]))
@@ -743,10 +769,13 @@ def import_create(req, team_id):
         raise ApiError(400, "Önce ekibe en az bir kanal ekle")
     waiting = {r["target_name"].lower() for r in req.db.execute(
         "SELECT target_name FROM queue WHERE team_id = ? AND status IN ('pending', 'working')", (team["id"],))}
+    room = MAX_QUEUE_PER_TEAM - len(waiting)
+    if room <= 0:
+        raise ApiError(400, "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene")
     now, added = int(time.time()), 0
     for name in usernames:
         name = str(name).strip().lstrip("@")[:60]
-        if not name or name.lower() in waiting:
+        if not name or name.lower() in waiting or added == room:
             continue
         waiting.add(name.lower())
         req.db.execute(
@@ -786,6 +815,7 @@ def import_clear(req, team_id, which):
 RESOLVED = {}                    # (team_id, slug) -> user_id ya da None (Kick'te yok)
 RESOLVE_LOCK = threading.Lock()
 PAUSE_UNTIL = 0.0                # Kick istek sınırına takılınca tüm işçiler bu ana kadar bekler
+LAST_TEAM = 0                    # sırası en son gelen ekip; bir sonraki kayıt başka ekipten seçilir
 
 
 def resolve_queued(db, row, actor):
@@ -823,18 +853,20 @@ def resolve_queued(db, row, actor):
 
 def process_next():
     """Sıradaki bir kaydı işler; işlenecek kayıt yoksa False döner."""
-    global PAUSE_UNTIL
+    global PAUSE_UNTIL, LAST_TEAM
     if time.time() < PAUSE_UNTIL:
         return False
     db = connect()
     try:
         # Birden çok işçi aynı kaydı almasın diye kayıt tek adımda "working" yapılır.
+        # Ekipler sırayla işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
         row = db.execute(
             "UPDATE queue SET status = 'working' WHERE id = (SELECT id FROM queue "
-            "WHERE status = 'pending' AND retry_at <= ? ORDER BY id LIMIT 1) RETURNING *",
-            (int(time.time()),)).fetchone()
+            "WHERE status = 'pending' AND retry_at <= ? ORDER BY team_id <= ?, team_id, id LIMIT 1) RETURNING *",
+            (int(time.time()), LAST_TEAM)).fetchone()
         if not row:
             return False
+        LAST_TEAM = row["team_id"]
 
         def finish(status, detail=""):
             db.execute("UPDATE queue SET status = ?, detail = ? WHERE id = ?", (status, detail, row["id"]))
@@ -949,6 +981,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def client_ip(self):
+        # Ters vekilin arkasında gerçek adres X-Forwarded-For'un son değeridir; öncekileri istemci uydurabilir.
+        forwarded = self.headers.get("X-Forwarded-For") or ""
+        if forwarded and self.client_address[0] in ("127.0.0.1", "::1"):
+            return forwarded.split(",")[-1].strip()
+        return self.client_address[0]
+
     def dispatch(self):
         url = urllib.parse.urlsplit(self.path)
         query = dict(urllib.parse.parse_qsl(url.query))
@@ -984,7 +1023,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ApiError(401, "Oturumun süresi doldu, yeniden giriş yap")
                     if now - user["last_used"] > 3600:
                         db.execute("UPDATE sessions SET last_used = ? WHERE token_hash = ?", (now, token_hash))
-                return self.send_json(200, fn(Req(db, query, body, user), *match.groups()))
+                return self.send_json(200, fn(Req(db, query, body, user, self.client_ip()), *match.groups()))
             self.send_json(404, {"error": "Bulunamadı"})
         except Redirect as r:
             self.send_json(302, location=r.url)

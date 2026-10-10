@@ -115,6 +115,7 @@ Extension'ın kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
 | `KICK_CLIENT_SECRET` | — | Kick uygulamasının Client Secret'ı |
 | `TOKEN_ENCRYPTION_KEY` | boş | Kick tokenlarını veritabanında şifreleyen anahtar. Boşsa tokenlar düz metin kalır |
 | `ALLOWED_EXTENSION_IDS` | boş (hepsi) | Giriş yapmasına ve API'yi çağırmasına izin verilen extension kimlikleri, virgülle ayrılmış |
+| `ALLOWED_TEAM_CREATORS` | boş (herkes) | Ekip oluşturabilecek Kick kullanıcı kimlikleri, virgülle ayrılmış. Davetle katılmak her durumda açıktır |
 | `PUBLIC_URL` | `http://localhost:8787` | Sunucunun dışarıdan erişilen adresi. Kick'teki Redirect URL `{PUBLIC_URL}/auth/callback` olmalı |
 | `HOST` | `127.0.0.1` | Dinlenecek arayüz |
 | `PORT` | `8787` | Dinlenecek port |
@@ -138,7 +139,9 @@ Extension'ın kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
 - **Davet kodu.** Rastgele 72 bitliktir ve ekip sahibi tarafından yenilenebilir; eski kod anında geçersiz olur.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Extension
   yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği enjekte etmez.
-- **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla sınırlıdır.
+- **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
+  bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
+- **Adil sıra.** Sıra ekipler arasında dönüşümlü işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
 
 **Sunucuyu işleten kişinin sorumlulukları**
 
