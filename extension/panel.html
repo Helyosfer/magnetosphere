@@ -6,86 +6,163 @@
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
-  <header>
-    <strong>Magnetosphere</strong>
-    <span id="who"></span>
-    <button id="logout" class="link" hidden>Çıkış</button>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <linearGradient id="aurora" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#5cf2a5"/>
+        <stop offset="1" stop-color="#42c8ff"/>
+      </linearGradient>
+      <symbol id="logo" viewBox="0 0 24 24" fill="none" stroke="url(#aurora)" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="8" cy="12" r="3" fill="url(#aurora)" stroke="none"/>
+        <path d="M8 4.5c6.4 0 11 3.2 11 7.500s-4.600 7.500-11 7.500"/>
+        <path d="M8 8c3.700 0 6.300 1.700 6.300 4s-2.600 4-6.300 4" opacity=".55"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="top">
+    <svg class="logo"><use href="#logo"/></svg>
+    <strong class="brand">Magnetosphere</strong>
+    <div id="user" class="user" hidden>
+      <span id="avatar" class="avatar"></span>
+      <span id="who"></span>
+      <button id="logout" class="ghost small" title="Çıkış yap">Çıkış</button>
+    </div>
   </header>
 
-  <p id="message" hidden></p>
+  <p id="message" class="banner" hidden></p>
 
-  <section id="login-view" hidden>
-    <label>Sunucu adresi
-      <input id="server" type="url" placeholder="http://localhost:8787">
-    </label>
-    <button id="login">Kick ile giriş yap</button>
+  <section id="login-view" class="hero" hidden>
+    <svg class="logo big"><use href="#logo"/></svg>
+    <h1>Ekibinin tüm kanalları için tek ban listesi</h1>
+    <p class="muted">Bir kullanıcıyı bir kez banla; ekibin moderatörlük yaptığı her kanalda uygulansın.</p>
+    <button id="login" class="primary wide">Kick ile giriş yap</button>
+    <details>
+      <summary>Sunucu ayarı</summary>
+      <input id="server" type="url" placeholder="http://localhost:8787" aria-label="Sunucu adresi">
+    </details>
   </section>
 
   <section id="app-view" hidden>
-    <div class="row">
-      <select id="team"></select>
-      <button id="team-menu" class="link">+ Ekip</button>
+    <div class="teambar">
+      <select id="team" aria-label="Ekip"></select>
+      <button id="team-menu" class="ghost">+ Ekip</button>
     </div>
 
-    <div id="team-forms" hidden>
+    <div id="team-forms" class="card stack" hidden>
       <form id="team-create" class="row">
         <input name="name" placeholder="Yeni ekip adı" required>
-        <button>Oluştur</button>
+        <button class="primary">Oluştur</button>
       </form>
       <form id="team-join" class="row">
         <input name="invite_code" placeholder="Davet kodu" required>
-        <button>Katıl</button>
+        <button class="ghost">Katıl</button>
       </form>
     </div>
 
     <div id="team-view" hidden>
-      <nav>
+      <nav class="tabs">
         <button data-tab="ban" class="active">Banla</button>
-        <button data-tab="list">Liste</button>
+        <button data-tab="list">Liste <span id="list-count" class="count" hidden></span></button>
         <button data-tab="crew">Ekip</button>
       </nav>
 
-      <form id="tab-ban">
-        <label>Kullanıcı adları
-          <textarea name="username" rows="3" placeholder="Her satıra bir kullanıcı adı" required></textarea>
-        </label>
-        <label>Sebep
-          <input name="reason" maxlength="100" placeholder="isteğe bağlı">
-        </label>
-        <label>Süre
-          <select name="duration">
-            <option value="">Kalıcı</option>
-            <option value="10">10 dakika</option>
-            <option value="60">1 saat</option>
-            <option value="1440">1 gün</option>
-            <option value="10080">7 gün</option>
-          </select>
-        </label>
-        <button class="danger">Tüm kanallarda banla</button>
-        <div id="ban-result"></div>
+      <form id="tab-ban" class="stack">
+        <div id="queue" class="card queue" hidden>
+          <h3>Sıra <span id="queue-progress" class="count"></span></h3>
+          <div class="bar"><div id="queue-bar"></div></div>
+          <p id="queue-summary" class="small"></p>
+          <details id="queue-problems" hidden>
+            <summary></summary>
+            <ul id="queue-problem-list"></ul>
+          </details>
+          <div class="row end">
+            <button type="button" id="queue-copy" class="ghost small" hidden>Bulunamayanları kopyala</button>
+            <button type="button" id="queue-cancel" class="ghost small" hidden>Sırayı iptal et</button>
+            <button type="button" id="queue-clear" class="ghost small" hidden>Temizle</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="label">
+            <label for="username">Kullanıcı adları</label>
+            <span class="tools">
+              <span id="name-count" class="count" hidden></span>
+              <button type="button" id="file-pick" class="ghost small" title=".txt, .csv ya da .json">Dosyadan yükle</button>
+              <input id="file-input" type="file" accept=".txt,.csv,.json,text/plain,text/csv" multiple hidden>
+            </span>
+          </div>
+          <textarea id="username" name="username" class="mono" rows="4" spellcheck="false"
+                    placeholder="Her satıra bir kullanıcı adı&#10;ya da virgülle ayır" required></textarea>
+        </div>
+
+        <div class="field">
+          <label class="label" for="reason">Sebep</label>
+          <input id="reason" name="reason" maxlength="100" placeholder="İsteğe bağlı; ortak listede görünür">
+          <div id="reason-presets" class="presets">
+            <button type="button">Spam botu</button>
+            <button type="button">Küfür</button>
+            <button type="button">Trol</button>
+            <button type="button">Taciz</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label">Süre</span>
+          <div class="segmented">
+            <label><input type="radio" name="duration" value="" checked><span>Kalıcı</span></label>
+            <label><input type="radio" name="duration" value="10"><span>10 dk</span></label>
+            <label><input type="radio" name="duration" value="60"><span>1 saat</span></label>
+            <label><input type="radio" name="duration" value="1440"><span>1 gün</span></label>
+            <label><input type="radio" name="duration" value="10080"><span>7 gün</span></label>
+          </div>
+        </div>
+
+        <p id="targets" class="muted small"></p>
+        <button id="ban-submit" class="danger wide">Tüm kanallarda banla</button>
+        <div id="ban-result" class="stack"></div>
       </form>
 
-      <div id="tab-list" hidden></div>
+      <div id="tab-list" class="stack" hidden>
+        <div class="row">
+          <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara">
+          <label class="check"><input id="list-revoked" type="checkbox"><span>Kaldırılanlar</span></label>
+        </div>
+        <div id="ban-list" class="stack"></div>
+      </div>
 
-      <div id="tab-crew" hidden>
-        <h3>Davet kodu</h3>
-        <div class="row"><code id="invite"></code><button id="copy-invite" class="link">Kopyala</button></div>
-        <h3>Kanallar</h3>
-        <ul id="channels"></ul>
-        <form id="channel-add" class="row" hidden>
-          <input name="slug" placeholder="kanal adı" required>
-          <button>Ekle</button>
-        </form>
-        <h3>Üyeler</h3>
-        <ul id="members"></ul>
+      <div id="tab-crew" class="stack" hidden>
+        <div class="card">
+          <h3>Davet kodu</h3>
+          <div class="row">
+            <code id="invite" class="mono"></code>
+            <button id="copy-invite" class="ghost">Kopyala</button>
+            <button id="rotate-invite" class="ghost" title="Eski kodu geçersiz kılar" hidden>Yenile</button>
+          </div>
+          <p class="muted small">Bu kodu alan herkes ekibe katılıp ekibin kanallarında ban atabilir.</p>
+        </div>
+
+        <div class="card">
+          <h3>Kanallar <span id="channel-count" class="count"></span></h3>
+          <ul id="channels"></ul>
+          <form id="channel-add" class="row" hidden>
+            <input name="slug" placeholder="Kanal adı" required>
+            <button class="primary">Ekle</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Üyeler <span id="member-count" class="count"></span></h3>
+          <ul id="members"></ul>
+        </div>
       </div>
     </div>
   </section>
 
   <dialog id="confirm">
     <p id="confirm-text"></p>
-    <div class="row">
-      <button id="confirm-no" class="link">Vazgeç</button>
+    <div class="row end">
+      <button id="confirm-no" class="ghost">Vazgeç</button>
       <button id="confirm-yes" class="danger">Onayla</button>
     </div>
   </dialog>

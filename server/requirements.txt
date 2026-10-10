@@ -1,0 +1,2 @@
+# Yalnızca token şifreleme için gerekir (TOKEN_ENCRYPTION_KEY tanımlıysa).
+cryptography>=42

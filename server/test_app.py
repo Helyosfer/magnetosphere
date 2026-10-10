@@ -1,13 +1,17 @@
 """Sahte bir Kick API'sine karşı uçtan uca testler: python -m unittest test_app"""
 import json
 import os
+import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from cryptography.fernet import Fernet
 
 import app
 
@@ -17,6 +21,7 @@ REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 USERS = {1: "yayinci-a", 2: "yayinci-b", 10: "mod-ali", 11: "mod-veli", 99: "trol"}
 MODS = {1: {10}, 2: set()}   # mod-ali yalnızca yayinci-a'da moderatör
 BANNED = set()               # (broadcaster_id, user_id)
+LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
 
 
 class FakeKick(BaseHTTPRequestHandler):
@@ -41,8 +46,11 @@ class FakeKick(BaseHTTPRequestHandler):
         if url.path == "/public/v1/users":
             return self.reply(200, {"data": [{"user_id": self.uid(), "name": USERS[self.uid()]}]})
         if url.path == "/public/v1/channels":
-            slug = urllib.parse.parse_qs(url.query)["slug"][0]
-            data = [{"broadcaster_user_id": i, "slug": s} for i, s in USERS.items() if s == slug]
+            slugs = urllib.parse.parse_qs(url.query)["slug"]
+            LOOKUPS.append(slugs)
+            if any(len(s) > 25 for s in slugs):
+                return self.reply(400, {"message": "Invalid request"})
+            data = [{"broadcaster_user_id": i, "slug": s} for i, s in USERS.items() if s in slugs]
             return self.reply(200, {"data": data})
         self.reply(404, {})
 
@@ -80,8 +88,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(NoRedirect)
 
 
-def call(base, method, path, token=None, body=None):
+def call(base, method, path, token=None, body=None, origin=None):
     headers = {"Authorization": f"Bearer {token}"} if token else {}
+    if origin:
+        headers["Origin"] = origin
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
@@ -97,7 +107,10 @@ class CrossBanTest(unittest.TestCase):
         cls.kick, kick_url = serve(FakeKick)
         cls.tmp = tempfile.TemporaryDirectory()
         app.CFG.update(client_id="id", client_secret="secret", kick_id=kick_url, kick_api=kick_url,
-                       db=os.path.join(cls.tmp.name, "test.db"), delay=0)
+                       db=os.path.join(cls.tmp.name, "test.db"),
+                       token_key=Fernet.generate_key().decode(),
+                       extension_ids=[])   # yerel .env'deki kimlik kısıtı testi etkilemesin
+        app.LIMITER.rate = 0   # sahte Kick'e karşı hız sınırı gereksiz
         app.init_db()
         cls.server, cls.base = serve(app.Handler)
 
@@ -166,12 +179,80 @@ class CrossBanTest(unittest.TestCase):
         call(self.base, "POST", f"/teams/{tid}/bans", veli, {"username": "trol"})
         _, listing, _ = call(self.base, "GET", f"/teams/{tid}/bans", veli)
         self.assertEqual(len(listing["bans"]), 1)
+        self.assertEqual((listing["matched"], listing["active_total"]), (1, 1))
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans?q=SPA", veli)[1]["matched"], 1)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans?q=yok", veli)[1]["matched"], 0)
 
         # Ban kaldırma her kanalda geri alır.
         _, ban, _ = call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", ali)
         self.assertIsNotNone(ban["revoked_at"])
         self.assertEqual({r["status"] for r in ban["results"]}, {"unbanned"})
         self.assertEqual(BANNED, set())
+        # Kaldırılan kayıt varsayılan listede görünmez.
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans", ali)[1]["bans"], [])
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans?revoked=1", ali)[1]["matched"], 1)
+
+        # Sıra: uzun listeler arka planda işlenir; bulunamayan ad diğerlerini durdurmaz.
+        status, res, _ = call(self.base, "POST", f"/teams/{tid}/imports", ali,
+                              {"usernames": ["trol", "@Trol", "yok-boyle-biri", "mod-veli", "x" * 32],
+                               "reason": "liste"})
+        self.assertEqual((status, res["added"], res["skipped"]), (200, 4, 1))
+        _, st, _ = call(self.base, "GET", f"/teams/{tid}/imports", ali)
+        self.assertEqual(st["counts"], {"pending": 4})
+        LOOKUPS.clear()
+        # Üç işçi aynı anda çalışır; hiçbir kayıt iki kez işlenmez ya da atlanmaz.
+        workers = [threading.Thread(target=lambda: [None for _ in iter(app.process_next, False)])
+                   for _ in range(3)]
+        for w in workers:
+            w.start()
+        for w in workers:
+            w.join()
+        # Sıradaki adlar Kick'e tek tek değil, tek istekte sorulur.
+        self.assertEqual(len(LOOKUPS), 1)
+        self.assertEqual(sorted(LOOKUPS[0]), ["mod-veli", "trol", "yok-boyle-biri"])
+        _, st, _ = call(self.base, "GET", f"/teams/{tid}/imports", ali)
+        # Fazla uzun ad yalnızca kendisi reddedilir; aynı gruptaki diğerlerini düşürmez.
+        self.assertEqual(st["counts"], {"done": 1, "notfound": 1, "rejected": 2})
+        self.assertEqual({p["name"]: p["status"] for p in st["problems"]},
+                         {"yok-boyle-biri": "notfound", "mod-veli": "rejected", "x" * 32: "rejected"})
+        self.assertEqual(BANNED, {(1, 99), (2, 99)})
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/imports/finished", ali)[1]["removed"], 4)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/imports", ali, {"usernames": []})[0], 400)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/imports", "yanlis")[0], 401)
+
+        # Güvenlik: tokenlar veritabanında şifreli durur.
+        db = sqlite3.connect(app.CFG["db"])
+        for access, refresh in db.execute("SELECT access_token, refresh_token FROM users"):
+            self.assertTrue(access.startswith("enc:") and refresh.startswith("enc:"))
+            self.assertNotIn("tok-", access)
+
+        # Davet kodu yenilenince eskisi geçersiz olur; bunu yalnızca sahip yapabilir.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/invite", veli)[0], 403)
+        _, fresh, _ = call(self.base, "POST", f"/teams/{tid}/invite", ali)
+        self.assertNotEqual(fresh["invite_code"], info["invite_code"])
+        stranger = self.login(99)
+        self.assertEqual(call(self.base, "POST", "/teams/join", stranger, {"invite_code": info["invite_code"]})[0], 404)
+
+        # Çok büyük istek gövdesi okunmadan reddedilir.
+        self.assertEqual(call(self.base, "POST", "/teams", ali, {"name": "x" * 1_100_000})[0], 413)
+
+        # Extension kimliği sabitlenince yalnızca o extension'a CORS izni verilir ve yalnızca o giriş yapabilir.
+        ours, other = "chrome-extension://" + "a" * 32, "chrome-extension://" + "b" * 32
+        self.assertEqual(call(self.base, "GET", "/me", ali, origin=other)[2]["Access-Control-Allow-Origin"], "*")
+        app.CFG["extension_ids"] = ["a" * 32]
+        self.assertEqual(call(self.base, "GET", "/me", ali, origin=ours)[2]["Access-Control-Allow-Origin"], ours)
+        self.assertIsNone(call(self.base, "GET", "/me", ali, origin=other)[2]["Access-Control-Allow-Origin"])
+        bad = "https://" + "b" * 32 + ".chromiumapp.org/"
+        self.assertEqual(call(self.base, "GET", "/auth/login?redirect=" + urllib.parse.quote(bad))[0], 400)
+        app.CFG["extension_ids"] = []
+
+        # Uzun süre kullanılmayan oturum geçersiz olur.
+        db.execute("UPDATE sessions SET last_used = last_used - ?", (app.SESSION_TTL + 60,))
+        db.commit()
+        db.close()
+        status, res, _ = call(self.base, "GET", "/me", stranger)
+        self.assertEqual((status, "süresi doldu" in res["error"]), (401, True))
+        ali, veli = self.login(10), self.login(11)
 
         # Çıkarılan üye ekibe erişemez.
         self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/11", ali)[0], 200)

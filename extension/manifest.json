@@ -1,14 +1,31 @@
 {
   "manifest_version": 3,
   "name": "Magnetosphere",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Mod ekibinle ortak ban listesi tut; bir kullanıcıyı ekibin tüm Kick kanallarında tek tıkla banla.",
-  "permissions": ["identity", "storage", "contextMenus"],
+  "permissions": [
+    "identity",
+    "storage",
+    "contextMenus"
+  ],
   "action": {
     "default_title": "Magnetosphere",
-    "default_popup": "panel.html"
+    "default_popup": "panel.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqgzE15QHRpMBCXrwSDTQAM3FAQzdoUdgjS4D2Qe9SeMiw9czYkQRUg6GGc5Y8eRNztemfsXYx1jWkZHuEJU5RljGQsFZ8TvoBi/f/Oe9XvCrjYmITtBGQg6dcC5PdfeVKHoCpqBfDlQwjVJHMewKkewGH5leLqaHdR9VCHjxL0kxPwuuOusgaYgNM3ylm6GjKtB35VuDImXQM4oqjmnkBuFfJ7ecp5RDyteWV5Ae5rtgLhnOzjnWxVxI3oiYx9msyq/BNC6qJYVOhHG9YL6H9jo/Uwr5lVPyFiSX11ld1jRQ4yU6fptmTUyV4Hn9sTUNCzivUB5r+6bsyaHs+29zcwIDAQAB"
 }

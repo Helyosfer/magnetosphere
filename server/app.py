@@ -9,10 +9,12 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -42,13 +44,24 @@ CFG = {
     "kick_id": os.environ.get("KICK_ID_BASE", "https://id.kick.com").rstrip("/"),
     "kick_api": os.environ.get("KICK_API_BASE", "https://api.kick.com").rstrip("/"),
     # Boşsa her extension kimliği kabul edilir; doluysa virgülle ayrılmış kimlikler.
-    "extension_ids": [x for x in os.environ.get("ALLOWED_EXTENSION_IDS", "").split(",") if x],
-    # Kick rate limit'ine takılmamak için kanallar arası bekleme (saniye).
-    "delay": float(os.environ.get("BAN_DELAY_SECONDS", "0.4")),
+    "extension_ids": [x.strip() for x in os.environ.get("ALLOWED_EXTENSION_IDS", "").split(",") if x.strip()],
+    # Kick tokenlarını veritabanında şifrelemek için anahtar (Fernet). Boşsa tokenlar düz metin kalır.
+    "token_key": os.environ.get("TOKEN_ENCRYPTION_KEY", ""),
+    # Sırayı aynı anda işleyen işçi sayısı; Kick istek sınırına takılırsa düşürün.
+    "queue_workers": int(os.environ.get("QUEUE_WORKERS", "4")),
+    # Kick API'sine saniyede atılacak istek sayısının başlangıç ve üst sınırı.
+    # Kick 429 dönerse hız kendiliğinden düşer, sorun çıkmadıkça yavaşça yükselir.
+    "kick_rps": float(os.environ.get("KICK_REQUESTS_PER_SECOND", "1")),
+    "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
 SCOPES = "user:read channel:read moderation:ban"
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/.*")
+MAX_IMPORT = 5000
+MAX_BODY_BYTES = 1_000_000
+SESSION_TTL = 30 * 24 * 3600   # son kullanımdan sonra oturumun geçerli kaldığı süre
+LOOKUP_BATCH = 50      # Kick tek sorguda en fazla 50 kanal döndürür
+MAX_PARALLEL_CHANNELS = 8
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -61,7 +74,8 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
     token_hash TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    last_used INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS oauth_states (
     state TEXT PRIMARY KEY,
@@ -107,6 +121,20 @@ CREATE TABLE IF NOT EXISTS ban_results (
     updated_at INTEGER NOT NULL,
     PRIMARY KEY (ban_id, broadcaster_id)
 );
+CREATE TABLE IF NOT EXISTS queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL REFERENCES teams(id),
+    target_name TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    duration INTEGER,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | done | partial | notfound | rejected | error
+    detail TEXT NOT NULL DEFAULT '',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    retry_at INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS queue_pending ON queue (status, id);
 """
 
 
@@ -121,7 +149,56 @@ def connect():
 def init_db():
     db = connect()
     db.executescript(SCHEMA)
+    # Eski veritabanları: oturumlara son kullanım zamanı eklenir, açık oturumlar korunur.
+    if "last_used" not in [c["name"] for c in db.execute("PRAGMA table_info(sessions)")]:
+        db.execute("ALTER TABLE sessions ADD COLUMN last_used INTEGER NOT NULL DEFAULT 0")
+    db.execute("UPDATE sessions SET last_used = ? WHERE last_used = 0", (int(time.time()),))
+    # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
+    if fernet():
+        for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
+            if not user["access_token"].startswith(SEALED) or not user["refresh_token"].startswith(SEALED):
+                db.execute("UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?",
+                           (seal(unseal(user["access_token"])), seal(unseal(user["refresh_token"])), user["id"]))
     db.close()
+
+
+SEALED = "enc:"
+_FERNET = {}
+
+
+def fernet():
+    """TOKEN_ENCRYPTION_KEY tanımlıysa şifreleyici, değilse None."""
+    key = CFG["token_key"]
+    if not key:
+        return None
+    if key not in _FERNET:
+        try:
+            from cryptography.fernet import Fernet
+        except ImportError:
+            raise SystemExit("TOKEN_ENCRYPTION_KEY tanımlı ama 'cryptography' paketi yok: pip install cryptography")
+        _FERNET[key] = Fernet(key.encode())
+    return _FERNET[key]
+
+
+def seal(value):
+    """Token'ı veritabanına yazmadan önce şifreler."""
+    cipher = fernet()
+    if not cipher or not value or value.startswith(SEALED):
+        return value
+    return SEALED + cipher.encrypt(value.encode()).decode()
+
+
+def unseal(value):
+    """Veritabanındaki token'ı çözer; anahtar yanlışsa boş döner ve kullanıcı yeniden giriş yapar."""
+    if not value.startswith(SEALED):
+        return value
+    cipher = fernet()
+    if not cipher:
+        return ""
+    try:
+        return cipher.decrypt(value[len(SEALED):].encode()).decode()
+    except Exception:
+        return ""
 
 
 class ApiError(Exception):
@@ -139,8 +216,59 @@ class Redirect(Exception):
 
 # ---------------------------------------------------------------- Kick API
 
+class RateLimiter:
+    """Kick API isteklerini eşit aralıklarla dağıtır ve hızı Kick'in tepkisine göre ayarlar."""
+
+    def __init__(self, rate, ceiling):
+        self.rate, self.ceiling = rate, ceiling   # rate <= 0 ise sınırlama kapalıdır
+        self.lock = threading.Lock()
+        self.next_slot = 0.0
+        self.streak = 0
+        self.last_429 = 0.0
+        self.known_limit = ceiling   # 429 alınan hızın biraz altı; bir süre bunun üstüne çıkılmaz
+        self.limit_until = 0.0
+
+    def acquire(self):
+        if self.rate <= 0:
+            return
+        with self.lock:
+            now = time.time()
+            slot = max(now, self.next_slot)
+            self.next_slot = slot + 1 / self.rate
+        if slot > now:
+            time.sleep(slot - now)
+
+    def report(self, status):
+        if self.rate <= 0:
+            return
+        with self.lock:
+            now = time.time()
+            if status == 429:
+                self.streak = 0
+                self.next_slot = max(self.next_slot, now + 5)
+                # Aynı anda gelen 429'lar tek bir uyarı sayılır; yoksa hız bir anda dibe iner.
+                if now - self.last_429 > 10:
+                    self.known_limit, self.limit_until = self.rate * 0.85, now + 900
+                    self.rate = max(0.4, self.rate * 0.7)
+                    print(f"Kick istek sınırı: hız {self.rate:.2f} istek/sn'ye düşürüldü")
+                self.last_429 = now
+            else:
+                self.streak += 1
+                limit = self.known_limit if now < self.limit_until else self.ceiling
+                if self.streak >= 40 and self.rate < limit:
+                    self.streak = 0
+                    self.rate = min(limit, self.rate * 1.2)
+                    print(f"Kick istek hızı {self.rate:.2f} istek/sn'ye çıkarıldı")
+
+
+LIMITER = RateLimiter(CFG["kick_rps"], CFG["kick_rps_max"])
+
+
 def http(method, url, token=None, form=None, body=None):
     """(status, json) döndürür; ağ hatasında status 0 olur."""
+    limited = url.startswith(CFG["kick_api"])
+    if limited:
+        LIMITER.acquire()
     headers = {"Accept": "application/json", "User-Agent": "kick-crossban/0.1"}
     data = None
     if form is not None:
@@ -157,8 +285,14 @@ def http(method, url, token=None, form=None, body=None):
             status, raw = res.status, res.read()
     except urllib.error.HTTPError as e:
         status, raw = e.code, e.read()
+        if status == 429:
+            hints = {k: v for k, v in e.headers.items() if "rate" in k.lower() or "retry" in k.lower()}
+            if hints:
+                print(f"Kick 429 başlıkları: {hints}")
     except (urllib.error.URLError, TimeoutError) as e:
         return 0, {"message": str(e)}
+    if limited:
+        LIMITER.report(status)
     try:
         payload = json.loads(raw) if raw else {}
     except ValueError:
@@ -172,25 +306,34 @@ def store_tokens(db, user_id, name, tokens):
         "INSERT INTO users (id, name, access_token, refresh_token, expires_at) VALUES (?,?,?,?,?) "
         "ON CONFLICT(id) DO UPDATE SET name=excluded.name, access_token=excluded.access_token, "
         "refresh_token=excluded.refresh_token, expires_at=excluded.expires_at",
-        (user_id, name, tokens["access_token"], tokens.get("refresh_token", ""), expires_at),
+        (user_id, name, seal(tokens["access_token"]), seal(tokens.get("refresh_token", "")), expires_at),
     )
+
+
+REFRESH_LOCK = threading.Lock()
 
 
 def fresh_token(db, user):
     """Kullanıcının geçerli access token'ı; yenilenemiyorsa None."""
     if user["expires_at"] - 60 > time.time():
-        return user["access_token"]
-    status, tokens = http("POST", CFG["kick_id"] + "/oauth/token", form={
-        "grant_type": "refresh_token",
-        "refresh_token": user["refresh_token"],
-        "client_id": CFG["client_id"],
-        "client_secret": CFG["client_secret"],
-    })
-    if status != 200 or "access_token" not in tokens:
-        return None
-    tokens.setdefault("refresh_token", user["refresh_token"])
-    store_tokens(db, user["id"], user["name"], tokens)
-    return tokens["access_token"]
+        return unseal(user["access_token"])
+    # Refresh token tek kullanımlık olabilir: aynı anda iki iş parçacığı yenilemesin,
+    # bekleyen iş parçacığı diğerinin kaydettiği token'ı kullansın.
+    with REFRESH_LOCK:
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+        if user["expires_at"] - 60 > time.time():
+            return unseal(user["access_token"])
+        status, tokens = http("POST", CFG["kick_id"] + "/oauth/token", form={
+            "grant_type": "refresh_token",
+            "refresh_token": unseal(user["refresh_token"]),
+            "client_id": CFG["client_id"],
+            "client_secret": CFG["client_secret"],
+        })
+        if status != 200 or "access_token" not in tokens:
+            return None
+        tokens.setdefault("refresh_token", unseal(user["refresh_token"]))
+        store_tokens(db, user["id"], user["name"], tokens)
+        return tokens["access_token"]
 
 
 def to_slug(value):
@@ -198,52 +341,63 @@ def to_slug(value):
     value = (value or "").strip()
     value = re.sub(r"^https?://(www\.)?kick\.com/", "", value, flags=re.I)
     value = value.split("/")[0].split("?")[0].lstrip("@").lower().replace("_", "-")
-    if not re.fullmatch(r"[a-z0-9-]{1,50}", value):
-        raise ApiError(400, "Geçersiz kullanıcı adı")
+    if not re.fullmatch(r"[a-z0-9-]{1,25}", value):
+        raise ApiError(400, "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)")
     return value
 
 
-def lookup_channel(db, actor, name):
-    """Kick'te her kullanıcının bir kanalı vardır; broadcaster_user_id = user_id."""
-    slug = to_slug(name)
+def lookup_many(db, actor, slugs):
+    """Tek istekte birden çok slug sorgular; {slug: user_id} döner, bulunamayanlar sözlükte olmaz.
+
+    Kick'te her kullanıcının bir kanalı vardır; broadcaster_user_id = user_id.
+    """
     token = fresh_token(db, actor)
     if not token:
         raise ApiError(401, "Kick oturumun yenilenemedi, yeniden giriş yap")
     status, payload = http("GET", CFG["kick_api"] + "/public/v1/channels?" +
-                           urllib.parse.urlencode({"slug": slug}), token=token)
-    data = payload.get("data") or []
-    if status != 200 or not data:
+                           urllib.parse.urlencode([("slug", slug) for slug in slugs]), token=token)
+    if status == 429:
+        raise ApiError(429, "Kick istek sınırına takıldı, biraz sonra tekrar dene")
+    if status == 400:
+        raise ApiError(400, "Kick bu kullanıcı adını geçersiz buldu")
+    if status != 200:
+        raise ApiError(502, f"Kick kullanıcı sorgusu başarısız ({status})")
+    return {d["slug"]: int(d["broadcaster_user_id"]) for d in payload.get("data") or [] if d.get("slug")}
+
+
+def lookup_channel(db, actor, name):
+    slug = to_slug(name)
+    found = lookup_many(db, actor, [slug])
+    if slug not in found:
         raise ApiError(404, f"'{slug}' Kick'te bulunamadı")
-    return int(data[0]["broadcaster_user_id"]), data[0].get("slug") or slug
+    return found[slug], slug
 
 
-def execute_on_channel(db, team_id, actor, channel, ban, unban):
-    """Önce işlemi yapan moderatörün, olmazsa ekipteki yayıncının token'ıyla dener."""
-    candidates = [(actor, "broadcaster" if actor["id"] == channel["broadcaster_id"] else "mod")]
+def channel_candidates(db, team_id, actor, channel):
+    """Bir kanalda denenecek (token, yetki türü, kullanıcı adı) listesi.
+
+    Önce işlemi yapan moderatör, olmazsa ekipteki yayıncı.
+    """
+    users = [(actor, "broadcaster" if actor["id"] == channel["broadcaster_id"] else "mod")]
     if actor["id"] != channel["broadcaster_id"]:
         owner = db.execute(
             "SELECT u.* FROM users u JOIN members m ON m.user_id = u.id "
             "WHERE u.id = ? AND m.team_id = ?", (channel["broadcaster_id"], team_id)).fetchone()
         if owner:
-            candidates.append((owner, "broadcaster"))
+            users.append((owner, "broadcaster"))
+    return [(fresh_token(db, user), via, user["name"]) for user, via in users]
 
-    body = {"broadcaster_user_id": channel["broadcaster_id"], "user_id": ban["target_id"]}
-    if not unban:
-        if ban["duration"]:
-            body["duration"] = ban["duration"]
-        if ban["reason"]:
-            body["reason"] = ban["reason"]
 
+def call_channel(candidates, body, unban):
+    """Yalnızca ağ isteği yapar (iş parçacığında çalışır); (başarılı mı, ayrıntı, yetki türü) döner."""
     detail, via = "", candidates[0][1]
-    for user, via in candidates:
-        token = fresh_token(db, user)
+    for token, via, name in candidates:
         if not token:
-            detail = f"{user['name']}: Kick oturumu yenilenemedi"
+            detail = f"{name}: Kick oturumu yenilenemedi"
             continue
         for attempt in range(2):
             status, payload = http("DELETE" if unban else "POST",
-                                   CFG["kick_api"] + "/public/v1/moderation/bans",
-                                   token=token, body=body)
+                                   CFG["kick_api"] + "/public/v1/moderation/bans", token=token, body=body)
             if status != 429 or attempt:
                 break
             time.sleep(2)
@@ -258,17 +412,26 @@ def apply_ban(db, ban, actor, unban=False, only_unfinished=False):
                           (ban["team_id"],)).fetchall()
     done = {r["broadcaster_id"]: r["status"] for r in db.execute(
         "SELECT broadcaster_id, status FROM ban_results WHERE ban_id = ?", (ban["id"],))}
-    first = True
+    jobs = []
     for channel in channels:
         current = done.get(channel["broadcaster_id"])
         if unban and current not in ("ok", "unban_failed"):
             continue
         if only_unfinished and current == "ok":
             continue
-        if not first:
-            time.sleep(CFG["delay"])
-        first = False
-        ok, detail, via = execute_on_channel(db, ban["team_id"], actor, channel, ban, unban)
+        body = {"broadcaster_user_id": channel["broadcaster_id"], "user_id": ban["target_id"]}
+        if not unban:
+            if ban["duration"]:
+                body["duration"] = ban["duration"]
+            if ban["reason"]:
+                body["reason"] = ban["reason"]
+        jobs.append((channel, channel_candidates(db, ban["team_id"], actor, channel), body))
+    if not jobs:
+        return
+    # Kanallara aynı anda istek atılır; veritabanına yalnızca bu iş parçacığı yazar.
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_CHANNELS, len(jobs))) as pool:
+        outcomes = list(pool.map(lambda job: call_channel(job[1], job[2], unban), jobs))
+    for (channel, _, _), (ok, detail, via) in zip(jobs, outcomes):
         status = ("unbanned" if ok else "unban_failed") if unban else ("ok" if ok else "failed")
         db.execute(
             "INSERT INTO ban_results (ban_id, broadcaster_id, status, detail, via, updated_at) "
@@ -376,8 +539,10 @@ def auth_callback(req):
     user_id = int(data[0]["user_id"])
     store_tokens(req.db, user_id, data[0].get("name") or str(user_id), tokens)
     session = secrets.token_urlsafe(32)
-    req.db.execute("INSERT INTO sessions VALUES (?,?,?)",
-                   (hashlib.sha256(session.encode()).hexdigest(), user_id, int(time.time())))
+    now = int(time.time())
+    req.db.execute("DELETE FROM sessions WHERE last_used < ?", (now - SESSION_TTL,))
+    req.db.execute("INSERT INTO sessions (token_hash, user_id, created_at, last_used) VALUES (?,?,?,?)",
+                   (hashlib.sha256(session.encode()).hexdigest(), user_id, now, now))
     raise Redirect(row["redirect"].split("#")[0] + "#token=" + session)
 
 
@@ -405,6 +570,14 @@ def team_create(req):
                          (name, secrets.token_urlsafe(9), req.user["id"]))
     req.db.execute("INSERT INTO members VALUES (?,?)", (cur.lastrowid, req.user["id"]))
     return {"id": cur.lastrowid}
+
+
+def invite_rotate(req, team_id):
+    """Eski davet kodunu geçersiz kılar; kod yanlış ellere geçtiyse kullanılır."""
+    team = team_for(req, team_id, owner=True)
+    code = secrets.token_urlsafe(9)
+    req.db.execute("UPDATE teams SET invite_code = ? WHERE id = ?", (code, team["id"]))
+    return {"invite_code": code}
 
 
 def team_join(req):
@@ -461,37 +634,63 @@ def channel_remove(req, team_id, broadcaster_id):
 
 
 def ban_list(req, team_id):
+    """En yeni 200 kaydı döndürür; ?q= ad ya da sebepte arar, ?revoked=1 kaldırılanları da katar."""
     team = team_for(req, team_id)
-    bans = req.db.execute("SELECT * FROM bans WHERE team_id = ? ORDER BY id DESC LIMIT 200",
-                          (team["id"],)).fetchall()
-    return {"bans": [ban_json(req.db, b) for b in bans]}
+    where, args = "team_id = ?", [team["id"]]
+    if req.query.get("revoked") != "1":
+        where += " AND revoked_at IS NULL"
+    query = req.query.get("q", "").strip().lower()
+    if query:
+        where += " AND (instr(lower(target_name), ?) > 0 OR instr(lower(reason), ?) > 0)"
+        args += [query, query]
+    bans = req.db.execute(f"SELECT * FROM bans WHERE {where} ORDER BY id DESC LIMIT 200", args).fetchall()
+    return {
+        "bans": [ban_json(req.db, b) for b in bans],
+        "matched": req.db.execute(f"SELECT COUNT(*) FROM bans WHERE {where}", args).fetchone()[0],
+        "active_total": req.db.execute(
+            "SELECT COUNT(*) FROM bans WHERE team_id = ? AND revoked_at IS NULL", (team["id"],)).fetchone()[0],
+    }
 
 
-def ban_create(req, team_id):
-    team = team_for(req, team_id)
-    reason = str(req.body.get("reason") or "").strip()[:100]
-    duration = req.body.get("duration")
+def parse_ban_options(body):
+    reason = str(body.get("reason") or "").strip()[:100]
+    duration = body.get("duration")
     if duration is not None and (not isinstance(duration, int) or not 1 <= duration <= 10080):
         raise ApiError(400, "Süre 1 ile 10080 dakika arasında olmalı")
-    target_id, slug = lookup_channel(req.db, req.user, req.body.get("username"))
-    protected = req.db.execute(
+    return reason, duration
+
+
+def create_ban(db, team, actor, username, reason, duration, resolved=None):
+    """Kullanıcıyı ekibin tüm kanallarında banlar; aktif kaydı varsa eksik kanalları tamamlar.
+
+    resolved: (user_id, slug) önceden sorgulandıysa Kick'e yeniden sorulmaz.
+    """
+    target_id, slug = resolved or lookup_channel(db, actor, username)
+    protected = db.execute(
         "SELECT 1 FROM members WHERE team_id = ? AND user_id = ? UNION "
         "SELECT 1 FROM channels WHERE team_id = ? AND broadcaster_id = ?",
         (team["id"], target_id, team["id"], target_id)).fetchone()
     if protected:
         raise ApiError(400, "Ekip üyeleri ve ekipteki yayıncılar banlanamaz")
-    if not req.db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
+    if not db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
         raise ApiError(400, "Önce ekibe en az bir kanal ekle")
-    ban = req.db.execute(
+    ban = db.execute(
         "SELECT * FROM bans WHERE team_id = ? AND target_id = ? AND revoked_at IS NULL",
         (team["id"], target_id)).fetchone()
     if not ban:
-        cur = req.db.execute(
+        cur = db.execute(
             "INSERT INTO bans (team_id, target_id, target_name, reason, duration, created_by, created_at) "
             "VALUES (?,?,?,?,?,?,?)",
-            (team["id"], target_id, slug, reason, duration, req.user["id"], int(time.time())))
-        ban = req.db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
-    apply_ban(req.db, ban, req.user, only_unfinished=True)
+            (team["id"], target_id, slug, reason, duration, actor["id"], int(time.time())))
+        ban = db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
+    apply_ban(db, ban, actor, only_unfinished=True)
+    return ban
+
+
+def ban_create(req, team_id):
+    team = team_for(req, team_id)
+    reason, duration = parse_ban_options(req.body)
+    ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
     return ban_json(req.db, ban)
 
 
@@ -514,6 +713,172 @@ def ban_revoke(req, team_id, ban_id):
     return ban_json(req.db, ban_for(req, team, ban_id))
 
 
+def import_create(req, team_id):
+    """Uzun listeleri sıraya alır; banları arka plandaki işçi atar."""
+    team = team_for(req, team_id)
+    reason, duration = parse_ban_options(req.body)
+    usernames = req.body.get("usernames")
+    if not isinstance(usernames, list) or not usernames:
+        raise ApiError(400, "Kullanıcı listesi boş")
+    if len(usernames) > MAX_IMPORT:
+        raise ApiError(400, f"Tek seferde en fazla {MAX_IMPORT} kullanıcı sıraya alınabilir")
+    if not req.db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
+        raise ApiError(400, "Önce ekibe en az bir kanal ekle")
+    waiting = {r["target_name"].lower() for r in req.db.execute(
+        "SELECT target_name FROM queue WHERE team_id = ? AND status IN ('pending', 'working')", (team["id"],))}
+    now, added = int(time.time()), 0
+    for name in usernames:
+        name = str(name).strip().lstrip("@")[:60]
+        if not name or name.lower() in waiting:
+            continue
+        waiting.add(name.lower())
+        req.db.execute(
+            "INSERT INTO queue (team_id, target_name, reason, duration, created_by, created_at) "
+            "VALUES (?,?,?,?,?,?)", (team["id"], name, reason, duration, req.user["id"], now))
+        added += 1
+    return {"added": added, "skipped": len(usernames) - added}
+
+
+def import_status(req, team_id):
+    team = team_for(req, team_id)
+    counts = {r["status"]: r["n"] for r in req.db.execute(
+        "SELECT status, COUNT(*) AS n FROM queue WHERE team_id = ? GROUP BY status", (team["id"],))}
+    working = counts.pop("working", 0)
+    if working:
+        counts["pending"] = counts.get("pending", 0) + working
+    problems = req.db.execute(
+        "SELECT target_name, status, detail FROM queue WHERE team_id = ? "
+        "AND status NOT IN ('pending', 'working', 'done') ORDER BY id LIMIT 500", (team["id"],)).fetchall()
+    return {
+        "counts": counts,
+        "total": sum(counts.values()),
+        "problems": [{"name": p["target_name"], "status": p["status"], "detail": p["detail"]}
+                     for p in problems],
+    }
+
+
+def import_clear(req, team_id, which):
+    """pending: bekleyenleri iptal eder; finished: biten kayıtları özetten temizler."""
+    team = team_for(req, team_id)
+    # İşlenmekte olan kayıtlara dokunulmaz; onlar birkaç saniyede biter.
+    where = "status = 'pending'" if which == "pending" else "status NOT IN ('pending', 'working')"
+    cur = req.db.execute(f"DELETE FROM queue WHERE team_id = ? AND {where}", (team["id"],))
+    return {"removed": cur.rowcount}
+
+
+RESOLVED = {}                    # (team_id, slug) -> user_id ya da None (Kick'te yok)
+RESOLVE_LOCK = threading.Lock()
+PAUSE_UNTIL = 0.0                # Kick istek sınırına takılınca tüm işçiler bu ana kadar bekler
+
+
+def resolve_queued(db, row, actor):
+    """Sıradaki kaydın Kick kimliğini bulur; sıradaki sonraki adları da aynı istekte sorgular."""
+    slug = to_slug(row["target_name"])
+    key = (row["team_id"], slug)
+    with RESOLVE_LOCK:
+        if key not in RESOLVED:
+            slugs = [slug]
+            for r in db.execute("SELECT target_name FROM queue WHERE team_id = ? AND status = 'pending' "
+                                "ORDER BY id LIMIT ?", (row["team_id"], LOOKUP_BATCH * 2)):
+                try:
+                    other = to_slug(r["target_name"])
+                except ApiError:
+                    continue
+                if other not in slugs and (row["team_id"], other) not in RESOLVED:
+                    slugs.append(other)
+                if len(slugs) == LOOKUP_BATCH:
+                    break
+            try:
+                found = lookup_many(db, actor, slugs)
+            except ApiError as e:
+                if e.status != 400 or len(slugs) == 1:
+                    raise
+                # Gruptaki tek bir ad Kick'e geçersiz gelirse tüm sorgu düşer; yalnızca bu kaydı sor.
+                slugs = [slug]
+                found = lookup_many(db, actor, slugs)
+            for item in slugs:
+                RESOLVED[(row["team_id"], item)] = found.get(item)
+        user_id = RESOLVED.pop(key)
+    if user_id is None:
+        raise ApiError(404, f"'{slug}' Kick'te bulunamadı")
+    return user_id, slug
+
+
+def process_next():
+    """Sıradaki bir kaydı işler; işlenecek kayıt yoksa False döner."""
+    global PAUSE_UNTIL
+    if time.time() < PAUSE_UNTIL:
+        return False
+    db = connect()
+    try:
+        # Birden çok işçi aynı kaydı almasın diye kayıt tek adımda "working" yapılır.
+        row = db.execute(
+            "UPDATE queue SET status = 'working' WHERE id = (SELECT id FROM queue "
+            "WHERE status = 'pending' AND retry_at <= ? ORDER BY id LIMIT 1) RETURNING *",
+            (int(time.time()),)).fetchone()
+        if not row:
+            return False
+
+        def finish(status, detail=""):
+            db.execute("UPDATE queue SET status = ?, detail = ? WHERE id = ?", (status, detail, row["id"]))
+
+        def retry_later(message):
+            # Kick yavaşlattıysa kaydı sıraya geri koy ve tüm işçileri giderek artan süreyle beklet.
+            global PAUSE_UNTIL
+            print(f"Sıra: '{row['target_name']}' ertelendi ({row['attempts'] + 1}. deneme): {message}")
+            if row["attempts"] >= 12:
+                return finish("error", message)
+            wait = 20 * (row["attempts"] + 1)
+            PAUSE_UNTIL = max(PAUSE_UNTIL, time.time() + 15)
+            db.execute("UPDATE queue SET status = 'pending', attempts = attempts + 1, retry_at = ? WHERE id = ?",
+                       (int(time.time()) + wait, row["id"]))
+
+        team = db.execute("SELECT * FROM teams WHERE id = ?", (row["team_id"],)).fetchone()
+        actor = db.execute(
+            "SELECT u.* FROM users u JOIN members m ON m.user_id = u.id WHERE u.id = ? AND m.team_id = ?",
+            (row["created_by"], row["team_id"])).fetchone()
+        if not team or not actor:
+            finish("error", "Listeyi yükleyen kişi artık ekipte değil")
+            return True
+        try:
+            resolved = resolve_queued(db, row, actor)
+            ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
+        except ApiError as e:
+            if e.status == 404:
+                finish("notfound")
+            elif e.status == 400:
+                finish("rejected", e.message)
+            elif e.status in (429, 502):
+                retry_later(e.message)
+            else:
+                finish("error", e.message)
+            return True
+        except Exception as e:
+            finish("error", repr(e))
+            raise
+        failed = [r for r in ban_json(db, ban)["results"] if r["status"] != "ok"]
+        if any(r["detail"].startswith("429") for r in failed):
+            retry_later("Kick istek sınırı")
+        elif failed:
+            finish("partial", "; ".join(f"{r['slug']}: {r['detail']}" for r in failed))
+        else:
+            finish("done")
+        return True
+    finally:
+        db.close()
+
+
+def queue_worker():
+    while True:
+        try:
+            worked = process_next()
+        except Exception as e:  # işçi hiçbir koşulda durmamalı
+            print(f"Sıra işçisi hatası: {e!r}")
+            worked = False
+        if not worked:
+            time.sleep(1)
+
+
 # (metot, yol deseni, handler, oturum gerekli mi)
 ROUTES = [
     ("GET", r"/auth/login", auth_login, False),
@@ -522,6 +887,7 @@ ROUTES = [
     ("GET", r"/me", me, True),
     ("POST", r"/teams", team_create, True),
     ("POST", r"/teams/join", team_join, True),
+    ("POST", r"/teams/(\d+)/invite", invite_rotate, True),
     ("GET", r"/teams/(\d+)", team_get, True),
     ("DELETE", r"/teams/(\d+)/members/(\d+)", member_remove, True),
     ("POST", r"/teams/(\d+)/channels", channel_add, True),
@@ -530,6 +896,9 @@ ROUTES = [
     ("POST", r"/teams/(\d+)/bans", ban_create, True),
     ("POST", r"/teams/(\d+)/bans/(\d+)/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d+)/bans/(\d+)", ban_revoke, True),
+    ("GET", r"/teams/(\d+)/imports", import_status, True),
+    ("POST", r"/teams/(\d+)/imports", import_create, True),
+    ("DELETE", r"/teams/(\d+)/imports/(pending|finished)", import_clear, True),
 ]
 
 
@@ -544,7 +913,14 @@ class Handler(BaseHTTPRequestHandler):
         raw = b"" if payload is None else json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
         # Kimlik doğrulama çerezle değil Bearer token ile yapıldığı için her origin'e açık.
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Extension kimlikleri tanımlıysa tarayıcıdan yalnızca o extension'lar API'yi çağırabilir.
+        origin = self.headers.get("Origin") or ""
+        allowed = {f"chrome-extension://{i}" for i in CFG["extension_ids"]}
+        if not allowed:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        elif origin in allowed:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         if location:
@@ -566,6 +942,8 @@ class Handler(BaseHTTPRequestHandler):
                     continue
                 body = {}
                 length = int(self.headers.get("Content-Length") or 0)
+                if length > MAX_BODY_BYTES:
+                    raise ApiError(413, "İstek çok büyük")
                 if length:
                     try:
                         body = json.loads(self.rfile.read(length))
@@ -576,12 +954,18 @@ class Handler(BaseHTTPRequestHandler):
                 user = None
                 if needs_auth:
                     token = (self.headers.get("Authorization") or "").removeprefix("Bearer ").strip()
+                    token_hash = hashlib.sha256(token.encode()).hexdigest()
                     user = db.execute(
-                        "SELECT u.* FROM users u JOIN sessions s ON s.user_id = u.id "
-                        "WHERE s.token_hash = ?",
-                        (hashlib.sha256(token.encode()).hexdigest(),)).fetchone()
+                        "SELECT u.*, s.last_used FROM users u JOIN sessions s ON s.user_id = u.id "
+                        "WHERE s.token_hash = ?", (token_hash,)).fetchone()
                     if not user:
                         raise ApiError(401, "Oturum geçersiz")
+                    now = int(time.time())
+                    if user["last_used"] < now - SESSION_TTL:
+                        db.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
+                        raise ApiError(401, "Oturumun süresi doldu, yeniden giriş yap")
+                    if now - user["last_used"] > 3600:
+                        db.execute("UPDATE sessions SET last_used = ? WHERE token_hash = ?", (now, token_hash))
                 return self.send_json(200, fn(Req(db, query, body, user), *match.groups()))
             self.send_json(404, {"error": "Bulunamadı"})
         except Redirect as r:
@@ -599,6 +983,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     init_db()
+    if not CFG["token_key"]:
+        print("UYARI: TOKEN_ENCRYPTION_KEY tanımlı değil, Kick tokenları veritabanında düz metin duruyor.")
+    if not CFG["extension_ids"]:
+        print("UYARI: ALLOWED_EXTENSION_IDS tanımlı değil, her extension kimliğinden giriş kabul ediliyor.")
+    # Sunucu iş sürerken kapandıysa yarım kalan kayıtlar sıraya geri döner.
+    db = connect()
+    db.execute("UPDATE queue SET status = 'pending' WHERE status = 'working'")
+    db.close()
+    for _ in range(CFG["queue_workers"]):
+        threading.Thread(target=queue_worker, daemon=True).start()
     server = ThreadingHTTPServer((CFG["host"], CFG["port"]), Handler)
     print(f"Dinleniyor: http://{CFG['host']}:{CFG['port']}  (callback: {CFG['public_url']}/auth/callback)")
     server.serve_forever()
