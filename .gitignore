@@ -1,0 +1,10 @@
+# Gizli ayarlar: Kick Client Secret burada durur
+.env
+
+# Veritabanı: Kick tokenları ve ban listesi burada durur
+*.db
+*.db-wal
+*.db-shm
+
+__pycache__/
+*.pyc

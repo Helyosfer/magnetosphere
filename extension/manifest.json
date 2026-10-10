@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Magnetosphere",
+  "version": "0.1.0",
+  "description": "Mod ekibinle ortak ban listesi tut; bir kullanıcıyı ekibin tüm Kick kanallarında tek tıkla banla.",
+  "permissions": ["identity", "storage", "contextMenus"],
+  "action": {
+    "default_title": "Magnetosphere",
+    "default_popup": "panel.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

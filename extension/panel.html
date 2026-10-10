@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>Magnetosphere</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header>
+    <strong>Magnetosphere</strong>
+    <span id="who"></span>
+    <button id="logout" class="link" hidden>Çıkış</button>
+  </header>
+
+  <p id="message" hidden></p>
+
+  <section id="login-view" hidden>
+    <label>Sunucu adresi
+      <input id="server" type="url" placeholder="http://localhost:8787">
+    </label>
+    <button id="login">Kick ile giriş yap</button>
+  </section>
+
+  <section id="app-view" hidden>
+    <div class="row">
+      <select id="team"></select>
+      <button id="team-menu" class="link">+ Ekip</button>
+    </div>
+
+    <div id="team-forms" hidden>
+      <form id="team-create" class="row">
+        <input name="name" placeholder="Yeni ekip adı" required>
+        <button>Oluştur</button>
+      </form>
+      <form id="team-join" class="row">
+        <input name="invite_code" placeholder="Davet kodu" required>
+        <button>Katıl</button>
+      </form>
+    </div>
+
+    <div id="team-view" hidden>
+      <nav>
+        <button data-tab="ban" class="active">Banla</button>
+        <button data-tab="list">Liste</button>
+        <button data-tab="crew">Ekip</button>
+      </nav>
+
+      <form id="tab-ban">
+        <label>Kullanıcı adları
+          <textarea name="username" rows="3" placeholder="Her satıra bir kullanıcı adı" required></textarea>
+        </label>
+        <label>Sebep
+          <input name="reason" maxlength="100" placeholder="isteğe bağlı">
+        </label>
+        <label>Süre
+          <select name="duration">
+            <option value="">Kalıcı</option>
+            <option value="10">10 dakika</option>
+            <option value="60">1 saat</option>
+            <option value="1440">1 gün</option>
+            <option value="10080">7 gün</option>
+          </select>
+        </label>
+        <button class="danger">Tüm kanallarda banla</button>
+        <div id="ban-result"></div>
+      </form>
+
+      <div id="tab-list" hidden></div>
+
+      <div id="tab-crew" hidden>
+        <h3>Davet kodu</h3>
+        <div class="row"><code id="invite"></code><button id="copy-invite" class="link">Kopyala</button></div>
+        <h3>Kanallar</h3>
+        <ul id="channels"></ul>
+        <form id="channel-add" class="row" hidden>
+          <input name="slug" placeholder="kanal adı" required>
+          <button>Ekle</button>
+        </form>
+        <h3>Üyeler</h3>
+        <ul id="members"></ul>
+      </div>
+    </div>
+  </section>
+
+  <dialog id="confirm">
+    <p id="confirm-text"></p>
+    <div class="row">
+      <button id="confirm-no" class="link">Vazgeç</button>
+      <button id="confirm-yes" class="danger">Onayla</button>
+    </div>
+  </dialog>
+
+  <script src="panel.js"></script>
+</body>
+</html>
