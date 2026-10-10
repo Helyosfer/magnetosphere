@@ -186,3 +186,11 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - Kanallar ekibe elle eklenir; resmi API "moderatörü olduğum kanallar" listesini vermiyor.
 - Süreli banlar süresi dolduktan sonra da listede aktif görünür.
 - Hız, Kick'in istek sınırıyla belirlenir: iki kanallı bir ekipte hesap başına yaklaşık bir saniye.
+
+## Lisans
+
+Copyright (C) 2026 Helyosfer
+
+Magnetosphere özgür yazılımdır; [GNU Genel Kamu Lisansı sürüm 3](LICENSE) (GPL-3.0) koşulları altında
+kullanabilir, değiştirebilir ve dağıtabilirsin. Değiştirilmiş sürümleri dağıtırsan kaynak kodunu da aynı
+lisansla açman gerekir. Yazılım hiçbir garanti verilmeden sunulur.
