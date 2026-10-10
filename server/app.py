@@ -618,6 +618,23 @@ def member_remove(req, team_id, user_id):
     return {}
 
 
+def team_delete(req, team_id):
+    """Ekibi ve ona bağlı her kaydı siler. Kick'teki banlara dokunmaz."""
+    team = team_for(req, team_id, owner=True)
+    req.db.execute("BEGIN IMMEDIATE")
+    try:
+        req.db.execute("DELETE FROM ban_results WHERE ban_id IN (SELECT id FROM bans WHERE team_id = ?)",
+                       (team["id"],))
+        for table in ("bans", "queue", "channels", "members"):
+            req.db.execute(f"DELETE FROM {table} WHERE team_id = ?", (team["id"],))
+        req.db.execute("DELETE FROM teams WHERE id = ?", (team["id"],))
+        req.db.execute("COMMIT")
+    except Exception:
+        req.db.execute("ROLLBACK")
+        raise
+    return {}
+
+
 def channel_add(req, team_id):
     team = team_for(req, team_id, owner=True)
     broadcaster_id, slug = lookup_channel(req.db, req.user, req.body.get("slug"))
@@ -889,6 +906,7 @@ ROUTES = [
     ("POST", r"/teams/join", team_join, True),
     ("POST", r"/teams/(\d+)/invite", invite_rotate, True),
     ("GET", r"/teams/(\d+)", team_get, True),
+    ("DELETE", r"/teams/(\d+)", team_delete, True),
     ("DELETE", r"/teams/(\d+)/members/(\d+)", member_remove, True),
     ("POST", r"/teams/(\d+)/channels", channel_add, True),
     ("DELETE", r"/teams/(\d+)/channels/(\d+)", channel_remove, True),

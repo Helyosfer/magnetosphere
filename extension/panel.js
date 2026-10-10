@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const DEFAULT_SERVER = "http://localhost:8787";
+const DEFAULT_SERVER = "https://magnetosphere.helyosfer.me";
 const MAX_IMPORT = 5000;
 // Bundan uzun listeler sunucudaki sıraya gider; panel kapansa da işlenmeye devam eder.
 const QUEUE_THRESHOLD = 10;
@@ -168,6 +168,7 @@ function renderTeam() {
   $("invite").textContent = team.invite_code;
   $("channel-add").hidden = !team.owner;
   $("rotate-invite").hidden = !team.owner;
+  $("team-danger").hidden = !team.owner;
   $("channel-count").textContent = team.channels.length;
   $("member-count").textContent = team.members.length;
 
@@ -411,6 +412,18 @@ $("rotate-invite").onclick = () => run($("rotate-invite"), async () => {
   await api("POST", `/teams/${state.teamId}/invite`);
   await loadTeam();
   showMessage("Davet kodu yenilendi.", "info");
+});
+
+$("team-delete").onclick = () => run($("team-delete"), async () => {
+  const { name } = state.team;
+  if (!(await ask(`"${name}" ekibi silinsin mi? Üyelikler, kanallar ve ortak liste kalıcı olarak silinir; bu geri alınamaz. Kick'teki banlar yerinde kalır.`))) return;
+  await api("DELETE", `/teams/${state.teamId}`);
+  clearTimeout(queueTimer);
+  state.teamId = null;
+  state.team = null;
+  await chrome.storage.local.remove("teamId");
+  await loadMe(null);
+  showMessage(`"${name}" ekibi silindi.`, "info");
 });
 
 let searchTimer = null;

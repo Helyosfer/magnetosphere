@@ -258,6 +258,19 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/11", ali)[0], 200)
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans", veli)[0], 404)
 
+        # Ekibi yalnızca sahibi siler; liste, sıra ve üyelikler de gider, Kick'teki banlar kalır.
+        banned_before = set(BANNED)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}", self.login(2))[0], 403)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}", veli)[0], 404)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}", ali)[0], 200)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", ali)[0], 404)
+        self.assertEqual(call(self.base, "GET", "/me", ali)[1]["teams"], [])
+        db = sqlite3.connect(app.CFG["db"])
+        for table in ("teams", "members", "channels", "bans", "ban_results", "queue"):
+            self.assertEqual(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0], 0, table)
+        db.close()
+        self.assertEqual(BANNED, banned_before)
+
 
 if __name__ == "__main__":
     unittest.main()

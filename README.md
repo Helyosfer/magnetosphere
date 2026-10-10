@@ -46,7 +46,8 @@ yayıncısı da ekibe katılmışsa, yayıncının yetkisiyle yeniden denenir.
 
 - Bir moderatör, mod olmadığı ve yayıncısı ekipte olmayan bir kanalda ban atamaz; o kanal listede kırmızı görünür.
 - Bir yayıncının ekibe katılması, ekipteki herkese o kanalda ban yetkisi verir.
-- Kanal ekleme, kanal kaldırma, üye çıkarma ve davet kodunu yenileme yalnızca ekip sahibine açıktır.
+- Kanal ekleme, kanal kaldırma, üye çıkarma, davet kodunu yenileme ve ekibi silme yalnızca ekip sahibine açıktır.
+- Ekip silinince üyelikler, kanallar ve ortak liste de silinir; Kick'teki banlar yerinde kalır.
 - Ekipteki her üye ban atabilir, ban kaldırabilir ve liste yükleyebilir.
 
 ## Kurulum
