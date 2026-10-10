@@ -20,6 +20,7 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 - **Tek tıkla geri alma** — banı ekibin tüm kanallarında birden kaldırır.
 - **Sağ tık kısayolu** — kick.com'da bir kullanıcı adını seç, "Ekibin tüm kanallarında banla".
 - **Koruma** — ekip üyeleri ve ekipteki yayıncılar banlanamaz.
+- **Ekip yönetimi** — davet koduyla katılma, kodu yenileme, üye çıkarma ve ekibi tümüyle silme.
 
 ## Nasıl çalışır
 
@@ -52,14 +53,22 @@ yayıncısı da ekibe katılmışsa, yayıncının yetkisiyle yeniden denenir.
 
 ## Kurulum
 
+Magnetosphere kendi sunucunda çalışacak şekilde tasarlanmıştır: her ekip (ya da topluluk) kendi Kick
+uygulamasını ve kendi sunucusunu kurar. Depodaki extension'ın varsayılan sunucusu yazarın kendi
+sunucusudur (`magnetosphere.helyosfer.me`); orada ekip oluşturma kapalıdır, yalnızca davet koduyla
+katılınabilir. Kendi ekibin için aşağıdaki adımlarla kendi sunucunu kur.
+
+Önce kendi bilgisayarında denemek için 1–3. adımlar yeterlidir; herkesin kullanacağı kalıcı kurulum için
+aşağıdaki "İnternete açmak" bölümüne geç.
+
 ### 1. Kick uygulaması
 
 [kick.com/settings/developer](https://kick.com/settings/developer) adresinden bir uygulama oluştur
-(hesapta iki adımlı doğrulama açık olmalı).
+(hesapta iki adımlı doğrulama açık olmalı). Uygulama adında boşluk kullanılamaz.
 
 | Alan | Değer |
 |---|---|
-| Redirect URL | `http://localhost:8787/auth/callback` |
+| Redirect URL | `http://localhost:8787/auth/callback` (yerel deneme) ya da `https://<alan-adın>/auth/callback` |
 | Scopes | Read user information, Read channel information, Execute moderation actions for moderators |
 
 ### 2. Sunucu
@@ -91,11 +100,60 @@ Sunucu `http://localhost:8787` adresinde dinler. Eksik bir güvenlik ayarı vars
 
 1. Chrome'da `chrome://extensions` sayfasını aç ve **Geliştirici modu**'nu etkinleştir.
 2. **Paketlenmemiş öğe yükle** ile `extension` klasörünü seç.
-3. Magnetosphere simgesine tıkla ve **Kick ile giriş yap**'a bas. Sunucu başka bir adresteyse önce
-   "Sunucu ayarı"ndan adresi gir.
+3. Magnetosphere simgesine tıkla, "Sunucu ayarı"na kendi sunucunun adresini yaz
+   (yerel deneme için `http://localhost:8787`) ve **Kick ile giriş yap**'a bas.
 
-Extension'ın kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
-(`flmfmniipeobbaoahmbdkjnblbegalob`); her bilgisayarda aynı çıkar ve sunucu yalnızca bu kimliği kabul eder.
+Extension Chromium tabanlı tarayıcılarda (Chrome, Edge, Brave) çalışır; Firefox desteklenmez.
+
+Ekibindeki herkesin adresi elle girmesini istemiyorsan `extension/panel.js` içindeki `DEFAULT_SERVER`
+değerini kendi adresinle değiştirip klasörü öyle dağıt.
+
+Elle yüklenen extension'ın kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
+(`flmfmniipeobbaoahmbdkjnblbegalob`); her bilgisayarda aynı çıkar. Sunucu yalnızca
+`ALLOWED_EXTENSION_IDS` listesindeki kimlikleri kabul eder. Extension'ı Chrome Web Store'da yayınlarsan
+mağaza `key` alanını kabul etmez ve kendi kimliğini atar; o kimliği de listeye eklemen gerekir.
+
+### İnternete açmak
+
+Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında olmalıdır.
+
+1. **Ayarlar.** `.env` içinde `PUBLIC_URL=https://<alan-adın>` yap ve Kick uygulamasındaki Redirect
+   URL'i `https://<alan-adın>/auth/callback` olarak güncelle. `HOST=127.0.0.1` kalsın; sunucu dışarıya
+   doğrudan açılmaz. Veritabanını kodun dışında tutmak için `DB_PATH` ver.
+2. **Ters vekil.** HTTPS'i bir ters vekil sağlar. [Caddy](https://caddyserver.com) ile sertifika
+   kendiliğinden alınır:
+
+   ```
+   <alan-adın> {
+   	reverse_proxy 127.0.0.1:8787
+   }
+   ```
+
+   Giriş sınırı gerçek istemci adresini `X-Forwarded-For` başlığının son değerinden okur; vekilin bu
+   başlığı eklediğinden emin ol (Caddy ve nginx varsayılan ayarla ekler).
+3. **Servis.** Sunucuyu yetkisiz bir sistem kullanıcısıyla, systemd servisi olarak çalıştır:
+
+   ```ini
+   [Service]
+   User=magnetosphere
+   WorkingDirectory=/opt/magnetosphere/app/server
+   ExecStart=/opt/magnetosphere/venv/bin/python app.py
+   Environment=PYTHONUNBUFFERED=1
+   Restart=on-failure
+   NoNewPrivileges=true
+   ProtectSystem=strict
+   ReadWritePaths=/opt/magnetosphere/data
+   ```
+
+4. **Kimler ekip açabilir.** Sunucun herkese açıksa `ALLOWED_TEAM_CREATORS` ile ekip oluşturmayı
+   kendi Kick kullanıcı kimliğinle sınırla; diğerleri davet koduyla katılır.
+5. **Yedek.** Veritabanı çalışırken güvenle yedeklenebilir:
+
+   ```bash
+   sqlite3 /opt/magnetosphere/data/crossban.db ".backup '/opt/backups/crossban-$(date +%F).db'"
+   ```
+
+   `.env` dosyasını bu yedeğin yanına koyma; şifreleme anahtarı ile veritabanı ayrı durmalı.
 
 ## Kullanım
 
@@ -154,7 +212,8 @@ Extension'ın kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
 
 - Şifreleme, veritabanı dosyasının sızmasına karşı korur; sunucunun tamamını ele geçiren biri anahtarı da okuyabilir.
 - Ekip içinde rol ayrımı yoktur: her üye ban kaldırabilir ve liste yükleyebilir. Ekibe yalnızca güvendiğin kişileri al.
-- Bir güvenlik açığı bulursan lütfen herkese açık bir issue yerine depo sahibine özelden bildir.
+- Sunucuda giriş başlatma dışında genel bir istek sınırı yoktur; gerekiyorsa ters vekilde uygula.
+- Bir güvenlik açığı bulursan lütfen herkese açık bir issue yerine `destek@helyosfer.me` adresine bildir.
 
 ## Test
 
@@ -164,7 +223,7 @@ python -m unittest test_app
 ```
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
-düşüşü, sıra ve eşzamanlı işçiler ile güvenlik kuralları kapsanır.
+düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, ekip silme ve güvenlik kuralları kapsanır.
 
 ## Durum ve yol haritası
 
@@ -175,10 +234,12 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Oturumlara süre
 - [x] Extension'ın sabit kimliğe bağlanması
 - [x] Extension simgesi
-- [ ] Sunucunun internette HTTPS arkasında, servis olarak çalışması ve veritabanı yedeği
+- [x] Sunucunun internette HTTPS arkasında, servis olarak çalışması ve veritabanı yedeği
+- [x] Ekip silme
+- [x] Açık sunucu için sıkılaştırma: ekip oluşturma izni, ekipler arası adil sıra, giriş sınırı
+- [ ] Chrome Web Store yayını (inceleme aşamasında)
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 - [ ] Ekip içinde roller (yalnızca yetkili üyeler ban kaldırabilsin)
-- [ ] Chrome Web Store yayını
 
 ## Bilinen sınırlar
 
