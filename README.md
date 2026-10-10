@@ -1,6 +1,32 @@
+<div align="center">
+
+<img src="extension/icons/icon128.png" alt="Magnetosphere logosu" width="112" height="112">
+
 # Magnetosphere
 
-Kick moderasyon ekipleri için ortak ban listesi.
+**Kick moderasyon ekipleri için ortak ban listesi.**<br>
+Bir kullanıcıyı ekibin tüm kanallarında tek işlemle banla.
+
+[![Lisans: GPL-3.0](https://img.shields.io/badge/lisans-GPL--3.0-5eead4?style=flat-square)](LICENSE)
+![Sürüm 0.3.1](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.3.1-38bdf8?style=flat-square)
+![Chrome extension: Manifest V3](https://img.shields.io/badge/chrome-Manifest%20V3-5eead4?style=flat-square)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-38bdf8?style=flat-square)
+
+[Özellikler](#özellikler) ·
+[Nasıl çalışır](#nasıl-çalışır) ·
+[Kurulum](#kurulum) ·
+[Kullanım](#kullanım) ·
+[Ayarlar](#ayarlar) ·
+[Güvenlik](#güvenlik) ·
+[Yol haritası](#yol-haritası)
+
+<br>
+
+<img src="docs/ekran-goruntusu.png" alt="Magnetosphere paneli: Banla ve Ekip sekmeleri" width="820">
+
+</div>
+
+<br>
 
 Birden fazla kanalda moderatörlük yapan ekipler, bir trolü ya da spam botunu her kanalda tek tek
 banlamak zorunda kalır. Magnetosphere bunu tek işleme indirir: kullanıcı adını bir kez girersin (ya da
@@ -9,18 +35,22 @@ ortak listeye yazılır.
 
 Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 
+> Magnetosphere bağımsız bir projedir; Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir.
+
 ## Özellikler
 
-- **Tek işlemle çoklu kanal banı** — kalıcı ban ya da 7 güne kadar süreli uzaklaştırma; kanallara aynı anda uygulanır.
-- **Toplu ban ve dosyadan içe aktarma** — nick'leri yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000'e kadar). CSV'de yalnızca ilk sütun alınır, başlık satırı atlanır.
-- **Arka plan sırası** — uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir.
-- **Kick'in istek sınırına uyum** — istek hızı kendiliğinden ayarlanır; Kick yavaşlatırsa kayıtlar kaybolmaz, sıraya geri döner.
-- **Ortak liste** — her ban için kim attı, ne zaman, neden ve hangi kanalda tuttu bilgisi; ad ya da sebebe göre arama.
-- **Tekrar dene** — başarısız olan ya da bandan sonra eklenen kanallara banı yeniden uygular.
-- **Tek tıkla geri alma** — banı ekibin tüm kanallarında birden kaldırır.
-- **Sağ tık kısayolu** — kick.com'da bir kullanıcı adını seç, "Ekibin tüm kanallarında banla".
-- **Koruma** — ekip üyeleri ve ekipteki yayıncılar banlanamaz.
-- **Ekip yönetimi** — davet koduyla katılma, kodu yenileme, üye çıkarma ve ekibi tümüyle silme.
+| | |
+|---|---|
+| **Tek işlemle çoklu kanal banı** | Kalıcı ban ya da 7 güne kadar süreli uzaklaştırma; kanallara aynı anda uygulanır. |
+| **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000'e kadar). CSV'de yalnızca ilk sütun alınır, başlık satırı atlanır. |
+| **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
+| **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır; Kick yavaşlatırsa kayıtlar kaybolmaz, sıraya geri döner. |
+| **Ortak liste** | Her ban için kim attı, ne zaman, neden ve hangi kanalda tuttu bilgisi; ad ya da sebebe göre arama. |
+| **Tekrar dene** | Başarısız olan ya da bandan sonra eklenen kanallara banı yeniden uygular. |
+| **Tek tıkla geri alma** | Banı ekibin tüm kanallarında birden kaldırır. |
+| **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, "Ekibin tüm kanallarında banla". |
+| **Koruma** | Ekip üyeleri ve ekipteki yayıncılar banlanamaz. |
+| **Ekip yönetimi** | Davet koduyla katılma, kodu yenileme, üye çıkarma ve ekibi tümüyle silme. |
 
 ## Nasıl çalışır
 
@@ -33,23 +63,28 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 └────────────────┘      └────────────────┘      └────────────────┘
 ```
 
-- **`extension/`** — Chrome extension'ı (Manifest V3). Ekibin gördüğü arayüz; kendi başına hiçbir
-  Kick isteği atmaz ve Kick şifreni ya da token'ını görmez.
-- **`server/`** — Python sunucusu (3.10+). Ekipleri, ortak listeyi, sırayı ve Kick oturumlarını tutar;
-  banları Kick'in [resmi API'si](https://docs.kick.com/apis/moderation) üzerinden atar.
+| Parça | Ne yapar |
+|---|---|
+| [`extension/`](extension) | Chrome extension'ı (Manifest V3). Ekibin gördüğü arayüz; kendi başına hiçbir Kick isteği atmaz ve Kick şifreni ya da token'ını görmez. |
+| [`server/`](server) | Python sunucusu (3.10+). Ekipleri, ortak listeyi, sırayı ve Kick oturumlarını tutar; banları Kick'in [resmi API'si](https://docs.kick.com/apis/moderation) üzerinden atar. |
 
 Kick'in OAuth akışı bir Client Secret istediği için sunucu şarttır; Secret extension'ın içine konamaz.
+Sunucu yalnızca Python standart kütüphanesini kullanır; tek bağımlılığı token şifrelemesi için
+`cryptography` paketidir. Veriler tek bir SQLite dosyasında durur.
 
 ### Yetki modeli
 
 Ban, işlemi yapan moderatörün **kendi Kick yetkisiyle** atılır. Kick reddederse ve o kanalın
 yayıncısı da ekibe katılmışsa, yayıncının yetkisiyle yeniden denenir.
 
+| Kim | Ne yapabilir |
+|---|---|
+| Ekipteki her üye | Ban atar, ban kaldırır, liste yükler, ortak listeyi görür |
+| Ekip sahibi | Ayrıca kanal ekler ve kaldırır, üye çıkarır, davet kodunu yeniler, ekibi siler |
+| Ekibe katılan yayıncı | Kanalında ekipteki herkese ban yetkisi vermiş olur |
+
 - Bir moderatör, mod olmadığı ve yayıncısı ekipte olmayan bir kanalda ban atamaz; o kanal listede kırmızı görünür.
-- Bir yayıncının ekibe katılması, ekipteki herkese o kanalda ban yetkisi verir.
-- Kanal ekleme, kanal kaldırma, üye çıkarma, davet kodunu yenileme ve ekibi silme yalnızca ekip sahibine açıktır.
 - Ekip silinince üyelikler, kanallar ve ortak liste de silinir; Kick'teki banlar yerinde kalır.
-- Ekipteki her üye ban atabilir, ban kaldırabilir ve liste yükleyebilir.
 
 ## Kurulum
 
@@ -59,7 +94,7 @@ sunucusudur (`magnetosphere.helyosfer.me`); orada ekip oluşturma kapalıdır, y
 katılınabilir. Kendi ekibin için aşağıdaki adımlarla kendi sunucunu kur.
 
 Önce kendi bilgisayarında denemek için 1–3. adımlar yeterlidir; herkesin kullanacağı kalıcı kurulum için
-aşağıdaki "İnternete açmak" bölümüne geç.
+"Sunucuyu internete açmak" bölümüne geç.
 
 ### 1. Kick uygulaması
 
@@ -113,7 +148,7 @@ Elle yüklenen extension'ın kimliği `manifest.json` içindeki anahtarla sabitl
 `ALLOWED_EXTENSION_IDS` listesindeki kimlikleri kabul eder. Extension'ı Chrome Web Store'da yayınlarsan
 mağaza `key` alanını kabul etmez ve kendi kimliğini atar; o kimliği de listeye eklemen gerekir.
 
-### İnternete açmak
+### Sunucuyu internete açmak
 
 Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında olmalıdır.
 
@@ -157,11 +192,16 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
 
 ## Kullanım
 
-1. Bir kişi ekibi oluşturur, **Ekip** sekmesinden kanalları ekler ve davet kodunu modlarla paylaşır.
-2. Modlar extension'ı kurar, Kick ile giriş yapar ve davet koduyla ekibe katılır.
-3. **Banla** sekmesine kullanıcı adları girilir ya da **Dosyadan yükle** ile liste seçilir.
-   10 addan uzun listeler sıraya alınır.
-4. **Liste** sekmesi ortak listeyi ve her kanaldaki sonucu gösterir.
+1. **Ekibi kur.** Bir kişi ekibi oluşturur, **Ekip** sekmesinden kanalları ekler ve davet kodunu
+   moderatörlerle paylaşır.
+2. **Moderatörler katılır.** Extension'ı kurar, Kick ile giriş yapar ve davet koduyla ekibe katılırlar.
+3. **Banla.** **Banla** sekmesine kullanıcı adları girilir ya da **Dosyadan yükle** ile liste seçilir.
+   10 addan uzun listeler sıraya alınır ve arka planda işlenir.
+4. **Takip et.** **Liste** sekmesi ortak listeyi ve her kanaldaki sonucu gösterir; buradan ban
+   kaldırılır ya da başarısız kanallar için yeniden denenir.
+
+Kanalın yayıncısı da ekibe katılırsa, o kanalda moderatör olmayan ekip üyelerinin banları yayıncının
+yetkisiyle atılır.
 
 ## Ayarlar
 
@@ -184,7 +224,7 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
 
 ## Güvenlik
 
-**Neler korunuyor**
+### Neler korunuyor
 
 - **Kick tokenları şifreli saklanır.** `TOKEN_ENCRYPTION_KEY` tanımlıyken veritabanındaki access ve
   refresh tokenlar Fernet (AES + HMAC) ile şifrelidir; veritabanı dosyası tek başına sızarsa tokenlar okunamaz.
@@ -194,6 +234,8 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
   başlatabilir ne de tarayıcıdan API'yi çağırabilir (CORS yalnızca izinli kimliğe açılır).
 - **Giriş akışı.** OAuth, PKCE ve tek kullanımlık `state` ile yapılır; oturum yalnızca Chrome'un
   extension'a özel yönlendirme adresine teslim edilir.
+- **Ekipler birbirinden yalıtılmıştır.** Bir ekibin kanallarını, üyelerini ve listesini yalnızca o
+  ekibin üyeleri görür.
 - **Davet kodu.** Rastgele 72 bitliktir ve ekip sahibi tarafından yenilenebilir; eski kod anında geçersiz olur.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Extension
   yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği enjekte etmez.
@@ -201,19 +243,22 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
 - **Adil sıra.** Sıra ekipler arasında dönüşümlü işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
 
-**Sunucuyu işleten kişinin sorumlulukları**
+### Sunucuyu işleten kişinin sorumlulukları
 
 - `server/.env` (Client Secret, şifreleme anahtarı) ve `server/crossban.db` gizlidir; `.gitignore`
   ikisini de depo dışında tutar. Şifreleme anahtarı ile veritabanını aynı yedeğe koyma.
 - Sunucuyu internete yalnızca HTTPS arkasında aç. `HOST` varsayılan olarak yalnızca yerel makineyi dinler.
 - Şifreleme anahtarı kaybolursa veri kaybı olmaz; yalnızca herkesin Kick ile yeniden giriş yapması gerekir.
 
-**Bilinen sınırlar**
+### Bilinen sınırlar
 
 - Şifreleme, veritabanı dosyasının sızmasına karşı korur; sunucunun tamamını ele geçiren biri anahtarı da okuyabilir.
 - Ekip içinde rol ayrımı yoktur: her üye ban kaldırabilir ve liste yükleyebilir. Ekibe yalnızca güvendiğin kişileri al.
 - Sunucuda giriş başlatma dışında genel bir istek sınırı yoktur; gerekiyorsa ters vekilde uygula.
-- Bir güvenlik açığı bulursan lütfen herkese açık bir issue yerine `destek@helyosfer.me` adresine bildir.
+
+### Açık bildirimi
+
+Bir güvenlik açığı bulursan lütfen herkese açık bir issue açma; `destek@helyosfer.me` adresine yaz.
 
 ## Test
 
@@ -225,7 +270,7 @@ python -m unittest test_app
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
 düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, ekip silme ve güvenlik kuralları kapsanır.
 
-## Durum ve yol haritası
+## Yol haritası
 
 Çalışan sürüm. Gerçek Kick üzerinde doğrulananlar: giriş, hem yayıncı hem moderatör yetkisiyle ban,
 ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
@@ -241,12 +286,18 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 - [ ] Ekip içinde roller (yalnızca yetkili üyeler ban kaldırabilsin)
 
-## Bilinen sınırlar
+### Bilinen kısıtlar
 
 - Kullanıcı adı, Kick'in kanal adresi kuralıyla aranır (küçük harf, `_` yerine `-`, en fazla 25 karakter).
 - Kanallar ekibe elle eklenir; resmi API "moderatörü olduğum kanallar" listesini vermiyor.
 - Süreli banlar süresi dolduktan sonra da listede aktif görünür.
 - Hız, Kick'in istek sınırıyla belirlenir: iki kanallı bir ekipte hesap başına yaklaşık bir saniye.
+
+## Katkı
+
+Hata bildirimi ve öneriler için [issue aç](https://github.com/Helyosfer/magnetosphere/issues).
+Değişiklik göndermeden önce testlerin geçtiğinden emin ol; yeni davranışlar için `server/test_app.py`
+dosyasına test ekle.
 
 ## Lisans
 
