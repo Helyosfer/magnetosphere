@@ -238,7 +238,16 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "POST", "/teams/join", stranger, {"invite_code": info["invite_code"]})[0], 404)
 
         # Çok büyük istek gövdesi okunmadan reddedilir.
-        self.assertEqual(call(self.base, "POST", "/teams", ali, {"name": "x" * 1_100_000})[0], 413)
+        # Sunucu gövdeyi okumadan yanıtlayıp bağlantıyı kapattığı için istemci 413'ü göremeden gönderim
+        # sırasında kopabilir (BrokenPipe/ConnectionReset); bu da geçerli bir rettir.
+        teams_before = len(call(self.base, "GET", "/me", ali)[1]["teams"])
+        try:
+            status = call(self.base, "POST", "/teams", ali, {"name": "x" * 1_100_000})[0]
+        except (ConnectionError, urllib.error.URLError) as e:
+            self.assertIsInstance(getattr(e, "reason", e), ConnectionError)
+            status = 413
+        self.assertEqual(status, 413)
+        self.assertEqual(len(call(self.base, "GET", "/me", ali)[1]["teams"]), teams_before)
 
         # Extension kimliği sabitlenince yalnızca o extension'a CORS izni verilir ve yalnızca o giriş yapabilir.
         ours, other = "chrome-extension://" + "a" * 32, "chrome-extension://" + "b" * 32
