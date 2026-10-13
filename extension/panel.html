@@ -49,11 +49,23 @@
     <svg class="logo big"><use href="#logo"/></svg>
     <h1>Ekibinin tüm kanalları için tek ban listesi</h1>
     <p class="muted">Bir kullanıcıyı bir kez banla; ekibin moderatörlük yaptığı her kanalda uygulansın.</p>
+    <ol class="steps">
+      <li><span>1</span>Kick hesabınla giriş yap</li>
+      <li><span>2</span>Ekip kur ya da davet koduyla ekibine katıl</li>
+      <li><span>3</span>Kullanıcı adını yaz; tüm kanallarda banlansın</li>
+    </ol>
     <button id="login" class="primary wide">Kick ile giriş yap</button>
+    <p class="muted small">Giriş Kick'in kendi sayfasında yapılır; Magnetosphere şifreni görmez.</p>
     <details>
-      <summary>Sunucu ayarı</summary>
+      <summary>Gelişmiş: kendi sunucunu kullan</summary>
+      <p class="muted small">Ekibin kendi Magnetosphere sunucusunu çalıştırıyorsa adresini yaz. Emin değilsen dokunma.</p>
       <input id="server" type="url" placeholder="https://magnetosphere.helyosfer.me" aria-label="Sunucu adresi">
     </details>
+    <p class="links small">
+      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener">Gizlilik</a>
+      <span aria-hidden="true">·</span>
+      <a href="mailto:destek@helyosfer.me">Destek</a>
+    </p>
   </section>
 
   <section id="app-view" hidden>
@@ -66,19 +78,37 @@
       <div class="sk" style="height:40px"></div>
     </div>
 
-    <div class="teambar">
+    <div id="load-error" class="empty" hidden>
+      <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+      <strong>Bağlanılamadı</strong>
+      <span id="load-error-text" class="small"></span>
+      <button type="button" id="load-retry" class="ghost">Tekrar dene</button>
+    </div>
+
+    <div id="teambar" class="teambar">
       <select id="team" aria-label="Ekip"></select>
-      <button id="team-menu" class="ghost">+ Ekip</button>
+      <button id="team-menu" class="ghost" title="Yeni ekip kur ya da davet koduyla katıl" aria-expanded="false">+ Ekip</button>
     </div>
 
     <div id="team-forms" class="card stack" hidden>
-      <form id="team-create" class="row">
-        <input name="name" placeholder="Yeni ekip adı" required>
-        <button class="primary">Oluştur</button>
+      <div id="welcome" hidden>
+        <strong id="welcome-title"></strong>
+        <p id="welcome-text" class="muted small"></p>
+      </div>
+      <form id="team-join" class="field">
+        <label class="label" for="join-code">Davet kodun var mı?</label>
+        <div class="row">
+          <input id="join-code" name="invite_code" placeholder="Ekibinden aldığın kodu yapıştır" required>
+          <button class="primary">Katıl</button>
+        </div>
       </form>
-      <form id="team-join" class="row">
-        <input name="invite_code" placeholder="Davet kodu" required>
-        <button class="ghost">Katıl</button>
+      <form id="team-create" class="field">
+        <label class="label" for="create-name">Yeni ekip kur</label>
+        <div class="row">
+          <input id="create-name" name="name" maxlength="60" placeholder="Ekip adı, ör. Yayın modları" required>
+          <button class="ghost">Oluştur</button>
+        </div>
+        <p class="muted small">Ekibi kuran kişi kanalları ekler ve davet kodunu moderatörlerle paylaşır.</p>
       </form>
     </div>
 

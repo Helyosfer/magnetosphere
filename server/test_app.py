@@ -286,6 +286,8 @@ class CrossBanTest(unittest.TestCase):
 
         # Ekip oluşturma belirli hesaplarla sınırlanabilir; davetle katılmak açık kalır.
         app.CFG["team_creators"] = {10}
+        self.assertTrue(call(self.base, "GET", "/me", ali)[1]["can_create_team"])
+        self.assertFalse(call(self.base, "GET", "/me", veli)[1]["can_create_team"])
         self.assertEqual(call(self.base, "POST", "/teams", veli, {"name": "Yasak"})[0], 403)
         _, team_a, _ = call(self.base, "POST", "/teams", ali, {"name": "A"})
         app.CFG["team_creators"] = set()

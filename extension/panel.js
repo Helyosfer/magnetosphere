@@ -49,21 +49,27 @@ function showMessage(text, kind = "error") {
 $("message-close").onclick = () => showMessage("");
 
 async function api(method, path, body) {
-  const res = await fetch(state.server + path, {
-    method,
-    headers: {
-      Authorization: `Bearer ${state.token}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  try {
+    res = await fetch(state.server + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${state.token}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // Tarayıcının "Failed to fetch" hatası kullanıcıya bir şey söylemez.
+    throw new Error("Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.");
+  }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     await chrome.storage.local.remove("token");
     state.token = null;
     render();
   }
-  if (!res.ok) throw new Error(data.error || `Sunucu hatası (${res.status})`);
+  if (!res.ok) throw new Error(data.error || `Sunucu şu an yanıt veremiyor (${res.status}). Biraz sonra tekrar dene.`);
   return data;
 }
 
@@ -440,9 +446,18 @@ async function loadMe(preferredTeamId) {
   $("avatar").textContent = state.me.user.name.slice(0, 1).toUpperCase();
   const teams = state.me.teams;
   $("team").replaceChildren(...teams.map((t) => el("option", { value: String(t.id), textContent: t.name })));
-  $("team").hidden = !teams.length;
+  $("teambar").hidden = !teams.length;
   $("team-forms").hidden = teams.length > 0;
+  $("team-menu").setAttribute("aria-expanded", String(!teams.length));
   $("team-view").hidden = true;
+  // Ekip kurmanın kapalı olduğu sunucuda kullanıcıya yalnızca davet koduyla katılma yolu gösterilir.
+  const canCreate = state.me.can_create_team !== false;
+  $("team-create").hidden = !canCreate;
+  $("welcome").hidden = teams.length > 0;
+  $("welcome-title").textContent = `Hoş geldin, ${state.me.user.name}!`;
+  $("welcome-text").textContent = canCreate
+    ? "Başlamak için ekibinden aldığın davet koduyla katıl ya da kendi ekibini kur."
+    : "Başlamak için ekibinden bir davet kodu iste ve aşağıya yapıştır.";
   if (teams.length) {
     const wanted = teams.find((t) => t.id === preferredTeamId) || teams[0];
     await selectTeam(wanted.id);
@@ -457,9 +472,29 @@ async function render() {
   $("server").value = state.server;
   if (!loggedIn) return;
   // Sunucu yanıt verene dek boş panel yerine iskelet görünür.
+  showMessage("");
+  $("app-view").classList.remove("failed");
   $("app-view").classList.add("loading");
-  await run(null, () => loadMe(state.teamId));
+  try {
+    await loadMe(state.teamId);
+  } catch (e) {
+    // Oturum düştüyse giriş ekranı zaten açılmıştır; diğer durumda yarım panel yerine tekrar deneme sunulur.
+    if (state.token) {
+      $("load-error-text").textContent = e.message;
+      $("app-view").classList.add("failed");
+    }
+  }
+  $("load-error").hidden = !$("app-view").classList.contains("failed");
   $("app-view").classList.remove("loading");
+}
+
+$("load-retry").onclick = () => render();
+
+// Chrome'un İngilizce giriş hataları kullanıcının anlayacağı dile çevrilir.
+function loginError(raw) {
+  if (/did not approve|cancel|closed/i.test(raw)) return "Giriş tamamlanmadı. İstersen tekrar dene.";
+  if (/could not be loaded|network/i.test(raw)) return "Giriş sayfası açılamadı. İnternet bağlantını kontrol edip tekrar dene.";
+  return `Giriş başarısız: ${raw}`;
 }
 
 addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 2), { passive: true });
@@ -470,7 +505,7 @@ $("login").onclick = () => run($("login"), async () => {
   await chrome.storage.local.set({ server });
   // Kick penceresi açılınca bu popup kapanabilir; oturum arka planda kaydedilir.
   const res = await chrome.runtime.sendMessage({ type: "login", server });
-  if (!res.ok) throw new Error(`Giriş başarısız: ${res.error}`);
+  if (!res.ok) throw new Error(loginError(res.error));
 });
 
 $("logout").onclick = () => run($("logout"), async () => {
@@ -479,7 +514,10 @@ $("logout").onclick = () => run($("logout"), async () => {
 });
 
 $("team").onchange = () => run(null, () => selectTeam(Number($("team").value)));
-$("team-menu").onclick = () => { $("team-forms").hidden = !$("team-forms").hidden; };
+$("team-menu").onclick = () => {
+  $("team-forms").hidden = !$("team-forms").hidden;
+  $("team-menu").setAttribute("aria-expanded", String(!$("team-forms").hidden));
+};
 
 $("team-create").onsubmit = (event) => {
   event.preventDefault();

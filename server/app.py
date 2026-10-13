@@ -581,6 +581,8 @@ def me(req):
         "WHERE m.user_id = ? ORDER BY t.name", (req.user["id"],)).fetchall()
     return {
         "user": {"id": req.user["id"], "name": req.user["name"]},
+        # Panel, ekip kuramayacak kullanıcıya "Yeni ekip" alanını hiç göstermez.
+        "can_create_team": not CFG["team_creators"] or req.user["id"] in CFG["team_creators"],
         "teams": [{"id": t["id"], "name": t["name"], "owner": t["owner_id"] == req.user["id"]}
                   for t in teams],
     }
@@ -591,7 +593,7 @@ def team_create(req):
     if not name:
         raise ApiError(400, "Ekip adı gerekli")
     if CFG["team_creators"] and req.user["id"] not in CFG["team_creators"]:
-        raise ApiError(403, "Bu sunucuda ekip oluşturma kapalı; bir davet koduyla ekibe katıl")
+        raise ApiError(403, "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.")
     cur = req.db.execute("INSERT INTO teams (name, invite_code, owner_id) VALUES (?,?,?)",
                          (name, secrets.token_urlsafe(9), req.user["id"]))
     req.db.execute("INSERT INTO members VALUES (?,?)", (cur.lastrowid, req.user["id"]))
