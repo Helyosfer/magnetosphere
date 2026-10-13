@@ -17,6 +17,16 @@
         <path d="M8 4.5c6.4 0 11 3.2 11 7.500s-4.600 7.500-11 7.500"/>
         <path d="M8 8c3.700 0 6.300 1.700 6.300 4s-2.600 4-6.300 4" opacity=".55"/>
       </symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.400 6.500 6M16 4.700a3.500 3.500 0 0 1 0 6.600M18.500 14.600c1.900.9 3 2.700 3 5.400"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.700 0l3-3A4 4 0 0 0 13 5.300l-1 1M14 10a4 4 0 0 0-5.700 0l-3 3a4 4 0 0 0 5.700 5.700l1-1"/></symbol>
+      <symbol id="i-channel" viewBox="0 0 24 24"><rect x="3" y="5.500" width="18" height="13" rx="2.500"/><path d="M10 9.200v5.600l4.800-2.800z"/></symbol>
+      <symbol id="i-queue" viewBox="0 0 24 24"><path d="m12 3.500-9 4.500 9 4.500 9-4.500zM3 12.500l9 4.500 9-4.500M3 17l9 4.500 9-4.500"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.500 20h19zM12 10v4.500M12 17.300h.01"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 7.500 3v5.500c0 4.500-3 8-7.500 9.500-4.500-1.500-7.500-5-7.500-9.500V6zM8.500 12l2.500 2.500 4.500-5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.500"/><path d="m16 16 4.500 4.500"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.500 4.500 4.500L19 7.500"/></symbol>
     </defs>
   </svg>
 
@@ -30,7 +40,10 @@
     </div>
   </header>
 
-  <p id="message" class="banner" hidden></p>
+  <div id="message" class="banner" role="alert" hidden>
+    <span id="message-text"></span>
+    <button type="button" id="message-close" class="close" aria-label="Kapat">×</button>
+  </div>
 
   <section id="login-view" class="hero" hidden>
     <svg class="logo big"><use href="#logo"/></svg>
@@ -44,6 +57,15 @@
   </section>
 
   <section id="app-view" hidden>
+    <div class="boot" aria-hidden="true">
+      <div class="sk" style="height:36px"></div>
+      <div class="sk" style="height:44px"></div>
+      <div class="sk" style="height:96px"></div>
+      <div class="sk" style="height:36px"></div>
+      <div class="sk" style="height:36px"></div>
+      <div class="sk" style="height:40px"></div>
+    </div>
+
     <div class="teambar">
       <select id="team" aria-label="Ekip"></select>
       <button id="team-menu" class="ghost">+ Ekip</button>
@@ -61,15 +83,17 @@
     </div>
 
     <div id="team-view" hidden>
-      <nav class="tabs">
-        <button data-tab="ban" class="active">Banla</button>
-        <button data-tab="list">Liste <span id="list-count" class="count" hidden></span></button>
-        <button data-tab="crew">Ekip</button>
-      </nav>
+      <div class="tabs-bar">
+        <nav class="tabs">
+          <button data-tab="ban" class="active"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg>Banla</button>
+          <button data-tab="list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Liste <span id="list-count" class="count" hidden></span></button>
+          <button data-tab="crew"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekip</button>
+        </nav>
+      </div>
 
-      <form id="tab-ban" class="stack">
+      <form id="tab-ban" class="panel stack">
         <div id="queue" class="card queue" hidden>
-          <h3>Sıra <span id="queue-progress" class="count"></span></h3>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-queue"/></svg>Sıra <span id="queue-progress" class="count"></span></h3>
           <div class="bar"><div id="queue-bar"></div></div>
           <p id="queue-summary" class="small"></p>
           <details id="queue-problems" hidden>
@@ -123,7 +147,7 @@
         <div id="ban-result" class="stack"></div>
       </form>
 
-      <div id="tab-list" class="stack" hidden>
+      <div id="tab-list" class="panel stack" hidden>
         <div class="row">
           <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara">
           <label class="check"><input id="list-revoked" type="checkbox"><span>Kaldırılanlar</span></label>
@@ -131,9 +155,9 @@
         <div id="ban-list" class="stack"></div>
       </div>
 
-      <div id="tab-crew" class="stack" hidden>
+      <div id="tab-crew" class="panel stack" hidden>
         <div class="card">
-          <h3>Davet kodu</h3>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Davet kodu</h3>
           <div class="row">
             <code id="invite" class="mono"></code>
             <button id="copy-invite" class="ghost">Kopyala</button>
@@ -143,7 +167,7 @@
         </div>
 
         <div class="card">
-          <h3>Kanallar <span id="channel-count" class="count"></span></h3>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-channel"/></svg>Kanallar <span id="channel-count" class="count"></span></h3>
           <ul id="channels"></ul>
           <div id="channel-self" class="row self" hidden>
             <span id="channel-self-text" class="grow muted small"></span>
@@ -156,12 +180,12 @@
         </div>
 
         <div class="card">
-          <h3>Üyeler <span id="member-count" class="count"></span></h3>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Üyeler <span id="member-count" class="count"></span></h3>
           <ul id="members"></ul>
         </div>
 
         <div id="team-danger" class="card" hidden>
-          <h3>Ekibi sil</h3>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>Ekibi sil</h3>
           <p class="muted small">Ekip, üyelikler, kanallar ve ortak liste kalıcı olarak silinir. Kick'teki banlar yerinde kalır.</p>
           <button id="team-delete" class="danger-ghost">Ekibi sil</button>
         </div>
@@ -176,6 +200,11 @@
       <button id="confirm-yes" class="danger">Onayla</button>
     </div>
   </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+    <span id="toast-text"></span>
+  </div>
 
   <script src="panel.js"></script>
 </body>

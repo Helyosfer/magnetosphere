@@ -307,3 +307,6 @@ Copyright (C) 2026 Helyosfer
 Magnetosphere özgür yazılımdır; [GNU Genel Kamu Lisansı sürüm 3](LICENSE) (GPL-3.0) koşulları altında
 kullanabilir, değiştirebilir ve dağıtabilirsin. Değiştirilmiş sürümleri dağıtırsan kaynak kodunu da aynı
 lisansla açman gerekir. Yazılım hiçbir garanti verilmeden sunulur.
+
+Panelde kullanılan [Inter](https://github.com/rsms/inter) yazı tipi extension'la birlikte gelir ve
+[SIL Open Font License 1.1](extension/fonts/LICENSE.txt) ile lisanslıdır.

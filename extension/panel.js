@@ -12,11 +12,41 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "icon");
+  svg.setAttribute("aria-hidden", "true");
+  svg.append(document.createElementNS("http://www.w3.org/2000/svg", "use"));
+  svg.firstChild.setAttribute("href", `#i-${name}`);
+  return svg;
+}
+
+function emptyState(iconName, title, hint, tag = "div") {
+  return el(tag, { className: "empty" }, icon(iconName), el("strong", { textContent: title }), el("span", { className: "small", textContent: hint }));
+}
+
+const TOAST_MS = 3200;
+let toastTimer = null;
+
+// Hatalar şeritte kalır; başarı bildirimi ("info") kendiliğinden kaybolan toast olur.
 function showMessage(text, kind = "error") {
-  $("message").textContent = text || "";
-  $("message").className = `banner ${kind}`;
+  if (kind === "info") {
+    const toast = $("toast");
+    clearTimeout(toastTimer);
+    $("toast-text").textContent = text;
+    toast.classList.remove("leaving");
+    toast.hidden = false;
+    toastTimer = setTimeout(() => {
+      toast.classList.add("leaving");
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 200);
+    }, TOAST_MS);
+    return;
+  }
+  $("message-text").textContent = text || "";
   $("message").hidden = !text;
 }
+
+$("message-close").onclick = () => showMessage("");
 
 async function api(method, path, body) {
   const res = await fetch(state.server + path, {
@@ -79,9 +109,32 @@ function formatDuration(minutes) {
 
 function formatDate(seconds) {
   return new Date(seconds * 1000).toLocaleString("tr-TR", {
-    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
+
+// "3 dk önce" gibi göreli zaman; bir haftadan eskiler kısa tarihle gösterilir.
+function formatAgo(seconds) {
+  const diff = Math.max(0, Date.now() / 1000 - seconds);
+  if (diff < 45) return "az önce";
+  if (diff < 3600) return `${Math.max(1, Math.round(diff / 60))} dk önce`;
+  if (diff < 86400) return `${Math.round(diff / 3600)} sa önce`;
+  if (diff < 7 * 86400) return `${Math.round(diff / 86400)} gün önce`;
+  const date = new Date(seconds * 1000);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString("tr-TR", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
+}
+
+function timeEl(seconds) {
+  const node = el("time", { dateTime: new Date(seconds * 1000).toISOString(), title: formatDate(seconds), textContent: formatAgo(seconds) });
+  node.dataset.ts = seconds;
+  return node;
+}
+
+// Panel açık kaldıkça göreli zamanlar eskimesin.
+setInterval(() => {
+  for (const node of document.querySelectorAll("time[data-ts]")) node.textContent = formatAgo(Number(node.dataset.ts));
+}, 30000);
 
 const STATUS_TITLE = {
   ok: "Banlandı",
@@ -109,7 +162,11 @@ function banCard(ban) {
   const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
     el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: ban.reason || "Sebep belirtilmedi" }),
-    el("div", { className: "meta", textContent: `${ban.created_by} · ${formatDate(ban.created_at)}` })
+    el("div", { className: "meta" },
+      el("span", { className: "avatar mini", textContent: ban.created_by.slice(0, 1).toUpperCase() }),
+      el("span", { className: "who", textContent: ban.created_by }),
+      "·",
+      timeEl(ban.created_at))
   );
   const foot = el("div", { className: "foot" }, el("div", { className: "chips" }, ...chips));
   if (!ban.revoked_at) {
@@ -141,8 +198,10 @@ function renderBans() {
   $("list-count").hidden = !activeTotal;
 
   const searching = $("list-search").value.trim();
-  const empty = searching ? "Aramayla eşleşen kayıt yok." : "Ortak liste boş. İlk banı Banla sekmesinden at.";
-  const cards = bans.length ? bans.map(banCard) : [el("div", { className: "empty", textContent: empty })];
+  const empty = searching
+    ? emptyState("search", "Eşleşen kayıt yok", "Başka bir kullanıcı adı ya da sebep dene.")
+    : emptyState("shield", "Ortak liste boş", "İlk banı Banla sekmesinden at; burada görünür.");
+  const cards = bans.length ? bans.map(banCard) : [empty];
   if (matched > bans.length) {
     cards.push(el("p", {
       className: "muted small",
@@ -158,10 +217,30 @@ async function loadBans() {
   if (query) params.set("q", query);
   if ($("list-revoked").checked) params.set("revoked", "1");
   const teamId = state.teamId;
-  const list = await api("GET", `/teams/${teamId}/bans?${params}`);
+  // Ekibin listesi ilk kez gelirken iskelet; sonraki yenilemelerde eldeki kartlar yerinde kalır.
+  if (!state.listLoaded) $("ban-list").replaceChildren(...[0, 1, 2].map(skeletonCard));
+  let list;
+  try {
+    list = await api("GET", `/teams/${teamId}/bans?${params}`);
+  } catch (e) {
+    if (teamId === state.teamId && !state.listLoaded) {
+      $("ban-list").replaceChildren(emptyState("alert", "Liste yüklenemedi", "Sekmeye yeniden tıklayarak tekrar dene."));
+    }
+    throw e;
+  }
   if (teamId !== state.teamId) return;
   state.list = list;
+  state.listLoaded = true;
   renderBans();
+}
+
+function skeletonCard() {
+  const line = (width) => {
+    const node = el("div", { className: "sk" });
+    node.style.width = width;
+    return node;
+  };
+  return el("div", { className: "ban skeleton", ariaHidden: "true" }, line("45%"), line("70%"), line("35%"));
 }
 
 function renderTeam() {
@@ -216,7 +295,8 @@ function renderTeam() {
     return item;
   }));
   if (!team.channels.length) {
-    $("channels").append(el("li", { className: "muted", textContent: "Henüz kanal yok." }));
+    $("channels").append(emptyState("channel", "Henüz kanal yok",
+      team.owner ? "Banlar yalnızca buraya eklenen kanallarda uygulanır." : "Kanalları ekip sahibi ekleyebilir.", "li"));
   }
 
   $("members").replaceChildren(...team.members.map((m) => {
@@ -253,6 +333,7 @@ function showTab(name) {
 
 async function selectTeam(teamId) {
   state.teamId = teamId;
+  state.listLoaded = false;
   await chrome.storage.local.set({ teamId });
   $("team").value = String(teamId);
   $("team-view").hidden = false;
@@ -278,6 +359,7 @@ function renderQueue(status) {
   const processed = status.total - pending;
   queueProblems = status.problems;
   $("queue").hidden = !status.total;
+  $("queue").classList.toggle("active", pending > 0);
   if (!status.total) return;
 
   $("queue-progress").textContent = `${processed} / ${status.total}`;
@@ -373,8 +455,14 @@ async function render() {
   $("app-view").hidden = !loggedIn;
   $("user").hidden = !loggedIn;
   $("server").value = state.server;
-  if (loggedIn) await run(null, () => loadMe(state.teamId));
+  if (!loggedIn) return;
+  // Sunucu yanıt verene dek boş panel yerine iskelet görünür.
+  $("app-view").classList.add("loading");
+  await run(null, () => loadMe(state.teamId));
+  $("app-view").classList.remove("loading");
 }
+
+addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 2), { passive: true });
 
 $("login").onclick = () => run($("login"), async () => {
   const server = ($("server").value.trim() || DEFAULT_SERVER).replace(/\/+$/, "");
