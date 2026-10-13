@@ -3,6 +3,7 @@
 Çalıştırma: python app.py   (ayarlar için .env.example dosyasına bakın)
 """
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -58,6 +59,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
+VERSION = "0.5.0"
 SCOPES = "user:read channel:read moderation:ban"
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/.*")
 MAX_IMPORT = 5000
@@ -68,6 +70,26 @@ LOGIN_WINDOW = 600
 SESSION_TTL = 30 * 24 * 3600   # son kullanımdan sonra oturumun geçerli kaldığı süre
 LOOKUP_BATCH = 50      # Kick tek sorguda en fazla 50 kanal döndürür
 MAX_PARALLEL_CHANNELS = 8
+# Herkese açık sunucuda tek bir hesabın kaynakları tüketmemesi için sınırlar.
+MAX_TEAMS_OWNED = 10          # bir kullanıcının sahibi olabileceği ekip sayısı
+MAX_TEAMS_JOINED = 50         # bir kullanıcının üyesi olabileceği ekip sayısı
+MAX_CHANNELS_PER_TEAM = 50    # her ban, kanal sayısı kadar Kick isteğine dönüşür
+MAX_MEMBERS_PER_TEAM = 200
+REQUEST_LIMIT = 300           # bir kullanıcının REQUEST_WINDOW saniyede atabileceği istek sayısı
+REQUEST_WINDOW = 60
+
+# Ekip içi roller, yetkiye göre sıralı. Sahiplik teams.owner_id'den, diğerleri members.role'dan okunur.
+#   viewer (izleyici): ortak listeyi görür
+#   mod (moderatör):   ban atar, tekrar dener, kendi attığı banı kaldırır
+#   admin (yönetici):  herkesin banını kaldırır, kanalları ve davet kodunu yönetir, üye çıkarır
+#   owner (sahip):     rolleri ve ekip ayarlarını yönetir, sahipliği devreder, ekibi siler
+ROLES = {"viewer": 0, "mod": 1, "admin": 2, "owner": 3}
+ASSIGNABLE = ("viewer", "mod", "admin")
+NEED_MESSAGE = {
+    "mod": "İzleyici rolündesin; bunun için moderatör yetkisi gerekir",
+    "admin": "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir",
+    "owner": "Bunu yalnızca ekip sahibi yapabilir",
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -93,11 +115,14 @@ CREATE TABLE IF NOT EXISTS teams (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     invite_code TEXT NOT NULL UNIQUE,
-    owner_id INTEGER NOT NULL REFERENCES users(id)
+    owner_id INTEGER NOT NULL REFERENCES users(id),
+    join_role TEXT NOT NULL DEFAULT 'mod'      -- davet koduyla katılanın rolü: mod | viewer
 );
 CREATE TABLE IF NOT EXISTS members (
     team_id INTEGER NOT NULL REFERENCES teams(id),
     user_id INTEGER NOT NULL REFERENCES users(id),
+    role TEXT NOT NULL DEFAULT 'mod',          -- viewer | mod | admin (sahip için yok sayılır)
+    lend INTEGER NOT NULL DEFAULT 0,           -- 1: ekip, bu üyenin kanalında onun yayıncı yetkisini kullanabilir
     PRIMARY KEY (team_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS channels (
@@ -159,6 +184,14 @@ def init_db():
     if "last_used" not in [c["name"] for c in db.execute("PRAGMA table_info(sessions)")]:
         db.execute("ALTER TABLE sessions ADD COLUMN last_used INTEGER NOT NULL DEFAULT 0")
     db.execute("UPDATE sessions SET last_used = ? WHERE last_used = 0", (int(time.time()),))
+    # Roller ve yetki paylaşımı öncesi veritabanları. O sürümde ekipteki her yayıncının yetkisi
+    # kendiliğinden kullanılıyordu; mevcut üyeliklerde bu davranış korunur, yeni katılanlar kendisi açar.
+    if "role" not in [c["name"] for c in db.execute("PRAGMA table_info(members)")]:
+        db.execute("ALTER TABLE members ADD COLUMN role TEXT NOT NULL DEFAULT 'mod'")
+        db.execute("ALTER TABLE members ADD COLUMN lend INTEGER NOT NULL DEFAULT 0")
+        db.execute("UPDATE members SET lend = 1")
+    if "join_role" not in [c["name"] for c in db.execute("PRAGMA table_info(teams)")]:
+        db.execute("ALTER TABLE teams ADD COLUMN join_role TEXT NOT NULL DEFAULT 'mod'")
     # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
     if fernet():
         for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
@@ -218,6 +251,18 @@ class Redirect(Exception):
     def __init__(self, url):
         super().__init__(url)
         self.url = url
+
+
+@contextlib.contextmanager
+def transaction(db):
+    """Birden çok yazmayı tek adımda uygular; hata olursa hiçbiri kalmaz."""
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        yield
+        db.execute("COMMIT")
+    except BaseException:
+        db.execute("ROLLBACK")
+        raise
 
 
 # ---------------------------------------------------------------- Kick API
@@ -295,7 +340,7 @@ def http(method, url, token=None, form=None, body=None):
             hints = {k: v for k, v in e.headers.items() if "rate" in k.lower() or "retry" in k.lower()}
             if hints:
                 print(f"Kick 429 başlıkları: {hints}")
-    except (urllib.error.URLError, TimeoutError) as e:
+    except OSError as e:   # URLError, zaman aşımı ve yanıt gelmeden kopan bağlantı
         return 0, {"message": str(e)}
     if limited:
         LIMITER.report(status)
@@ -343,9 +388,9 @@ def fresh_token(db, user):
 
 
 def to_slug(value):
-    """Kullanıcı adı, @ad ya da kick.com/ad -> kanal slug'ı."""
+    """Kullanıcı adı, @ad, kick.com/ad ya da https://kick.com/ad -> kanal slug'ı."""
     value = (value or "").strip()
-    value = re.sub(r"^https?://(www\.)?kick\.com/", "", value, flags=re.I)
+    value = re.sub(r"^(https?://)?(www\.)?kick\.com/", "", value, flags=re.I)
     value = value.split("/")[0].split("?")[0].lstrip("@").lower().replace("_", "-")
     if not re.fullmatch(r"[a-z0-9-]{1,25}", value):
         raise ApiError(400, "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)")
@@ -382,16 +427,25 @@ def lookup_channel(db, actor, name):
 def channel_candidates(db, team_id, actor, channel):
     """Bir kanalda denenecek (token, yetki türü, kullanıcı adı) listesi.
 
-    Önce işlemi yapan moderatör, olmazsa ekipteki yayıncı.
+    Önce işlemi yapan moderatör; olmazsa, ekipte olan ve yetkisini ekiple paylaşmayı açmış yayıncı.
     """
     users = [(actor, "broadcaster" if actor["id"] == channel["broadcaster_id"] else "mod")]
     if actor["id"] != channel["broadcaster_id"]:
         owner = db.execute(
             "SELECT u.* FROM users u JOIN members m ON m.user_id = u.id "
-            "WHERE u.id = ? AND m.team_id = ?", (channel["broadcaster_id"], team_id)).fetchone()
+            "WHERE u.id = ? AND m.team_id = ? AND m.lend = 1", (channel["broadcaster_id"], team_id)).fetchone()
         if owner:
             users.append((owner, "broadcaster"))
     return [(fresh_token(db, user), via, user["name"]) for user, via in users]
+
+
+KICK_ERRORS = {
+    0: "Kick'e ulaşılamadı",
+    401: "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap",
+    403: "bu kanalda ban yetkin yok (moderatör değilsin)",
+    404: "kullanıcı ya da kanal Kick'te bulunamadı",
+    429: "Kick istek sınırı; biraz sonra tekrar dene",
+}
 
 
 def call_channel(candidates, body, unban):
@@ -409,7 +463,7 @@ def call_channel(candidates, body, unban):
             time.sleep(2)
         if 200 <= status < 300:
             return True, "", via
-        detail = f"{status}: {payload.get('message') or payload.get('error') or 'hata'}"
+        detail = f"{status}: {KICK_ERRORS.get(status) or payload.get('message') or payload.get('error') or 'hata'}"
     return False, detail, via
 
 
@@ -460,6 +514,7 @@ def ban_json(db, ban):
         "reason": ban["reason"],
         "duration": ban["duration"],
         "created_by": creator["name"] if creator else "?",
+        "created_by_id": ban["created_by"],
         "created_at": ban["created_at"],
         "revoked_at": ban["revoked_at"],
         "results": [{
@@ -476,6 +531,7 @@ def ban_json(db, ban):
 class Req:
     def __init__(self, db, query, body, user, ip=""):
         self.db, self.query, self.body, self.user, self.ip = db, query, body, user, ip
+        self.role = None   # team_for doldurur: kullanıcının o ekipteki rolü
 
 
 LOGIN_HITS = {}                  # adres -> son giriş denemelerinin zamanları
@@ -495,14 +551,39 @@ def throttle_login(ip):
         hits.append(now)
 
 
-def team_for(req, team_id, owner=False):
+REQUEST_HITS = {}                # kullanıcı -> (pencere başlangıcı, istek sayısı)
+
+
+def throttle_user(user_id):
+    """Tek bir hesap sunucuyu istek yağmuruna tutamasın."""
+    now = time.time()
+    with LOGIN_LOCK:
+        if len(REQUEST_HITS) > 50_000:
+            REQUEST_HITS.clear()
+        start, count = REQUEST_HITS.get(user_id, (now, 0))
+        if now - start > REQUEST_WINDOW:
+            start, count = now, 0
+        REQUEST_HITS[user_id] = (start, count + 1)
+    if count >= REQUEST_LIMIT:
+        raise ApiError(429, "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene")
+
+
+def role_of(team, user_id, role):
+    if team["owner_id"] == user_id:
+        return "owner"
+    return role if role in ASSIGNABLE else "viewer"
+
+
+def team_for(req, team_id, need="viewer"):
+    """Kullanıcının üyesi olduğu ekibi döndürür; rolü `need`in altındaysa 403."""
     team = req.db.execute(
-        "SELECT t.* FROM teams t JOIN members m ON m.team_id = t.id "
+        "SELECT t.*, m.role, m.lend FROM teams t JOIN members m ON m.team_id = t.id "
         "WHERE t.id = ? AND m.user_id = ?", (int(team_id), req.user["id"])).fetchone()
     if not team:
         raise ApiError(404, "Ekip bulunamadı")
-    if owner and team["owner_id"] != req.user["id"]:
-        raise ApiError(403, "Bunu yalnızca ekip sahibi yapabilir")
+    req.role = role_of(team, req.user["id"], team["role"])
+    if ROLES[req.role] < ROLES[need]:
+        raise ApiError(403, NEED_MESSAGE[need])
     return team
 
 
@@ -544,8 +625,13 @@ def auth_callback(req):
     if not row or row["created_at"] < time.time() - 600:
         raise ApiError(400, "Giriş isteği geçersiz ya da süresi dolmuş")
     req.db.execute("DELETE FROM oauth_states WHERE state = ?", (row["state"],))
+
+    def fail(message):
+        # Bu noktada pencere Kick'ten dönmüştür; ham JSON yerine extension'a dönülür, mesajı panel gösterir.
+        return Redirect(row["redirect"].split("#")[0] + "#error=" + urllib.parse.quote(message))
+
     if "code" not in req.query:
-        raise ApiError(400, "Kick girişi iptal edildi")
+        raise fail("Kick girişi onaylanmadı")
     status, tokens = http("POST", CFG["kick_id"] + "/oauth/token", form={
         "grant_type": "authorization_code",
         "code": req.query["code"],
@@ -555,11 +641,11 @@ def auth_callback(req):
         "code_verifier": row["verifier"],
     })
     if status != 200 or "access_token" not in tokens:
-        raise ApiError(502, "Kick token vermedi")
+        raise fail("Kick girişi tamamlanamadı; biraz sonra tekrar dene")
     status, me = http("GET", CFG["kick_api"] + "/public/v1/users", token=tokens["access_token"])
     data = me.get("data") or []
     if status != 200 or not data:
-        raise ApiError(502, "Kick kullanıcı bilgisi alınamadı")
+        raise fail("Kick hesap bilgisi alınamadı; biraz sonra tekrar dene")
     user_id = int(data[0]["user_id"])
     store_tokens(req.db, user_id, data[0].get("name") or str(user_id), tokens)
     session = secrets.token_urlsafe(32)
@@ -575,17 +661,63 @@ def auth_logout(req):
     return {}
 
 
+def health(req):
+    return {"ok": True, "version": VERSION}
+
+
 def me(req):
     teams = req.db.execute(
-        "SELECT t.id, t.name, t.owner_id FROM teams t JOIN members m ON m.team_id = t.id "
+        "SELECT t.id, t.name, t.owner_id, m.role FROM teams t JOIN members m ON m.team_id = t.id "
         "WHERE m.user_id = ? ORDER BY t.name", (req.user["id"],)).fetchall()
     return {
         "user": {"id": req.user["id"], "name": req.user["name"]},
         # Panel, ekip kuramayacak kullanıcıya "Yeni ekip" alanını hiç göstermez.
         "can_create_team": not CFG["team_creators"] or req.user["id"] in CFG["team_creators"],
-        "teams": [{"id": t["id"], "name": t["name"], "owner": t["owner_id"] == req.user["id"]}
-                  for t in teams],
+        "teams": [{"id": t["id"], "name": t["name"], "owner": t["owner_id"] == req.user["id"],
+                   "role": role_of(t, req.user["id"], t["role"])} for t in teams],
     }
+
+
+def delete_team(db, team_id):
+    """Ekibi ve ona bağlı her kaydı siler; Kick'teki banlara dokunmaz. İşlemi (transaction) çağıran açar."""
+    db.execute("DELETE FROM ban_results WHERE ban_id IN (SELECT id FROM bans WHERE team_id = ?)", (team_id,))
+    for table in ("bans", "queue", "channels", "members"):
+        db.execute(f"DELETE FROM {table} WHERE team_id = ?", (team_id,))
+    db.execute("DELETE FROM teams WHERE id = ?", (team_id,))
+
+
+def account_delete(req):
+    """Hesabı ve ona bağlı verileri siler, Kick'e verilen yetkiyi geri alır.
+
+    Başkalarının da üyesi olduğu ekipler habersizce yok olmasın diye önce devir ya da silme istenir.
+    """
+    uid = req.user["id"]
+    shared = req.db.execute(
+        "SELECT name FROM teams t WHERE owner_id = ? AND "
+        "(SELECT COUNT(*) FROM members m WHERE m.team_id = t.id) > 1 ORDER BY name", (uid,)).fetchall()
+    if shared:
+        names = ", ".join(f'"{t["name"]}"' for t in shared)
+        raise ApiError(409, f"Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}")
+    # Başarısız olursa kullanıcı erişimi Kick ayarlarından da iptal edebilir; silme bundan etkilenmez.
+    for kind in ("access_token", "refresh_token"):
+        token = unseal(req.user[kind])
+        if token:
+            params = {"token": token, "token_hint_type": kind}
+            http("POST", CFG["kick_id"] + "/oauth/revoke?" + urllib.parse.urlencode(params), form=params)
+    with transaction(req.db):
+        for team in req.db.execute("SELECT id FROM teams WHERE owner_id = ?", (uid,)).fetchall():
+            delete_team(req.db, team["id"])
+        req.db.execute("DELETE FROM members WHERE user_id = ?", (uid,))
+        req.db.execute("DELETE FROM queue WHERE created_by = ?", (uid,))
+        req.db.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))
+        # Başka ekiplerin listesinde bu kullanıcının attığı banlar kalır. Kayıt bozulmasın diye satır
+        # silinmez; kimlik numarası dışındaki her şey (ad, tokenlar) boşaltılır.
+        if req.db.execute("SELECT 1 FROM bans WHERE created_by = ? OR revoked_by = ? LIMIT 1", (uid, uid)).fetchone():
+            req.db.execute("UPDATE users SET name = 'silinmiş kullanıcı', access_token = '', refresh_token = '', "
+                           "expires_at = 0 WHERE id = ?", (uid,))
+        else:
+            req.db.execute("DELETE FROM users WHERE id = ?", (uid,))
+    return {}
 
 
 def team_create(req):
@@ -594,13 +726,18 @@ def team_create(req):
         raise ApiError(400, "Ekip adı gerekli")
     if CFG["team_creators"] and req.user["id"] not in CFG["team_creators"]:
         raise ApiError(403, "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.")
+    owned = req.db.execute("SELECT COUNT(*) FROM teams WHERE owner_id = ?", (req.user["id"],)).fetchone()[0]
+    if owned >= MAX_TEAMS_OWNED:
+        raise ApiError(400, f"En fazla {MAX_TEAMS_OWNED} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene")
     cur = req.db.execute("INSERT INTO teams (name, invite_code, owner_id) VALUES (?,?,?)",
                          (name, secrets.token_urlsafe(9), req.user["id"]))
-    req.db.execute("INSERT INTO members VALUES (?,?)", (cur.lastrowid, req.user["id"]))
+    # Ekibi kuran, kendi kanalında yayıncı yetkisini ekibiyle paylaşır; isterse kapatır.
+    req.db.execute("INSERT INTO members (team_id, user_id, role, lend) VALUES (?,?,'owner',1)",
+                   (cur.lastrowid, req.user["id"]))
     # Kuranın kendi kanalı baştan listede olsun; Kick'te kanal kimliği kullanıcı kimliğiyle aynıdır.
     # Kick'e sormadan addan türetilir, slug yalnızca gösterim için. Sahip isterse kaldırabilir.
     try:
-        req.db.execute("INSERT INTO channels VALUES (?,?,?)",
+        req.db.execute("INSERT INTO channels (team_id, broadcaster_id, slug) VALUES (?,?,?)",
                        (cur.lastrowid, req.user["id"], to_slug(req.user["name"])))
     except ApiError:
         pass
@@ -609,10 +746,25 @@ def team_create(req):
 
 def invite_rotate(req, team_id):
     """Eski davet kodunu geçersiz kılar; kod yanlış ellere geçtiyse kullanılır."""
-    team = team_for(req, team_id, owner=True)
+    team = team_for(req, team_id, need="admin")
     code = secrets.token_urlsafe(9)
     req.db.execute("UPDATE teams SET invite_code = ? WHERE id = ?", (code, team["id"]))
     return {"invite_code": code}
+
+
+def team_update(req, team_id):
+    """Ekip ayarları: ad ve davet koduyla katılanların başlangıç rolü."""
+    team = team_for(req, team_id, need="owner")
+    if "name" in req.body:
+        name = str(req.body["name"]).strip()[:60]
+        if not name:
+            raise ApiError(400, "Ekip adı gerekli")
+        req.db.execute("UPDATE teams SET name = ? WHERE id = ?", (name, team["id"]))
+    if "join_role" in req.body:
+        if req.body["join_role"] not in ("viewer", "mod"):
+            raise ApiError(400, "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir")
+        req.db.execute("UPDATE teams SET join_role = ? WHERE id = ?", (req.body["join_role"], team["id"]))
+    return {}
 
 
 def team_join(req):
@@ -620,66 +772,129 @@ def team_join(req):
                           (str(req.body.get("invite_code", "")).strip(),)).fetchone()
     if not team:
         raise ApiError(404, "Davet kodu geçersiz")
-    req.db.execute("INSERT OR IGNORE INTO members VALUES (?,?)", (team["id"], req.user["id"]))
-    return {"id": team["id"]}
+    count = lambda where, arg: req.db.execute(f"SELECT COUNT(*) FROM members WHERE {where}", (arg,)).fetchone()[0]
+    if not req.db.execute("SELECT 1 FROM members WHERE team_id = ? AND user_id = ?",
+                          (team["id"], req.user["id"])).fetchone():
+        if count("user_id = ?", req.user["id"]) >= MAX_TEAMS_JOINED:
+            raise ApiError(400, f"En fazla {MAX_TEAMS_JOINED} ekibe üye olabilirsin")
+        if count("team_id = ?", team["id"]) >= MAX_MEMBERS_PER_TEAM:
+            raise ApiError(400, "Bu ekip dolu; ekip sahibine haber ver")
+        # Yayıncı yetkisi paylaşımı kapalı başlar: katılan kişi isterse Ekip sekmesinden kendisi açar.
+        req.db.execute("INSERT INTO members (team_id, user_id, role, lend) VALUES (?,?,?,0)",
+                       (team["id"], req.user["id"], team["join_role"]))
+    return {"id": team["id"], "name": team["name"]}
 
 
 def team_get(req, team_id):
     team = team_for(req, team_id)
     members = req.db.execute(
-        "SELECT u.id, u.name FROM users u JOIN members m ON m.user_id = u.id "
+        "SELECT u.id, u.name, m.role, m.lend FROM users u JOIN members m ON m.user_id = u.id "
         "WHERE m.team_id = ? ORDER BY u.name", (team["id"],)).fetchall()
     member_ids = {m["id"] for m in members}
+    lenders = {m["id"] for m in members if m["lend"]}
     channels = req.db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
                               (team["id"],)).fetchall()
     return {
         "id": team["id"],
         "name": team["name"],
         "owner": team["owner_id"] == req.user["id"],
-        "invite_code": team["invite_code"],
-        "members": [{"id": m["id"], "name": m["name"], "owner": m["id"] == team["owner_id"]}
-                    for m in members],
+        "role": req.role,
+        "lend": bool(team["lend"]),
+        "join_role": team["join_role"],
+        # Davet kodu ban yetkisi dağıtır; yalnızca onu yönetebilenler görür.
+        "invite_code": team["invite_code"] if ROLES[req.role] >= ROLES["admin"] else "",
+        "members": [{"id": m["id"], "name": m["name"], "owner": m["id"] == team["owner_id"],
+                     "role": role_of(team, m["id"], m["role"])} for m in members],
+        # broadcaster_joined: kanalın yayıncısı ekipte ve yetkisini paylaşıyor (ban onun yetkisiyle de tutar).
         "channels": [{"broadcaster_id": c["broadcaster_id"], "slug": c["slug"],
-                      "broadcaster_joined": c["broadcaster_id"] in member_ids} for c in channels],
+                      "broadcaster_joined": c["broadcaster_id"] in lenders,
+                      "broadcaster_member": c["broadcaster_id"] in member_ids} for c in channels],
     }
 
 
+def member_lend(req, team_id):
+    """Üyenin, kendi kanalında yayıncı yetkisini ekibe açıp kapatması. Yalnızca kendisi değiştirebilir."""
+    team = team_for(req, team_id)
+    lend = req.body.get("lend")
+    if not isinstance(lend, bool):
+        raise ApiError(400, "Geçersiz istek")
+    req.db.execute("UPDATE members SET lend = ? WHERE team_id = ? AND user_id = ?",
+                   (int(lend), team["id"], req.user["id"]))
+    return {"lend": lend}
+
+
+def member_role(req, team_id, user_id):
+    """Üyenin rolünü değiştirir; rol "owner" ise sahipliği ona devreder (eski sahip yönetici olur)."""
+    team = team_for(req, team_id, need="owner")
+    user_id, role = int(user_id), req.body.get("role")
+    if user_id == team["owner_id"]:
+        raise ApiError(400, "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin")
+    if not req.db.execute("SELECT 1 FROM members WHERE team_id = ? AND user_id = ?",
+                          (team["id"], user_id)).fetchone():
+        raise ApiError(404, "Üye bulunamadı")
+    if role == "owner":
+        owned = req.db.execute("SELECT COUNT(*) FROM teams WHERE owner_id = ?", (user_id,)).fetchone()[0]
+        if owned >= MAX_TEAMS_OWNED:
+            raise ApiError(400, "Bu üye daha fazla ekibin sahibi olamaz")
+        with transaction(req.db):
+            req.db.execute("UPDATE teams SET owner_id = ? WHERE id = ?", (user_id, team["id"]))
+            req.db.execute("UPDATE members SET role = 'owner' WHERE team_id = ? AND user_id = ?",
+                           (team["id"], user_id))
+            req.db.execute("UPDATE members SET role = 'admin' WHERE team_id = ? AND user_id = ?",
+                           (team["id"], req.user["id"]))
+    elif role in ASSIGNABLE:
+        req.db.execute("UPDATE members SET role = ? WHERE team_id = ? AND user_id = ?",
+                       (role, team["id"], user_id))
+    else:
+        raise ApiError(400, "Geçersiz rol")
+    return {}
+
+
+def team_leave(req, team_id):
+    team = team_for(req, team_id)
+    if req.role == "owner":
+        raise ApiError(400, "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil")
+    req.db.execute("DELETE FROM members WHERE team_id = ? AND user_id = ?", (team["id"], req.user["id"]))
+    return {}
+
+
 def member_remove(req, team_id, user_id):
-    team = team_for(req, team_id, owner=True)
-    if int(user_id) == team["owner_id"]:
+    team = team_for(req, team_id, need="admin")
+    user_id = int(user_id)
+    if user_id == team["owner_id"]:
         raise ApiError(400, "Ekip sahibi çıkarılamaz")
-    req.db.execute("DELETE FROM members WHERE team_id = ? AND user_id = ?",
-                   (team["id"], int(user_id)))
+    target = req.db.execute("SELECT role FROM members WHERE team_id = ? AND user_id = ?",
+                            (team["id"], user_id)).fetchone()
+    if not target:
+        raise ApiError(404, "Üye bulunamadı")
+    # Yönetici başka bir yöneticiyi ya da kendini çıkaramaz; kendisi için "ekipten ayrıl" vardır.
+    if ROLES[role_of(team, user_id, target["role"])] >= ROLES[req.role]:
+        raise ApiError(403, "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin")
+    req.db.execute("DELETE FROM members WHERE team_id = ? AND user_id = ?", (team["id"], user_id))
     return {}
 
 
 def team_delete(req, team_id):
     """Ekibi ve ona bağlı her kaydı siler. Kick'teki banlara dokunmaz."""
-    team = team_for(req, team_id, owner=True)
-    req.db.execute("BEGIN IMMEDIATE")
-    try:
-        req.db.execute("DELETE FROM ban_results WHERE ban_id IN (SELECT id FROM bans WHERE team_id = ?)",
-                       (team["id"],))
-        for table in ("bans", "queue", "channels", "members"):
-            req.db.execute(f"DELETE FROM {table} WHERE team_id = ?", (team["id"],))
-        req.db.execute("DELETE FROM teams WHERE id = ?", (team["id"],))
-        req.db.execute("COMMIT")
-    except Exception:
-        req.db.execute("ROLLBACK")
-        raise
+    team = team_for(req, team_id, need="owner")
+    with transaction(req.db):
+        delete_team(req.db, team["id"])
     return {}
 
 
 def channel_add(req, team_id):
-    team = team_for(req, team_id, owner=True)
+    team = team_for(req, team_id, need="admin")
+    if req.db.execute("SELECT COUNT(*) FROM channels WHERE team_id = ?",
+                      (team["id"],)).fetchone()[0] >= MAX_CHANNELS_PER_TEAM:
+        raise ApiError(400, f"Bir ekibe en fazla {MAX_CHANNELS_PER_TEAM} kanal eklenebilir")
     broadcaster_id, slug = lookup_channel(req.db, req.user, req.body.get("slug"))
-    req.db.execute("INSERT OR REPLACE INTO channels VALUES (?,?,?)",
+    req.db.execute("INSERT OR REPLACE INTO channels (team_id, broadcaster_id, slug) VALUES (?,?,?)",
                    (team["id"], broadcaster_id, slug))
     return {"broadcaster_id": broadcaster_id, "slug": slug}
 
 
 def channel_remove(req, team_id, broadcaster_id):
-    team = team_for(req, team_id, owner=True)
+    team = team_for(req, team_id, need="admin")
     req.db.execute("DELETE FROM channels WHERE team_id = ? AND broadcaster_id = ?",
                    (team["id"], int(broadcaster_id)))
     return {}
@@ -740,7 +955,7 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
 
 
 def ban_create(req, team_id):
-    team = team_for(req, team_id)
+    team = team_for(req, team_id, need="mod")
     reason, duration = parse_ban_options(req.body)
     ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
     return ban_json(req.db, ban)
@@ -748,7 +963,7 @@ def ban_create(req, team_id):
 
 def ban_retry(req, team_id, ban_id):
     """Başarısız olan ve bandan sonra eklenen kanallara yeniden uygular."""
-    team = team_for(req, team_id)
+    team = team_for(req, team_id, need="mod")
     ban = ban_for(req, team, ban_id)
     if ban["revoked_at"]:
         raise ApiError(400, "Bu ban kaldırılmış")
@@ -757,8 +972,10 @@ def ban_retry(req, team_id, ban_id):
 
 
 def ban_revoke(req, team_id, ban_id):
-    team = team_for(req, team_id)
+    team = team_for(req, team_id, need="mod")
     ban = ban_for(req, team, ban_id)
+    if ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
+        raise ApiError(403, "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir")
     apply_ban(req.db, ban, req.user, unban=True)
     req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?",
                    (req.user["id"], int(time.time()), ban["id"]))
@@ -767,7 +984,7 @@ def ban_revoke(req, team_id, ban_id):
 
 def import_create(req, team_id):
     """Uzun listeleri sıraya alır; banları arka plandaki işçi atar."""
-    team = team_for(req, team_id)
+    team = team_for(req, team_id, need="mod")
     reason, duration = parse_ban_options(req.body)
     usernames = req.body.get("usernames")
     if not isinstance(usernames, list) or not usernames:
@@ -814,7 +1031,7 @@ def import_status(req, team_id):
 
 def import_clear(req, team_id, which):
     """pending: bekleyenleri iptal eder; finished: biten kayıtları özetten temizler."""
-    team = team_for(req, team_id)
+    team = team_for(req, team_id, need="mod")
     # İşlenmekte olan kayıtlara dokunulmaz; onlar birkaç saniyede biter.
     where = "status = 'pending'" if which == "pending" else "status NOT IN ('pending', 'working')"
     cur = req.db.execute(f"DELETE FROM queue WHERE team_id = ? AND {where}", (team["id"],))
@@ -893,10 +1110,10 @@ def process_next():
 
         team = db.execute("SELECT * FROM teams WHERE id = ?", (row["team_id"],)).fetchone()
         actor = db.execute(
-            "SELECT u.* FROM users u JOIN members m ON m.user_id = u.id WHERE u.id = ? AND m.team_id = ?",
+            "SELECT u.*, m.role FROM users u JOIN members m ON m.user_id = u.id WHERE u.id = ? AND m.team_id = ?",
             (row["created_by"], row["team_id"])).fetchone()
-        if not team or not actor:
-            finish("error", "Listeyi yükleyen kişi artık ekipte değil")
+        if not team or not actor or ROLES[role_of(team, actor["id"], actor["role"])] < ROLES["mod"]:
+            finish("error", "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok")
             return True
         try:
             resolved = resolve_queued(db, row, actor)
@@ -942,10 +1159,16 @@ ROUTES = [
     ("GET", r"/auth/login", auth_login, False),
     ("GET", r"/auth/callback", auth_callback, False),
     ("POST", r"/auth/logout", auth_logout, True),
+    ("GET", r"/health", health, False),
     ("GET", r"/me", me, True),
+    ("DELETE", r"/me", account_delete, True),
     ("POST", r"/teams", team_create, True),
     ("POST", r"/teams/join", team_join, True),
     ("POST", r"/teams/(\d+)/invite", invite_rotate, True),
+    ("POST", r"/teams/(\d+)/settings", team_update, True),
+    ("POST", r"/teams/(\d+)/leave", team_leave, True),
+    ("POST", r"/teams/(\d+)/lend", member_lend, True),
+    ("POST", r"/teams/(\d+)/members/(\d+)/role", member_role, True),
     ("GET", r"/teams/(\d+)", team_get, True),
     ("DELETE", r"/teams/(\d+)", team_delete, True),
     ("DELETE", r"/teams/(\d+)/members/(\d+)", member_remove, True),
@@ -1032,6 +1255,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ApiError(401, "Oturumun süresi doldu, yeniden giriş yap")
                     if now - user["last_used"] > 3600:
                         db.execute("UPDATE sessions SET last_used = ? WHERE token_hash = ?", (now, token_hash))
+                    throttle_user(user["id"])
                 return self.send_json(200, fn(Req(db, query, body, user, self.client_ip()), *match.groups()))
             self.send_json(404, {"error": "Bulunamadı"})
         except Redirect as r:

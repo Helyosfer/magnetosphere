@@ -18,10 +18,13 @@ import app
 REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 
 # Sahte Kick: kullanıcı kimliği N için token "tok-N", kanal slug'ı USERS[N].
-USERS = {1: "yayinci-a", 2: "yayinci-b", 10: "mod-ali", 11: "mod-veli", 99: "trol"}
-MODS = {1: {10}, 2: set()}   # mod-ali yalnızca yayinci-a'da moderatör
+USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod-veli",
+         20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol"}
+# mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
+MODS = {1: {10}, 2: set(), 3: {22}, 20: set()}
 BANNED = set()               # (broadcaster_id, user_id)
 LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
+REVOKED = set()              # hesap silinince geri alınan tokenlar
 
 
 class FakeKick(BaseHTTPRequestHandler):
@@ -59,6 +62,9 @@ class FakeKick(BaseHTTPRequestHandler):
             form = dict(urllib.parse.parse_qsl(self.body().decode()))
             return self.reply(200, {"access_token": "tok-" + form["code"],
                                     "refresh_token": "ref", "expires_in": 3600})
+        if self.path.startswith("/oauth/revoke"):
+            REVOKED.add(dict(urllib.parse.parse_qsl(self.body().decode()))["token"])
+            return self.reply(200, {})
         self.moderate(banned=True)
 
     def do_DELETE(self):
@@ -111,6 +117,7 @@ class CrossBanTest(unittest.TestCase):
                        token_key=Fernet.generate_key().decode(),
                        extension_ids=[])   # yerel .env'deki kimlik kısıtı testi etkilemesin
         app.LIMITER.rate = 0   # sahte Kick'e karşı hız sınırı gereksiz
+        app.REQUEST_LIMIT = 10 ** 6   # istek sınırı yalnızca kendi testinde denenir
         app.init_db()
         cls.server, cls.base = serve(app.Handler)
 
@@ -170,9 +177,18 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(by_slug["yayinci-b"]["status"], "failed")
         self.assertEqual(BANNED, {(1, 99)})
 
-        # yayinci-b ekibe katılınca tekrar deneme onun token'ına düşer.
+        # yayinci-b ekibe katılır; yetkisini paylaşmayı kendisi açmadıkça token'ı kullanılmaz.
         yayinci_b = self.login(2)
         call(self.base, "POST", "/teams/join", yayinci_b, {"invite_code": info["invite_code"]})
+        _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans/{ban['id']}/retry", ali)
+        self.assertEqual({r["slug"]: r["status"] for r in ban["results"]}["yayinci-b"], "failed")
+        self.assertIn("moderatör değilsin", {r["slug"]: r["detail"] for r in ban["results"]}["yayinci-b"])
+        channels = {c["slug"]: c for c in call(self.base, "GET", f"/teams/{tid}", ali)[1]["channels"]}
+        self.assertEqual((channels["yayinci-b"]["broadcaster_member"], channels["yayinci-b"]["broadcaster_joined"]),
+                         (True, False))
+        # Yetkiyi başkası adına açmak mümkün değildir: uç yalnızca çağıranın kendi üyeliğini değiştirir.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/lend", yayinci_b, {"lend": True})[0], 200)
+        # Paylaşım açılınca tekrar deneme onun token'ına düşer.
         _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans/{ban['id']}/retry", ali)
         by_slug = {r["slug"]: r for r in ban["results"]}
         self.assertEqual(by_slug["yayinci-b"]["status"], "ok")
@@ -187,6 +203,8 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans?q=SPA", veli)[1]["matched"], 1)
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans?q=yok", veli)[1]["matched"], 0)
 
+        # Moderatör başkasının attığı banı kaldıramaz; sahip ve yöneticiler kaldırır.
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", veli)[0], 403)
         # Ban kaldırma her kanalda geri alır.
         _, ban, _ = call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", ali)
         self.assertIsNotNone(ban["revoked_at"])
@@ -222,6 +240,17 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(BANNED, {(1, 99), (2, 99)})
         self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/imports/finished", ali)[1]["removed"], 4)
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/imports", ali, {"usernames": []})[0], 400)
+
+        # Sıraya alan kişinin ban yetkisi sonradan alınırsa bekleyen kayıtları işlenmez.
+        call(self.base, "POST", f"/teams/{tid}/imports", veli, {"usernames": ["trol"]})
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/members/11/role", ali, {"role": "viewer"})[0], 200)
+        banned_now = set(BANNED)
+        while app.process_next():
+            pass
+        self.assertEqual(BANNED, banned_now)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/imports", ali)[1]["counts"], {"error": 1})
+        call(self.base, "DELETE", f"/teams/{tid}/imports/finished", ali)
+        call(self.base, "POST", f"/teams/{tid}/members/11/role", ali, {"role": "mod"})
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/imports", "yanlis")[0], 401)
 
         # Güvenlik: tokenlar veritabanında şifreli durur.
@@ -324,6 +353,187 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual([call(self.base, "GET", login)[0] for _ in range(3)], [302, 302, 429])
         app.LOGIN_LIMIT = 30
         app.LOGIN_HITS.clear()
+
+    def test_migration(self):
+        # Roller ve yetki paylaşımı öncesi veritabanı: sütunlar eklenir, üyeler moderatör olur ve
+        # o sürümde örtük olan yayıncı yetkisi paylaşımı mevcut üyelikler için açık kalır.
+        path, current = os.path.join(self.tmp.name, "eski.db"), app.CFG["db"]
+        db = sqlite3.connect(path)
+        db.executescript(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, access_token TEXT NOT NULL, "
+            "refresh_token TEXT NOT NULL, expires_at INTEGER NOT NULL);"
+            "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
+            "invite_code TEXT NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id));"
+            "CREATE TABLE members (team_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (team_id, user_id));"
+            "INSERT INTO users VALUES (1, 'a', 'x', 'y', 0), (2, 'b', 'x', 'y', 0);"
+            "INSERT INTO teams VALUES (1, 'Eski', 'kod', 1);"
+            "INSERT INTO members VALUES (1, 1), (1, 2);")
+        db.commit()
+        db.close()
+        app.CFG["db"] = path
+        try:
+            app.init_db()
+            app.init_db()   # ikinci açılış hiçbir şeyi değiştirmez
+        finally:
+            app.CFG["db"] = current
+        db = sqlite3.connect(path)
+        self.assertEqual(db.execute("SELECT user_id, role, lend FROM members ORDER BY user_id").fetchall(),
+                         [(1, "mod", 1), (2, "mod", 1)])
+        self.assertEqual(db.execute("SELECT join_role FROM teams").fetchone(), ("mod",))
+        db.close()
+
+    def test_limits(self):
+        user = self.login(3)
+        self.assertEqual(call(self.base, "GET", "/health")[1], {"ok": True, "version": app.VERSION})
+
+        # Kick tarafında giriş onaylanmazsa ham hata yerine extension'a mesajla dönülür.
+        _, _, headers = call(self.base, "GET", "/auth/login?redirect=" + urllib.parse.quote(REDIRECT))
+        state = urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)["state"][0]
+        status, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
+        self.assertEqual((status, headers["Location"].startswith(REDIRECT + "#error=")), (302, True))
+
+        # Bir hesabın kurabileceği ekip ve bir ekibe eklenebilecek kanal sayısı sınırlıdır.
+        app.MAX_TEAMS_OWNED = 1
+        _, team, _ = call(self.base, "POST", "/teams", user, {"name": "Tek"})
+        self.assertEqual(call(self.base, "POST", "/teams", user, {"name": "İkinci"})[0], 400)
+        app.MAX_TEAMS_OWNED = 10
+        tid = team["id"]
+        app.MAX_CHANNELS_PER_TEAM = 2   # kuranın kendi kanalı zaten listede
+        # Kanal, adıyla da kick.com bağlantısıyla da eklenir.
+        self.assertEqual([app.to_slug(v) for v in ("Yayinci_A", "@yayinci-a", "kick.com/yayinci-a",
+                                                   "https://www.kick.com/Yayinci_A/videos?x=1")], ["yayinci-a"] * 4)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": "kick.com/Yayinci_A"})[0], 200)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": "yayinci-b"})[0], 400)
+        app.MAX_CHANNELS_PER_TEAM = 50
+
+        # Tek kişilik kullanım: ekip kuran kişi kimseyi davet etmeden kendi yetkisiyle banlar.
+        MODS[1].add(3)
+        _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", user, {"username": "mod-veli"})
+        self.assertEqual({r["slug"]: (r["status"], r["via"]) for r in ban["results"]},
+                         {"yayinci-a": ("ok", "mod"), "yayinci-c": ("ok", "broadcaster")})
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", user)
+        MODS[1].discard(3)
+
+        # Bir üyelik dolu ekibe eklenmez.
+        app.MAX_MEMBERS_PER_TEAM = 1
+        code = call(self.base, "GET", f"/teams/{tid}", user)[1]["invite_code"]
+        other = self.login(24)
+        self.assertEqual(call(self.base, "POST", "/teams/join", other, {"invite_code": code})[0], 400)
+        app.MAX_MEMBERS_PER_TEAM = 200
+
+        # Tek bir hesap sunucuyu istek yağmuruna tutamaz.
+        app.REQUEST_HITS.clear()
+        app.REQUEST_LIMIT = 3
+        self.assertEqual([call(self.base, "GET", "/me", user)[0] for _ in range(4)], [200, 200, 200, 429])
+        app.REQUEST_LIMIT = 10 ** 6
+        app.REQUEST_HITS.clear()
+
+        # Kimsenin kaydında izi olmayan hesap silinince satırı da gider; tek kişilik ekibi de silinir.
+        self.assertEqual(call(self.base, "DELETE", "/me", user)[0], 200)
+        self.assertEqual(call(self.base, "GET", "/me", user)[0], 401)
+        db = sqlite3.connect(app.CFG["db"])
+        self.assertIsNone(db.execute("SELECT 1 FROM users WHERE id = 3").fetchone())
+        self.assertIsNone(db.execute("SELECT 1 FROM teams WHERE id = ?", (tid,)).fetchone())
+        db.close()
+        self.assertIn("tok-3", REVOKED)
+
+    def test_roles(self):
+        sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Roller"})
+        tid = team["id"]
+        role = lambda token, uid: f"/teams/{tid}/members/{uid}/role"
+        _, info, _ = call(self.base, "GET", f"/teams/{tid}", sahip)
+        self.assertEqual((info["role"], info["lend"], info["join_role"]), ("owner", True, "mod"))
+        code = info["invite_code"]
+        for token in (yonetici, mod, izleyici):
+            self.assertEqual(call(self.base, "POST", "/teams/join", token, {"invite_code": code})[1]["name"], "Roller")
+
+        # Rolleri yalnızca sahip değiştirir; geçersiz rol reddedilir.
+        self.assertEqual(call(self.base, "POST", role(sahip, 21), sahip, {"role": "admin"})[0], 200)
+        self.assertEqual(call(self.base, "POST", role(sahip, 23), sahip, {"role": "viewer"})[0], 200)
+        self.assertEqual(call(self.base, "POST", role(yonetici, 22), yonetici, {"role": "admin"})[0], 403)
+        self.assertEqual(call(self.base, "POST", role(sahip, 22), sahip, {"role": "kral"})[0], 400)
+        self.assertEqual(call(self.base, "POST", role(sahip, 20), sahip, {"role": "mod"})[0], 400)
+        self.assertEqual(call(self.base, "POST", role(sahip, 99), sahip, {"role": "mod"})[0], 404)
+        _, info, _ = call(self.base, "GET", f"/teams/{tid}", mod)
+        self.assertEqual({m["name"]: m["role"] for m in info["members"]},
+                         {"sahip-s": "owner", "yonetici-y": "admin", "mod-m": "mod", "izleyici-i": "viewer"})
+        self.assertEqual({t["id"]: t["role"] for t in call(self.base, "GET", "/me", izleyici)[1]["teams"]}[tid], "viewer")
+
+        # Davet kodu ban yetkisi dağıttığı için yalnızca sahip ve yöneticiler görür ve yeniler.
+        self.assertEqual(info["invite_code"], "")
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", yonetici)[1]["invite_code"], code)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/invite", mod)[0], 403)
+
+        # Kanalları sahip ve yöneticiler yönetir.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", mod, {"slug": "yayinci-c"})[0], 403)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", yonetici, {"slug": "yayinci-c"})[0], 200)
+
+        # İzleyici listeyi görür ama ban atamaz, sıraya ekleyemez.
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans", izleyici)[0], 200)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", izleyici, {"username": "trol"})[0], 403)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/imports", izleyici, {"usernames": ["trol"]})[0], 403)
+
+        # Moderatör banlar: kendi moderatör olduğu kanalda kendi yetkisiyle, ekibi kuranın kanalında
+        # sahibin paylaştığı yayıncı yetkisiyle tutar.
+        _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", mod, {"username": "trol"})
+        self.assertEqual(ban["created_by_id"], 22)
+        self.assertEqual({r["slug"]: (r["status"], r["via"]) for r in ban["results"]},
+                         {"sahip-s": ("ok", "broadcaster"), "yayinci-c": ("ok", "mod")})
+
+        # Sahip paylaşımı kapatınca moderatörün banı onun kanalında tutmaz.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/lend", sahip, {"lend": False})[1], {"lend": False})
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/lend", sahip, {"lend": "evet"})[0], 400)
+        _, ban2, _ = call(self.base, "POST", f"/teams/{tid}/bans", mod, {"username": "yayinci-a"})
+        self.assertEqual({r["slug"]: r["status"] for r in ban2["results"]}, {"sahip-s": "failed", "yayinci-c": "ok"})
+
+        # Moderatör yalnızca kendi banını kaldırır; yönetici herkesinkini.
+        call(self.base, "POST", role(sahip, 23), sahip, {"role": "mod"})
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", izleyici)[0], 403)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", mod)[0], 200)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/{ban2['id']}", yonetici)[0], 200)
+
+        # Yönetici kendinden düşük yetkiliyi çıkarır; sahibi, başka yöneticiyi ve kendini çıkaramaz.
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/20", yonetici)[0], 400)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/21", yonetici)[0], 403)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/23", mod)[0], 403)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/23", yonetici)[0], 200)
+
+        # Sahip, davetle katılanların izleyici olarak başlamasını seçebilir.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/settings", yonetici, {"join_role": "viewer"})[0], 403)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/settings", sahip, {"join_role": "admin"})[0], 400)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/settings", sahip, {"join_role": "viewer"})[0], 200)
+        yeni = self.login(24)
+        call(self.base, "POST", "/teams/join", yeni, {"invite_code": code})
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", yeni)[1]["role"], "viewer")
+
+        # Üye ekipten kendisi ayrılabilir; sahip ayrılamaz.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/leave", yeni)[0], 200)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", yeni)[0], 404)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/leave", sahip)[0], 400)
+
+        # Başkalarının da üyesi olduğu ekibin sahibi hesabını silemez; önce sahipliği devreder.
+        status, res, _ = call(self.base, "DELETE", "/me", sahip)
+        self.assertEqual((status, '"Roller"' in res["error"]), (409, True))
+        self.assertEqual(call(self.base, "POST", role(sahip, 21), sahip, {"role": "owner"})[0], 200)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", yonetici)[1]["role"], "owner")
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", sahip)[1]["role"], "admin")
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}", sahip)[0], 403)
+
+        # Hesabı silinen üyenin oturumu ve üyeliği biter, Kick yetkisi geri alınır; ekibin kaydındaki
+        # banları kalır ama adı görünmez.
+        self.assertEqual(call(self.base, "DELETE", "/me", mod)[0], 200)
+        self.assertEqual(call(self.base, "GET", "/me", mod)[0], 401)
+        self.assertIn("tok-22", REVOKED)
+        _, info, _ = call(self.base, "GET", f"/teams/{tid}", yonetici)
+        self.assertEqual(sorted(m["name"] for m in info["members"]), ["sahip-s", "yonetici-y"])
+        _, listing, _ = call(self.base, "GET", f"/teams/{tid}/bans?revoked=1", yonetici)
+        self.assertEqual({b["created_by"] for b in listing["bans"]}, {"silinmiş kullanıcı"})
+        db = sqlite3.connect(app.CFG["db"])
+        self.assertEqual(db.execute("SELECT access_token, refresh_token FROM users WHERE id = 22").fetchone(), ("", ""))
+        db.close()
+        # Yeniden giriş yapınca boş bir hesapla başlar.
+        self.assertEqual(call(self.base, "GET", "/me", self.login(22))[1]["teams"], [])
 
 
 if __name__ == "__main__":
