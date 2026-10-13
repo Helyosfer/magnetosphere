@@ -38,15 +38,22 @@ async function api(method, path, body) {
 }
 
 // Hata olursa mesajı gösterir; işlem sürerken tetikleyen düğmeyi kilitler.
+// data-busy, "işlem sürüyor" kilidini "kullanılamaz" kilidinden ayırır (CSS'te farklı görünürler).
 async function run(button, fn) {
   showMessage("");
-  if (button) button.disabled = true;
+  if (button) {
+    button.disabled = true;
+    button.dataset.busy = "";
+  }
   try {
     await fn();
   } catch (e) {
     showMessage(e.message);
   } finally {
-    if (button) button.disabled = false;
+    if (button) {
+      button.disabled = false;
+      delete button.dataset.busy;
+    }
   }
 }
 
@@ -160,10 +167,20 @@ async function loadBans() {
 function renderTeam() {
   const team = state.team;
   const slugs = team.channels.map((c) => c.slug);
-  $("targets").textContent = slugs.length
-    ? `${slugs.length} kanala uygulanacak: ${slugs.join(", ")}`
-    : "Ekipte henüz kanal yok. Önce Ekip sekmesinden kanal ekle.";
+  if (slugs.length) {
+    $("targets").textContent = `${slugs.length} kanala uygulanacak: ${slugs.join(", ")}`;
+  } else if (team.owner) {
+    const add = el("button", { type: "button", className: "link", textContent: "Kanal ekle" });
+    add.onclick = () => {
+      showTab("crew");
+      $("channel-add").elements.slug.focus();
+    };
+    $("targets").replaceChildren("Ekipte henüz kanal yok. ", add);
+  } else {
+    $("targets").textContent = "Ekipte henüz kanal yok. Kanalları ekip sahibi ekleyebilir.";
+  }
   $("ban-submit").textContent = slugs.length > 1 ? `${slugs.length} kanalda banla` : "Banla";
+  $("ban-submit").disabled = !slugs.length;
 
   $("invite").textContent = team.invite_code;
   $("channel-add").hidden = !team.owner;
@@ -452,9 +469,24 @@ function updateNameCount() {
 
 $("username").oninput = updateNameCount;
 
-for (const preset of $("reason-presets").children) {
-  preset.onclick = () => { $("reason").value = preset.textContent; };
+// Sebep alanı bir hazır sebeple aynıysa o etiket seçili görünür.
+function syncPresets() {
+  const reason = $("reason").value.trim();
+  for (const preset of $("reason-presets").children) {
+    const active = preset.textContent === reason;
+    preset.classList.toggle("active", active);
+    preset.setAttribute("aria-pressed", String(active));
+  }
 }
+
+for (const preset of $("reason-presets").children) {
+  preset.onclick = () => {
+    $("reason").value = preset.classList.contains("active") ? "" : preset.textContent;
+    syncPresets();
+  };
+}
+$("reason").oninput = syncPresets;
+syncPresets();
 
 $("tab-ban").onsubmit = (event) => {
   event.preventDefault();
@@ -482,6 +514,7 @@ $("tab-ban").onsubmit = (event) => {
       const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, reason, duration });
       form.username.value = "";
       form.reason.value = "";
+      syncPresets();
       updateNameCount();
       $("ban-result").replaceChildren();
       showMessage(`${added} kullanıcı sıraya alındı${skipped ? `, ${skipped} tanesi zaten sıradaydı` : ""}.`, "info");
@@ -512,8 +545,12 @@ $("tab-ban").onsubmit = (event) => {
     // Başarısız olanlar düzeltilip yeniden denenebilsin diye alanda kalır.
     form.username.value = failed.join("\n");
     updateNameCount();
-    if (!failed.length) form.reason.value = "";
-    else showMessage(`${failed.length} kullanıcı banlanamadı; adlar alanda bırakıldı.`);
+    if (!failed.length) {
+      form.reason.value = "";
+      syncPresets();
+    } else {
+      showMessage(`${failed.length} kullanıcı banlanamadı; adlar alanda bırakıldı.`);
+    }
     await loadBans();
   });
 };
