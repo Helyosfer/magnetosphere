@@ -189,6 +189,11 @@ function renderTeam() {
   $("channel-count").textContent = team.channels.length;
   $("member-count").textContent = team.members.length;
 
+  // Kick'te kanal kimliği kullanıcı kimliğiyle aynı; sahibin kendi kanalı listede yoksa tek tıkla eklenebilsin.
+  const me = state.me.user;
+  $("channel-self").hidden = !team.owner || team.channels.some((c) => c.broadcaster_id === me.id);
+  $("channel-self-text").textContent = `Kendi kanalın (${me.name}) listede değil; orada ban atılmaz.`;
+
   $("channels").replaceChildren(...team.channels.map((c) => {
     const item = el("li", {}, el("span", { className: "grow mono", textContent: c.slug }));
     if (c.broadcaster_joined) {
@@ -418,6 +423,12 @@ $("channel-add").onsubmit = (event) => {
     await loadBans();
   });
 };
+
+$("channel-self-add").onclick = () => run($("channel-self-add"), async () => {
+  await api("POST", `/teams/${state.teamId}/channels`, { slug: state.me.user.name });
+  await loadTeam();
+  await loadBans();
+});
 
 $("copy-invite").onclick = async () => {
   await navigator.clipboard.writeText($("invite").textContent);

@@ -145,6 +145,10 @@
         <div class="card">
           <h3>Kanallar <span id="channel-count" class="count"></span></h3>
           <ul id="channels"></ul>
+          <div id="channel-self" class="row self" hidden>
+            <span id="channel-self-text" class="grow muted small"></span>
+            <button type="button" id="channel-self-add" class="ghost small">Ekle</button>
+          </div>
           <form id="channel-add" class="row" hidden>
             <input name="slug" placeholder="Kanal adı" required>
             <button class="primary">Ekle</button>

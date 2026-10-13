@@ -142,6 +142,10 @@ class CrossBanTest(unittest.TestCase):
         _, team, _ = call(self.base, "POST", "/teams", ali, {"name": "Ekip"})
         tid = team["id"]
         _, info, _ = call(self.base, "GET", f"/teams/{tid}", ali)
+        # Kuranın kendi kanalı ekip kurulunca listeye kendiliğinden girer.
+        self.assertEqual([(c["broadcaster_id"], c["slug"]) for c in info["channels"]], [(10, "mod-ali")])
+        # Sahip istemezse kaldırabilir; akışın geri kalanı yalnızca elle eklenen kanallarla sürer.
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/channels/10", ali)[0], 200)
 
         # Üye olmayan ekibi göremez; davet koduyla katılır ama kanal ekleyemez.
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}", veli)[0], 404)

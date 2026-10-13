@@ -192,8 +192,8 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
 
 ## Kullanım
 
-1. **Ekibi kur.** Bir kişi ekibi oluşturur, **Ekip** sekmesinden kanalları ekler ve davet kodunu
-   moderatörlerle paylaşır.
+1. **Ekibi kur.** Bir kişi ekibi oluşturur; kendi kanalı listeye kendiliğinden eklenir. **Ekip**
+   sekmesinden diğer kanalları ekler ve davet kodunu moderatörlerle paylaşır.
 2. **Moderatörler katılır.** Extension'ı kurar, Kick ile giriş yapar ve davet koduyla ekibe katılırlar.
 3. **Banla.** **Banla** sekmesine kullanıcı adları girilir ya da **Dosyadan yükle** ile liste seçilir.
    10 addan uzun listeler sıraya alınır ve arka planda işlenir.
@@ -289,7 +289,8 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 ### Bilinen kısıtlar
 
 - Kullanıcı adı, Kick'in kanal adresi kuralıyla aranır (küçük harf, `_` yerine `-`, en fazla 25 karakter).
-- Kanallar ekibe elle eklenir; resmi API "moderatörü olduğum kanallar" listesini vermiyor.
+- Ekip sahibinin kendi kanalı dışındaki kanallar elle eklenir; resmi API "moderatörü olduğum kanallar"
+  listesini vermiyor.
 - Süreli banlar süresi dolduktan sonra da listede aktif görünür.
 - Hız, Kick'in istek sınırıyla belirlenir: iki kanallı bir ekipte hesap başına yaklaşık bir saniye.
 

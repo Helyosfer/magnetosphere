@@ -595,6 +595,13 @@ def team_create(req):
     cur = req.db.execute("INSERT INTO teams (name, invite_code, owner_id) VALUES (?,?,?)",
                          (name, secrets.token_urlsafe(9), req.user["id"]))
     req.db.execute("INSERT INTO members VALUES (?,?)", (cur.lastrowid, req.user["id"]))
+    # Kuranın kendi kanalı baştan listede olsun; Kick'te kanal kimliği kullanıcı kimliğiyle aynıdır.
+    # Kick'e sormadan addan türetilir, slug yalnızca gösterim için. Sahip isterse kaldırabilir.
+    try:
+        req.db.execute("INSERT INTO channels VALUES (?,?,?)",
+                       (cur.lastrowid, req.user["id"], to_slug(req.user["name"])))
+    except ApiError:
+        pass
     return {"id": cur.lastrowid}
 
 

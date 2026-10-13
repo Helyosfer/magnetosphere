@@ -216,6 +216,7 @@ li + li { border-top: 1px solid var(--line); }
 li .grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 li .avatar { background: var(--raised); color: var(--text); }
 #channel-add { margin-top: 8px; }
+.self { margin-top: 8px; padding: 7px 10px; border: 1px dashed var(--line); border-radius: 8px; }
 #team-danger { border-color: rgba(255, 93, 108, .3); }
 #team-danger h3 { color: #ff8a95; }
 #team-delete { margin-top: 10px; }
