@@ -4,6 +4,13 @@ const MAX_IMPORT = 5000;
 // Bundan uzun listeler sunucudaki sıraya gider; panel kapansa da işlenmeye devam eder.
 const QUEUE_THRESHOLD = 10;
 
+// Ekip içi roller, yetkiye göre sıralı (sunucudaki ROLES ile aynı).
+const ROLE_RANK = { viewer: 0, mod: 1, admin: 2, owner: 3 };
+const ROLE_LABEL = { owner: "Sahip", admin: "Yönetici", mod: "Moderatör", viewer: "İzleyici" };
+// Rol bilgisi göndermeyen eski sunucularda sahip dışındaki herkes moderatör sayılır.
+const roleOf = (item) => item.role || (item.owner ? "owner" : "mod");
+const can = (need) => ROLE_RANK[roleOf(state.team)] >= ROLE_RANK[need];
+
 let state = { server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, list: { bans: [], matched: 0, active_total: 0 } };
 
 function el(tag, props = {}, ...children) {
@@ -175,7 +182,9 @@ function banCard(ban) {
       timeEl(ban.created_at))
   );
   const foot = el("div", { className: "foot" }, el("div", { className: "chips" }, ...chips));
-  if (!ban.revoked_at) {
+  // Moderatör yalnızca kendi attığı banı kaldırabilir; başkasınınkini sahip ve yöneticiler kaldırır.
+  const mine = ban.created_by_id === undefined || ban.created_by_id === state.me.user.id;
+  if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
     if (!complete) {
       const retry = el("button", { className: "ghost small", textContent: "Tekrar dene" });
@@ -185,14 +194,16 @@ function banCard(ban) {
       });
       actions.append(retry);
     }
-    const revoke = el("button", { className: "ghost small", textContent: "Kaldır" });
-    revoke.onclick = () => run(revoke, async () => {
-      if (!(await ask(`${ban.target_name} için ban tüm kanallarda kaldırılsın mı?`))) return;
-      await api("DELETE", `/teams/${state.teamId}/bans/${ban.id}`);
-      await loadBans();
-    });
-    actions.append(revoke);
-    foot.append(actions);
+    if (mine || can("admin")) {
+      const revoke = el("button", { className: "ghost small", textContent: "Kaldır" });
+      revoke.onclick = () => run(revoke, async () => {
+        if (!(await ask(`${ban.target_name} için ban tüm kanallarda kaldırılsın mı?`))) return;
+        await api("DELETE", `/teams/${state.teamId}/bans/${ban.id}`);
+        await loadBans();
+      });
+      actions.append(revoke);
+    }
+    if (actions.children.length) foot.append(actions);
   }
   card.append(foot);
   return card;
@@ -251,10 +262,14 @@ function skeletonCard() {
 
 function renderTeam() {
   const team = state.team;
+  const me = state.me.user;
+  const [mod, admin, owner] = [can("mod"), can("admin"), can("owner")];
   const slugs = team.channels.map((c) => c.slug);
+  $("viewer-note").hidden = mod;
+  $("ban-fields").hidden = !mod;
   if (slugs.length) {
     $("targets").textContent = `${slugs.length} kanala uygulanacak: ${slugs.join(", ")}`;
-  } else if (team.owner) {
+  } else if (admin) {
     const add = el("button", { type: "button", className: "link", textContent: "Kanal ekle" });
     add.onclick = () => {
       showTab("crew");
@@ -262,33 +277,50 @@ function renderTeam() {
     };
     $("targets").replaceChildren("Ekipte henüz kanal yok. ", add);
   } else {
-    $("targets").textContent = "Ekipte henüz kanal yok. Kanalları ekip sahibi ekleyebilir.";
+    $("targets").textContent = "Ekipte henüz kanal yok. Kanalları ekip sahibi ve yöneticiler ekleyebilir.";
   }
   $("ban-submit").textContent = slugs.length > 1 ? `${slugs.length} kanalda banla` : "Banla";
   $("ban-submit").disabled = !slugs.length;
 
-  $("invite").textContent = team.invite_code;
-  $("channel-add").hidden = !team.owner;
-  $("rotate-invite").hidden = !team.owner;
-  $("team-danger").hidden = !team.owner;
+  $("channel-add").hidden = !admin;
   $("channel-count").textContent = team.channels.length;
   $("member-count").textContent = team.members.length;
 
-  // Kick'te kanal kimliği kullanıcı kimliğiyle aynı; sahibin kendi kanalı listede yoksa tek tıkla eklenebilsin.
-  const me = state.me.user;
-  $("channel-self").hidden = !team.owner || team.channels.some((c) => c.broadcaster_id === me.id);
+  // Kick'te kanal kimliği kullanıcı kimliğiyle aynı; kendi kanalı listede yoksa tek tıkla eklenebilsin.
+  const own = team.channels.find((c) => c.broadcaster_id === me.id);
+  $("channel-self").hidden = !admin || Boolean(own);
   $("channel-self-text").textContent = `Kendi kanalın (${me.name}) listede değil; orada ban atılmaz.`;
+
+  // Yetki paylaşımı yalnızca kanalı bu ekibin listesinde olan üyeye sorulur; kararı yalnızca o verir.
+  $("lend-card").hidden = !own || team.lend === undefined;
+  $("lend").checked = Boolean(team.lend);
+
+  $("invite-card").hidden = !admin;
+  $("invite").textContent = team.invite_code;
+  $("invite-text").textContent = team.join_role === "viewer"
+    ? "Bu kodla katılanlar izleyici olarak başlar: listeyi görür, sahip rol verene dek ban atamaz."
+    : "Bu kodu alan herkes ekibe moderatör olarak katılıp ekibin kanallarında ban atabilir. Yalnızca güvendiğin kişilerle paylaş.";
+  $("join-role-row").hidden = !owner || team.join_role === undefined;
+  $("join-role").value = team.join_role || "mod";
+  $("team-leave-card").hidden = owner || team.role === undefined;
+  $("team-danger").hidden = !owner;
 
   $("channels").replaceChildren(...team.channels.map((c) => {
     const item = el("li", {}, el("span", { className: "grow mono", textContent: c.slug }));
     if (c.broadcaster_joined) {
       item.append(el("span", {
         className: "tag off",
+        textContent: "Yayıncı yetkisi açık",
+        title: "Moderatör yetkisi yetmediğinde ban, ekipteki yayıncının yetkisiyle uygulanır",
+      }));
+    } else if (c.broadcaster_member) {
+      item.append(el("span", {
+        className: "tag off",
         textContent: "Yayıncı ekipte",
-        title: "Moderatör yetkisi yetmediğinde yayıncının yetkisi kullanılır",
+        title: "Yayıncı ekipte ama yetkisini paylaşmıyor; ban yalnızca orada moderatör olanların yetkisiyle tutar",
       }));
     }
-    if (team.owner) {
+    if (admin) {
       const remove = el("button", { className: "ghost small", textContent: "Kaldır" });
       remove.onclick = () => run(remove, async () => {
         if (!(await ask(`${c.slug} kanalı ekipten kaldırılsın mı? Mevcut banlar Kick'te kalır.`))) return;
@@ -302,16 +334,35 @@ function renderTeam() {
   }));
   if (!team.channels.length) {
     $("channels").append(emptyState("channel", "Henüz kanal yok",
-      team.owner ? "Banlar yalnızca buraya eklenen kanallarda uygulanır." : "Kanalları ekip sahibi ekleyebilir.", "li"));
+      admin ? "Moderatörü olduğun kanalları aşağıdan ekle." : "Kanalları ekip sahibi ve yöneticiler ekleyebilir.", "li"));
   }
 
   $("members").replaceChildren(...team.members.map((m) => {
+    const role = roleOf(m);
     const item = el("li", {},
       el("span", { className: "avatar", textContent: m.name.slice(0, 1).toUpperCase() }),
-      el("span", { className: "grow", textContent: m.name })
+      el("span", { className: "grow" }, m.name, m.id === me.id ? el("span", { className: "you", textContent: " (sen)" }) : "")
     );
-    if (m.owner) item.append(el("span", { className: "tag off", textContent: "Sahip" }));
-    if (team.owner && !m.owner) {
+    if (owner && role !== "owner" && team.role !== undefined) {
+      // Sahip, diğer üyelerin rolünü buradan değiştirir; son seçenek sahipliği devreder.
+      const select = el("select", { className: "small", ariaLabel: `${m.name} için rol` },
+        ...["admin", "mod", "viewer"].map((r) => el("option", { value: r, textContent: ROLE_LABEL[r], selected: r === role })),
+        el("option", { value: "owner", textContent: "Sahipliği devret…" }));
+      select.onchange = () => run(null, async () => {
+        const next = select.value;
+        try {
+          if (next === "owner" && !(await ask(`Sahiplik ${m.name} adlı üyeye devredilsin mi? Sen yönetici olursun; bunu yalnızca yeni sahip geri alabilir.`))) return;
+          await api("POST", `/teams/${team.id}/members/${m.id}/role`, { role: next });
+          showMessage(next === "owner" ? `Sahiplik ${m.name} adlı üyeye devredildi.` : `${m.name} artık ${ROLE_LABEL[next].toLocaleLowerCase("tr")}.`, "info");
+        } finally {
+          await loadTeam();   // vazgeçilirse ya da hata olursa seçim eski haline döner
+        }
+      });
+      item.append(select);
+    } else {
+      item.append(el("span", { className: "tag off", textContent: ROLE_LABEL[role] }));
+    }
+    if (admin && m.id !== me.id && ROLE_RANK[role] < ROLE_RANK[roleOf(team)]) {
       const remove = el("button", { className: "ghost small", textContent: "Çıkar" });
       remove.onclick = () => run(remove, async () => {
         if (!(await ask(`${m.name} ekipten çıkarılsın mı?`))) return;
@@ -384,8 +435,8 @@ function renderQueue(status) {
     el("span", { className: "muted", textContent: p.detail || PROBLEM_LABEL[p.status], title: p.detail })
   )));
   $("queue-copy").hidden = !queueProblems.some((p) => p.status === "notfound");
-  $("queue-cancel").hidden = !pending;
-  $("queue-clear").hidden = Boolean(pending);
+  $("queue-cancel").hidden = !pending || !can("mod");
+  $("queue-clear").hidden = Boolean(pending) || !can("mod");
 }
 
 async function pollQueue() {
@@ -452,11 +503,14 @@ async function loadMe(preferredTeamId) {
   $("team-view").hidden = true;
   // Ekip kurmanın kapalı olduğu sunucuda kullanıcıya yalnızca davet koduyla katılma yolu gösterilir.
   const canCreate = state.me.can_create_team !== false;
-  $("team-create").hidden = !canCreate;
+  // İlk girişte tek tıkla kendi listesini kurar; adını kendi seçeceği ekipler "+ Ekip" menüsünde.
+  $("team-create").hidden = !canCreate || !teams.length;
+  $("solo-start").hidden = !canCreate;
+  $("solo-hint").hidden = !canCreate;
   $("welcome").hidden = teams.length > 0;
   $("welcome-title").textContent = `Hoş geldin, ${state.me.user.name}!`;
   $("welcome-text").textContent = canCreate
-    ? "Başlamak için ekibinden aldığın davet koduyla katıl ya da kendi ekibini kur."
+    ? "Kimseyi davet etmen gerekmez: moderatörü olduğun kanalları ekle, bir kullanıcıyı hepsinde birden banla."
     : "Başlamak için ekibinden bir davet kodu iste ve aşağıya yapıştır.";
   if (teams.length) {
     const wanted = teams.find((t) => t.id === preferredTeamId) || teams[0];
@@ -505,7 +559,7 @@ $("login").onclick = () => run($("login"), async () => {
   await chrome.storage.local.set({ server });
   // Kick penceresi açılınca bu popup kapanabilir; oturum arka planda kaydedilir.
   const res = await chrome.runtime.sendMessage({ type: "login", server });
-  if (!res.ok) throw new Error(loginError(res.error));
+  if (!res.ok) throw new Error(res.friendly ? res.error : loginError(res.error));
 });
 
 $("logout").onclick = () => run($("logout"), async () => {
@@ -533,11 +587,40 @@ $("team-join").onsubmit = (event) => {
   event.preventDefault();
   const form = event.target;
   run(form.querySelector("button"), async () => {
-    const { id } = await api("POST", "/teams/join", { invite_code: form.invite_code.value.trim() });
+    const { id, name } = await api("POST", "/teams/join", { invite_code: form.invite_code.value.trim() });
     form.reset();
     await loadMe(id);
+    showMessage(name ? `"${name}" ekibine katıldın.` : "Ekibe katıldın.", "info");
   });
 };
+
+// Tek kişilik kullanım: ad sormadan kullanıcının kendi listesi kurulur, sıradaki adım kanal eklemektir.
+$("solo-start").onclick = () => run($("solo-start"), async () => {
+  const { id } = await api("POST", "/teams", { name: `${state.me.user.name} ekibi` });
+  await loadMe(id);
+  showTab("crew");
+  showMessage("Listen hazır. Moderatörü olduğun kanalları buradan ekle.", "info");
+});
+
+$("lend").onchange = () => run(null, async () => {
+  const lend = $("lend").checked;
+  try {
+    if (lend && !(await ask(`Ekipteki moderatörler ${state.me.user.name} kanalında senin yayıncı yetkinle ban atabilecek. Açılsın mı?`))) return;
+    await api("POST", `/teams/${state.teamId}/lend`, { lend });
+    showMessage(lend ? "Yayıncı yetkin ekiple paylaşılıyor." : "Yayıncı yetkisi paylaşımı kapatıldı.", "info");
+  } finally {
+    await loadTeam();
+  }
+});
+
+$("join-role").onchange = () => run(null, async () => {
+  try {
+    await api("POST", `/teams/${state.teamId}/settings`, { join_role: $("join-role").value });
+    showMessage("Kaydedildi.", "info");
+  } finally {
+    await loadTeam();
+  }
+});
 
 $("channel-add").onsubmit = (event) => {
   event.preventDefault();
@@ -572,12 +655,36 @@ $("team-delete").onclick = () => run($("team-delete"), async () => {
   const { name } = state.team;
   if (!(await ask(`"${name}" ekibi silinsin mi? Üyelikler, kanallar ve ortak liste kalıcı olarak silinir; bu geri alınamaz. Kick'teki banlar yerinde kalır.`))) return;
   await api("DELETE", `/teams/${state.teamId}`);
+  await forgetTeam();
+  showMessage(`"${name}" ekibi silindi.`, "info");
+});
+
+// Seçili ekip artık yok ya da erişilemez: kalan ekiplerden biri açılır.
+async function forgetTeam() {
   clearTimeout(queueTimer);
   state.teamId = null;
   state.team = null;
   await chrome.storage.local.remove("teamId");
   await loadMe(null);
-  showMessage(`"${name}" ekibi silindi.`, "info");
+}
+
+$("team-leave").onclick = () => run($("team-leave"), async () => {
+  const { name } = state.team;
+  if (!(await ask(`"${name}" ekibinden ayrılmak istiyor musun? Yeniden katılmak için davet kodu gerekir.`))) return;
+  await api("POST", `/teams/${state.teamId}/leave`);
+  await forgetTeam();
+  showMessage(`"${name}" ekibinden ayrıldın.`, "info");
+});
+
+$("account-delete").onclick = () => run($("account-delete"), async () => {
+  if (!(await ask("Hesabın silinsin mi? Oturumların, üyeliklerin ve yalnızca senin olduğun ekipler kalıcı olarak silinir; Kick'e verdiğin erişim geri alınır. Başka ekiplerin listesindeki banların kalır ama adın görünmez. Kick'teki banlar etkilenmez."))) return;
+  await api("DELETE", "/me");
+  clearTimeout(queueTimer);
+  state.token = null;
+  state.teamId = null;
+  await chrome.storage.local.remove(["token", "teamId"]);
+  await render();
+  showMessage("Hesabın silindi.", "info");
 });
 
 let searchTimer = null;

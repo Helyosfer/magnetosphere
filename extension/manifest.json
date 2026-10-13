@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Magnetosphere",
-  "version": "0.4.0",
-  "description": "Mod ekibinle ortak ban listesi tut; bir kullanıcıyı ekibin tüm Kick kanallarında tek tıkla banla.",
+  "version": "0.5.0",
+  "description": "Bir kullanıcıyı moderatörü olduğun tüm Kick kanallarında tek tıkla banla; istersen mod ekibinle ortak ban listesi tut.",
   "homepage_url": "https://github.com/Helyosfer/magnetosphere",
   "permissions": [
     "identity",

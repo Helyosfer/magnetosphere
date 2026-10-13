@@ -242,6 +242,21 @@ a:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; borde
 #welcome p { margin-top: 2px; }
 #team-forms { gap: 14px; }
 #team-forms .row > input { flex: 1; min-width: 0; }
+#solo-start { margin-top: 10px; }
+fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.note { padding: 9px 11px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+select.small { width: auto; padding: 3px 26px 3px 8px; font-size: 12px; background-position: right 8px center; }
+.setting { margin-top: 8px; }
+.switch { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.switch input { width: auto; margin: 3px 0 0; accent-color: var(--accent); }
+.help { margin-top: 8px; }
+.help summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+.roles li { display: block; padding: 4px 0; border: 0; font-size: 12px; color: var(--muted); }
+.roles strong { margin-right: 6px; color: var(--text); }
+li .you { color: var(--muted); font-size: 12px; }
+#team-leave { margin-top: 10px; }
+#app-links { justify-content: center; margin-top: 18px; }
+button.link.quiet { color: var(--muted); font-weight: 400; }
 #load-error { margin-top: 4px; }
 #load-error button { margin-top: 10px; }
 #app-view.failed > :not(#load-error) { display: none; }

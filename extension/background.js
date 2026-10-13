@@ -3,7 +3,10 @@ async function login(server) {
   const redirect = chrome.identity.getRedirectURL();
   const url = `${server}/auth/login?redirect=${encodeURIComponent(redirect)}`;
   const finalUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
-  const token = new URLSearchParams(new URL(finalUrl).hash.slice(1)).get("token");
+  const params = new URLSearchParams(new URL(finalUrl).hash.slice(1));
+  // Sunucu, Kick tarafındaki hatayı kullanıcıya gösterilecek hazır bir mesajla döndürür.
+  if (params.get("error")) throw Object.assign(new Error(params.get("error")), { friendly: true });
+  const token = params.get("token");
   if (!token) throw new Error("Sunucu oturum döndürmedi");
   await chrome.storage.local.set({ token });
 }
@@ -12,7 +15,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "login") return;
   login(msg.server).then(
     () => sendResponse({ ok: true }),
-    (e) => sendResponse({ ok: false, error: String(e.message || e) })
+    (e) => sendResponse({ ok: false, error: String(e.message || e), friendly: Boolean(e.friendly) })
   );
   return true;
 });

@@ -4,11 +4,11 @@
 
 # Magnetosphere
 
-**Kick moderasyon ekipleri için ortak ban listesi.**<br>
-Bir kullanıcıyı ekibin tüm kanallarında tek işlemle banla.
+**Kick moderatörleri ve mod ekipleri için ortak ban listesi.**<br>
+Bir kullanıcıyı moderatörü olduğun tüm kanallarda tek işlemle banla.
 
 [![Lisans: GPL-3.0](https://img.shields.io/badge/lisans-GPL--3.0-5eead4?style=flat-square)](LICENSE)
-![Sürüm 0.4.0](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.4.0-38bdf8?style=flat-square)
+![Sürüm 0.5.0](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.5.0-38bdf8?style=flat-square)
 ![Chrome extension: Manifest V3](https://img.shields.io/badge/chrome-Manifest%20V3-5eead4?style=flat-square)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-38bdf8?style=flat-square)
 
@@ -30,10 +30,14 @@ Bir kullanıcıyı ekibin tüm kanallarında tek işlemle banla.
 
 <br>
 
-Birden fazla kanalda moderatörlük yapan ekipler, bir trolü ya da spam botunu her kanalda tek tek
-banlamak zorunda kalır. Magnetosphere bunu tek işleme indirir: kullanıcı adını bir kez girersin (ya da
-binlercesini bir dosyadan yüklersin), ekibin tüm kanallarında banlanır ve kimin, kimi, neden banladığı
-ortak listeye yazılır.
+Birden fazla kanalda moderatörlük yapanlar, bir trolü ya da spam botunu her kanalda tek tek banlamak
+zorunda kalır. Magnetosphere bunu tek işleme indirir: kullanıcı adını bir kez girersin (ya da
+binlercesini bir dosyadan yüklersin), listendeki tüm kanallarda banlanır ve kimin, kimi, neden banladığı
+listeye yazılır.
+
+Tek başına kullanılabilir: kimseyi davet etmeden moderatörü olduğun kanalları ekler ve banlarsın. Ekip
+olarak kullanınca üç şey eklenir: herkes aynı listeyi görür, bir kişinin banı bütün kanalları korur ve
+ekipteki bir yayıncı yetkisini paylaşırsa, o kanalda moderatör olmayan üyelerin banları da orada tutar.
 
 Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 
@@ -52,7 +56,11 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 | **Tek tıkla geri alma** | Banı ekibin tüm kanallarında birden kaldırır. |
 | **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, "Ekibin tüm kanallarında banla". |
 | **Koruma** | Ekip üyeleri ve ekipteki yayıncılar banlanamaz. |
-| **Ekip yönetimi** | Davet koduyla katılma, kodu yenileme, üye çıkarma ve ekibi tümüyle silme. |
+| **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını ekler. |
+| **Roller** | Sahip, yönetici, moderatör ve izleyici; davetle katılanların hangi rolle başlayacağı seçilebilir. |
+| **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalında yetkisini ekibe açar; kararı yalnızca kendisi verir ve istediği an kapatır. |
+| **Ekip yönetimi** | Davet koduyla katılma, kodu yenileme, üye çıkarma, ekipten ayrılma, sahipliği devretme ve ekibi tümüyle silme. |
+| **Hesap silme** | Kullanıcı hesabını panelden siler; oturumları, üyelikleri ve Kick erişimi kaldırılır. |
 
 ## Nasıl çalışır
 
@@ -196,16 +204,38 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
 
 ## Kullanım
 
-1. **Ekibi kur.** Bir kişi ekibi oluşturur; kendi kanalı listeye kendiliğinden eklenir. **Ekip**
-   sekmesinden diğer kanalları ekler ve davet kodunu moderatörlerle paylaşır.
-2. **Moderatörler katılır.** Extension'ı kurar, Kick ile giriş yapar ve davet koduyla ekibe katılırlar.
+1. **Başla.** Kick ile giriş yap ve **Tek başıma başla**'ya bas; kendi kanalın listeye kendiliğinden
+   eklenir. Bir ekibe davet edildiysen onun yerine davet kodunu yapıştır.
+2. **Kanalları ekle.** **Ekip** sekmesinden moderatörü olduğun kanalları ekle. Ban bir kanalda ancak sen
+   orada moderatörsen (ya da aşağıdaki yetki paylaşımı açıksa) tutar.
 3. **Banla.** **Banla** sekmesine kullanıcı adları girilir ya da **Dosyadan yükle** ile liste seçilir.
    10 addan uzun listeler sıraya alınır ve arka planda işlenir.
-4. **Takip et.** **Liste** sekmesi ortak listeyi ve her kanaldaki sonucu gösterir; buradan ban
-   kaldırılır ya da başarısız kanallar için yeniden denenir.
+4. **Takip et.** **Liste** sekmesi listeyi ve her kanaldaki sonucu gösterir; buradan ban kaldırılır ya
+   da başarısız kanallar için yeniden denenir.
+5. **İstersen ekip ol.** Davet kodunu paylaş; katılanlar aynı kanal listesini ve ban listesini kullanır.
 
-Kanalın yayıncısı da ekibe katılırsa, o kanalda moderatör olmayan ekip üyelerinin banları yayıncının
-yetkisiyle atılır.
+### Roller
+
+| | İzleyici | Moderatör | Yönetici | Sahip |
+|---|:-:|:-:|:-:|:-:|
+| Ortak listeyi görme | ✓ | ✓ | ✓ | ✓ |
+| Ban atma, tekrar deneme, liste yükleme | | ✓ | ✓ | ✓ |
+| Kendi attığı banı kaldırma | | ✓ | ✓ | ✓ |
+| Başkasının attığı banı kaldırma | | | ✓ | ✓ |
+| Kanal ekleme ve kaldırma | | | ✓ | ✓ |
+| Davet kodunu görme ve yenileme | | | ✓ | ✓ |
+| Kendinden düşük yetkili üyeyi çıkarma | | | ✓ | ✓ |
+| Rol verme, katılanların başlangıç rolü | | | | ✓ |
+| Sahipliği devretme, ekibi silme | | | | ✓ |
+
+Davetle katılanlar varsayılan olarak moderatör olur; sahip bunu "izleyici olarak başlar" yapabilir.
+
+### Yayıncı yetkisi paylaşımı
+
+Bir ban her kanalda önce banı atan kişinin kendi moderatör yetkisiyle denenir. Kanalın yayıncısı ekipteyse
+ve **Ekip > Yayıncı yetkin** altındaki paylaşımı açtıysa, moderatörün yetkisi yetmediğinde ban yayıncının
+yetkisiyle uygulanır. Paylaşım, ekibi kuran kişi için açık, davetle katılanlar için kapalı başlar; yalnızca
+yayıncının kendisi açıp kapatabilir.
 
 ## Ayarlar
 
@@ -240,11 +270,19 @@ yetkisiyle atılır.
   extension'a özel yönlendirme adresine teslim edilir.
 - **Ekipler birbirinden yalıtılmıştır.** Bir ekibin kanallarını, üyelerini ve listesini yalnızca o
   ekibin üyeleri görür.
-- **Davet kodu.** Rastgele 72 bitliktir ve ekip sahibi tarafından yenilenebilir; eski kod anında geçersiz olur.
+- **Davet kodu.** Rastgele 72 bitliktir; yalnızca sahip ve yöneticiler görür ve yeniler, eski kod anında
+  geçersiz olur.
+- **Roller.** Her işlem sunucuda rol kontrolünden geçer; panelin düğmeyi gizlemesine güvenilmez.
+- **Yayıncı yetkisi rızayla kullanılır.** Bir yayıncının token'ı, başkasının attığı ban için ancak o yayıncı
+  paylaşımı kendisi açtıysa kullanılır; davet koduyla bir ekibe katılmak tek başına bu yetkiyi vermez.
+- **Hesap silme.** Kullanıcı hesabını sildiğinde oturumları, üyelikleri ve tokenları silinir, Kick'teki
+  erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Extension
   yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği enjekte etmez.
 - **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
+  Bir hesap dakikada en fazla 300 istek atabilir, en fazla 10 ekip kurabilir ve 50 ekibe üye olabilir;
+  bir ekipte en fazla 50 kanal ve 200 üye olur.
 - **Adil sıra.** Sıra ekipler arasında dönüşümlü işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
 
 ### Sunucuyu işleten kişinin sorumlulukları
@@ -257,8 +295,9 @@ yetkisiyle atılır.
 ### Bilinen sınırlar
 
 - Şifreleme, veritabanı dosyasının sızmasına karşı korur; sunucunun tamamını ele geçiren biri anahtarı da okuyabilir.
-- Ekip içinde rol ayrımı yoktur: her üye ban kaldırabilir ve liste yükleyebilir. Ekibe yalnızca güvendiğin kişileri al.
-- Sunucuda giriş başlatma dışında genel bir istek sınırı yoktur; gerekiyorsa ters vekilde uygula.
+- Davet koduyla katılan kişi varsayılan olarak moderatör olur ve ekibin kanallarında ban atabilir; kodu
+  yalnızca güvendiğin kişilerle paylaş ya da katılanları izleyici olarak başlat.
+- İstek sınırı hesap başınadır ve bellekte tutulur; oturumsuz isteklere karşı ters vekilde ayrıca sınır koy.
 
 ### Açık bildirimi
 
@@ -272,7 +311,8 @@ python -m unittest test_app
 ```
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
-düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, ekip silme ve güvenlik kuralları kapsanır.
+düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, hesap silme, eski
+veritabanından geçiş ve güvenlik kuralları kapsanır.
 
 ## Yol haritası
 
@@ -287,8 +327,10 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Ekip silme
 - [x] Açık sunucu için sıkılaştırma: ekip oluşturma izni, ekipler arası adil sıra, giriş sınırı
 - [x] [Chrome Web Store yayını](https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh)
+- [x] Ekip içinde roller, yayıncı yetkisi için açık rıza, ekipten ayrılma ve hesap silme
+- [x] Herkese açık kullanım için hesap başına sınırlar
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
-- [ ] Ekip içinde roller (yalnızca yetkili üyeler ban kaldırabilsin)
+- [ ] Süresi dolan süreli banların listede kendiliğinden kapanması
 
 ### Bilinen kısıtlar
 

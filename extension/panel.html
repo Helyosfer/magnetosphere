@@ -47,12 +47,12 @@
 
   <section id="login-view" class="hero" hidden>
     <svg class="logo big"><use href="#logo"/></svg>
-    <h1>Ekibinin tüm kanalları için tek ban listesi</h1>
-    <p class="muted">Bir kullanıcıyı bir kez banla; ekibin moderatörlük yaptığı her kanalda uygulansın.</p>
+    <h1>Tüm kanalların için tek ban listesi</h1>
+    <p class="muted">Bir kullanıcıyı bir kez banla; moderatörü olduğun her kanalda uygulansın. Tek başına ya da ekibinle.</p>
     <ol class="steps">
       <li><span>1</span>Kick hesabınla giriş yap</li>
-      <li><span>2</span>Ekip kur ya da davet koduyla ekibine katıl</li>
-      <li><span>3</span>Kullanıcı adını yaz; tüm kanallarda banlansın</li>
+      <li><span>2</span>Moderatörü olduğun kanalları listene ekle</li>
+      <li><span>3</span>Kullanıcı adını yaz; hepsinde birden banlansın</li>
     </ol>
     <button id="login" class="primary wide">Kick ile giriş yap</button>
     <p class="muted small">Giriş Kick'in kendi sayfasında yapılır; Magnetosphere şifreni görmez.</p>
@@ -94,12 +94,14 @@
       <div id="welcome" hidden>
         <strong id="welcome-title"></strong>
         <p id="welcome-text" class="muted small"></p>
+        <button type="button" id="solo-start" class="primary wide">Tek başıma başla</button>
+        <p id="solo-hint" class="muted small">Kendi kanal listen kurulur; moderatörü olduğun kanalları ekleyip hemen banlarsın. İstersen sonra başkalarını da davet edersin.</p>
       </div>
       <form id="team-join" class="field">
-        <label class="label" for="join-code">Davet kodun var mı?</label>
+        <label class="label" for="join-code">Bir ekibe mi davet edildin?</label>
         <div class="row">
-          <input id="join-code" name="invite_code" placeholder="Ekibinden aldığın kodu yapıştır" required>
-          <button class="primary">Katıl</button>
+          <input id="join-code" name="invite_code" placeholder="Davet kodunu yapıştır" required>
+          <button class="ghost">Katıl</button>
         </div>
       </form>
       <form id="team-create" class="field">
@@ -108,7 +110,7 @@
           <input id="create-name" name="name" maxlength="60" placeholder="Ekip adı, ör. Yayın modları" required>
           <button class="ghost">Oluştur</button>
         </div>
-        <p class="muted small">Ekibi kuran kişi kanalları ekler ve davet kodunu moderatörlerle paylaşır.</p>
+        <p class="muted small">Her ekibin kendi kanal listesi ve ortak ban listesi olur.</p>
       </form>
     </div>
 
@@ -137,6 +139,9 @@
           </div>
         </div>
 
+        <p id="viewer-note" class="note" hidden>İzleyici rolündesin: ortak listeyi görebilirsin ama ban atamazsın. Ban yetkisi için ekip sahibine yaz.</p>
+
+        <fieldset id="ban-fields" class="stack">
         <div class="field">
           <div class="label">
             <label for="username">Kullanıcı adları</label>
@@ -174,6 +179,7 @@
 
         <p id="targets" class="muted small"></p>
         <button id="ban-submit" class="danger wide">Tüm kanallarda banla</button>
+        </fieldset>
         <div id="ban-result" class="stack"></div>
       </form>
 
@@ -187,16 +193,6 @@
 
       <div id="tab-crew" class="panel stack" hidden>
         <div class="card">
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Davet kodu</h3>
-          <div class="row">
-            <code id="invite" class="mono"></code>
-            <button id="copy-invite" class="ghost">Kopyala</button>
-            <button id="rotate-invite" class="ghost" title="Eski kodu geçersiz kılar" hidden>Yenile</button>
-          </div>
-          <p class="muted small">Bu kodu alan herkes ekibe katılıp ekibin kanallarında ban atabilir.</p>
-        </div>
-
-        <div class="card">
           <h3><svg class="icon" aria-hidden="true"><use href="#i-channel"/></svg>Kanallar <span id="channel-count" class="count"></span></h3>
           <ul id="channels"></ul>
           <div id="channel-self" class="row self" hidden>
@@ -204,14 +200,53 @@
             <button type="button" id="channel-self-add" class="ghost small">Ekle</button>
           </div>
           <form id="channel-add" class="row" hidden>
-            <input name="slug" placeholder="Kanal adı" required>
+            <input name="slug" placeholder="Kanal adı ya da kick.com/kanal" required>
             <button class="primary">Ekle</button>
           </form>
+          <p class="muted small">Ban bir kanalda, sen orada moderatörsen ya da kanalın yayıncısı bu ekipte yetkisini paylaşıyorsa tutar.</p>
+        </div>
+
+        <div id="lend-card" class="card" hidden>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Yayıncı yetkin</h3>
+          <label class="switch"><input id="lend" type="checkbox"><span>Ekip, kanalımda benim yetkimle ban atabilsin</span></label>
+          <p class="muted small">Açıkken, kanalında moderatör olmayan ekip üyelerinin banları da senin yayıncı yetkinle uygulanır. İstediğin an kapatabilirsin.</p>
         </div>
 
         <div class="card">
           <h3><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Üyeler <span id="member-count" class="count"></span></h3>
           <ul id="members"></ul>
+          <details class="help">
+            <summary>Roller ne yapar?</summary>
+            <ul class="roles">
+              <li><strong>Sahip</strong>Rolleri ve ayarları yönetir, sahipliği devreder, ekibi siler.</li>
+              <li><strong>Yönetici</strong>Kanalları ve davet kodunu yönetir, üye çıkarır, herkesin banını kaldırır.</li>
+              <li><strong>Moderatör</strong>Ban atar, tekrar dener, kendi attığı banı kaldırır.</li>
+              <li><strong>İzleyici</strong>Yalnızca ortak listeyi görür.</li>
+            </ul>
+          </details>
+        </div>
+
+        <div id="invite-card" class="card" hidden>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Davet kodu</h3>
+          <div class="row">
+            <code id="invite" class="mono"></code>
+            <button id="copy-invite" class="ghost">Kopyala</button>
+            <button id="rotate-invite" class="ghost" title="Eski kodu geçersiz kılar">Yenile</button>
+          </div>
+          <p id="invite-text" class="muted small"></p>
+          <label id="join-role-row" class="row setting" hidden>
+            <span class="grow muted small">Bu kodla katılanlar</span>
+            <select id="join-role" class="small">
+              <option value="mod">Moderatör olarak başlar</option>
+              <option value="viewer">İzleyici olarak başlar</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="team-leave-card" class="card" hidden>
+          <h3><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekipten ayrıl</h3>
+          <p class="muted small">Bu ekibin listesini ve kanallarını artık göremezsin. Attığın banlar yerinde kalır.</p>
+          <button id="team-leave" class="danger-ghost">Ekipten ayrıl</button>
         </div>
 
         <div id="team-danger" class="card" hidden>
@@ -221,6 +256,14 @@
         </div>
       </div>
     </div>
+
+    <p id="app-links" class="links small">
+      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener">Gizlilik</a>
+      <span aria-hidden="true">·</span>
+      <a href="mailto:destek@helyosfer.me">Destek</a>
+      <span aria-hidden="true">·</span>
+      <button type="button" id="account-delete" class="link quiet">Hesabımı sil</button>
+    </p>
   </section>
 
   <dialog id="confirm">

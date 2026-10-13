@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnetosphere Gizlilik Politikası</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0b0e14; color: #e6e9ef; font: 16px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 20px 80px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 32px 0 8px; }
+  p, li { color: #c3c9d5; }
+  ul { padding-left: 20px; }
+  a { color: #5eead4; }
+  .muted { color: #8b93a3; font-size: .9rem; }
+  hr { border: 0; border-top: 1px solid #222938; margin: 48px 0 32px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Magnetosphere Gizlilik Politikası</h1>
+  <p class="muted">Son güncelleme: 13 Ekim 2026</p>
+
+  <p>Magnetosphere, Kick moderatörleri ve moderasyon ekipleri için ortak ban listesi tutan bir tarayıcı uzantısı ve ona bağlı bir sunucudur (magnetosphere.helyosfer.me). Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir.</p>
+
+  <h2>Topladığımız veriler</h2>
+  <ul>
+    <li><strong>Kick hesabın:</strong> Kick ile giriş yaptığında Kick kullanıcı kimliğin ve kullanıcı adın.</li>
+    <li><strong>Kick erişim tokenları:</strong> senin adına ban atabilmek için Kick'in verdiği erişim ve yenileme tokenları. Sunucuda şifreli saklanır. Kick şifreni hiçbir zaman görmeyiz.</li>
+    <li><strong>Oturum:</strong> uzantının sunucuyla konuşması için bir oturum anahtarı. Sunucuda yalnızca özeti (SHA-256) tutulur; 30 gün kullanılmazsa geçersiz olur.</li>
+    <li><strong>Ekip verileri:</strong> oluşturduğun ya da katıldığın ekipler, ekipteki rolün, eklenen kanallar, banlanan kullanıcı adları, ban sebebi, banı kimin ne zaman attığı ve her kanaldaki sonuç.</li>
+  </ul>
+
+  <h2>Uzantının tarayıcında sakladıkları</h2>
+  <p>Oturum anahtarı, seçili ekip ve sunucu adresi. Uzantı ziyaret ettiğin sayfaları okumaz, tarama geçmişini toplamaz ve hiçbir siteye içerik betiği enjekte etmez.</p>
+
+  <h2>Verileri nasıl kullanıyoruz</h2>
+  <p>Yalnızca hizmeti sunmak için: giriş yapmak, listendeki kanallarda ban atmak ya da kaldırmak ve ortak listeyi ekip üyelerine göstermek. Ekip verilerini yalnızca o ekibin üyeleri görür.</p>
+  <p><strong>Yayıncı yetkisi paylaşımı:</strong> token'ın normalde yalnızca senin başlattığın işlemler için kullanılır. Bir ekipte, kendi kanalın için "yayıncı yetkisi paylaşımı"nı açarsan, o ekibin moderatörlerinin attığı banlar kanalında senin yetkinle de uygulanır. Bu ayar ekibi sen kurduysan açık, bir ekibe davetle katıldıysan kapalı başlar; yalnızca sen değiştirebilirsin ve istediğin an kapatabilirsin.</p>
+
+  <h2>Paylaşım</h2>
+  <p>Verileri satmayız ve reklam ya da analiz amacıyla kimseyle paylaşmayız. Ban ve ban kaldırma istekleri, işlemin gerçekleşmesi için Kick'in resmi API'sine gönderilir.</p>
+
+  <h2>Saklama ve silme</h2>
+  <ul>
+    <li><strong>Hesabını silmek:</strong> uzantının altındaki "Hesabımı sil" bağlantısıyla hesabını kendin silebilirsin. Oturumların, üyeliklerin, tokenların ve yalnızca senin üyesi olduğun ekipler silinir; Kick'e verdiğin erişim geri alınır. Başka ekiplerin ortak listesinde senin attığın banlar, o ekibin kaydı bozulmasın diye adın olmadan kalır.</li>
+    <li><strong>Ekip:</strong> ekip sahibi ekibi sildiğinde ekibe ait tüm kayıtlar silinir. Bir ekipten istediğin an ayrılabilirsin.</li>
+    <li><strong>Oturum:</strong> çıkış yaptığında oturumların kapanır.</li>
+    <li>Uzantıyı kullanamıyorsan silme isteğini bize de yazabilirsin; Kick ayarlarından uygulamanın erişimini istediğin an iptal edebilirsin.</li>
+  </ul>
+
+  <h2>İletişim</h2>
+  <p><a href="mailto:destek@helyosfer.me">destek@helyosfer.me</a></p>
+
+  <hr>
+
+  <div lang="en">
+    <h1>Privacy Policy</h1>
+    <p class="muted">Last updated: 13 October 2026</p>
+    <p>Magnetosphere is a browser extension and companion server (magnetosphere.helyosfer.me) that keeps a shared ban list for Kick moderators and moderation teams. It is not affiliated with or endorsed by Kick.</p>
+    <h2>Data we collect</h2>
+    <ul>
+      <li>Your Kick user ID and username, received when you sign in with Kick.</li>
+      <li>Kick OAuth access and refresh tokens, stored encrypted on the server so bans can be issued on your behalf. We never see your Kick password.</li>
+      <li>A session token for the extension; only its SHA-256 hash is stored, and it expires after 30 days without use.</li>
+      <li>Team data: teams you create or join, your role in each team, channels, banned usernames, ban reasons, who issued each ban and when, and the result per channel.</li>
+    </ul>
+    <h2>What the extension stores in your browser</h2>
+    <p>The session token, the selected team and the server address. The extension does not read the pages you visit, collect browsing history or inject content scripts into any site.</p>
+    <h2>How data is used and shared</h2>
+    <p>Data is used solely to provide the service and is visible only to members of the same team. It is never sold, and never shared for advertising or analytics. Ban and unban requests are sent to Kick's official API to carry out the action.</p>
+    <p><strong>Broadcaster authority sharing:</strong> your token is normally used only for actions you start yourself. If you turn on "broadcaster authority sharing" for your own channel in a team, bans issued by that team's moderators are also applied in your channel using your authority. The setting starts on for teams you create and off for teams you join by invite; only you can change it, at any time.</p>
+    <h2>Retention and deletion</h2>
+    <ul>
+      <li>You can delete your account yourself with the "Hesabımı sil" (Delete my account) link at the bottom of the extension. Your sessions, memberships, tokens and any team of which you are the only member are deleted, and the access you granted on Kick is revoked. Bans you issued that appear in other teams' shared lists are kept without your name so those teams' records stay intact.</li>
+      <li>When a team owner deletes a team, all of its records are deleted. You can leave a team at any time.</li>
+      <li>Signing out ends your sessions.</li>
+      <li>If you cannot use the extension, contact us to have your data removed; you can also revoke the app's access from your Kick settings at any time.</li>
+    </ul>
+    <h2>Contact</h2>
+    <p><a href="mailto:destek@helyosfer.me">destek@helyosfer.me</a></p>
+  </div>
+</main>
+</body>
+</html>
