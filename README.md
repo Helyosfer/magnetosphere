@@ -8,7 +8,7 @@
 Bir kullanıcıyı ekibin tüm kanallarında tek işlemle banla.
 
 [![Lisans: GPL-3.0](https://img.shields.io/badge/lisans-GPL--3.0-5eead4?style=flat-square)](LICENSE)
-![Sürüm 0.3.1](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.3.1-38bdf8?style=flat-square)
+![Sürüm 0.4.0](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.4.0-38bdf8?style=flat-square)
 ![Chrome extension: Manifest V3](https://img.shields.io/badge/chrome-Manifest%20V3-5eead4?style=flat-square)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-38bdf8?style=flat-square)
 
@@ -20,9 +20,11 @@ Bir kullanıcıyı ekibin tüm kanallarında tek işlemle banla.
 [Güvenlik](#güvenlik) ·
 [Yol haritası](#yol-haritası)
 
+**[Chrome Web Store'dan kur](https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh)**
+
 <br>
 
-<img src="docs/ekran-goruntusu.png" alt="Magnetosphere paneli: Banla ve Ekip sekmeleri" width="820">
+<img src="docs/ekran-goruntusu.png" alt="Magnetosphere paneli: Banla ve Liste sekmeleri" width="820">
 
 </div>
 
@@ -135,7 +137,7 @@ Sunucu `http://localhost:8787` adresinde dinler. Eksik bir güvenlik ayarı vars
 
 1. Chrome'da `chrome://extensions` sayfasını aç ve **Geliştirici modu**'nu etkinleştir.
 2. **Paketlenmemiş öğe yükle** ile `extension` klasörünü seç.
-3. Magnetosphere simgesine tıkla, "Sunucu ayarı"na kendi sunucunun adresini yaz
+3. Magnetosphere simgesine tıkla, "Gelişmiş: kendi sunucunu kullan"a kendi sunucunun adresini yaz
    (yerel deneme için `http://localhost:8787`) ve **Kick ile giriş yap**'a bas.
 
 Extension Chromium tabanlı tarayıcılarda (Chrome, Edge, Brave) çalışır; Firefox desteklenmez.
@@ -147,6 +149,8 @@ Elle yüklenen extension'ın kimliği `manifest.json` içindeki anahtarla sabitl
 (`flmfmniipeobbaoahmbdkjnblbegalob`); her bilgisayarda aynı çıkar. Sunucu yalnızca
 `ALLOWED_EXTENSION_IDS` listesindeki kimlikleri kabul eder. Extension'ı Chrome Web Store'da yayınlarsan
 mağaza `key` alanını kabul etmez ve kendi kimliğini atar; o kimliği de listeye eklemen gerekir.
+Mağazaya yüklenecek zip'i `python tools/paketle.py` üretir (`key` alanını çıkarır); mağaza metni ve
+görselleri `store/` klasöründedir.
 
 ### Sunucuyu internete açmak
 
@@ -282,7 +286,7 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Sunucunun internette HTTPS arkasında, servis olarak çalışması ve veritabanı yedeği
 - [x] Ekip silme
 - [x] Açık sunucu için sıkılaştırma: ekip oluşturma izni, ekipler arası adil sıra, giriş sınırı
-- [ ] Chrome Web Store yayını (inceleme aşamasında)
+- [x] [Chrome Web Store yayını](https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh)
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 - [ ] Ekip içinde roller (yalnızca yetkili üyeler ban kaldırabilsin)
 

@@ -8,3 +8,6 @@
 
 __pycache__/
 *.pyc
+
+# Mağaza paketi (tools/paketle.py üretir)
+dist/
