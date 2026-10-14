@@ -32,8 +32,8 @@ NASIL BAŞLANIR
 
 GÜVENLİK VE GİZLİLİK
 • Giriş Kick'in kendi sayfasında yapılır; uzantı Kick şifreni görmez.
-• Banlar Kick'in resmi API'si üzerinden, senin moderatör yetkinle atılır. Moderatörü olmadığın kanalda banın tutmaz.
-• Yayıncıysan, ekibin senin yetkinle ban atıp atamayacağına yalnızca sen karar verirsin; varsayılan kapalıdır.
+• Banlar Kick'in resmi API'si üzerinden, senin moderatör yetkinle atılır. Moderatörü olmadığın kanalda banın, ancak o kanalın yayıncısı ekibinde yetkisini paylaşıyorsa tutar.
+• Yayıncıysan, ekibin senin yetkinle ban atıp atamayacağına yalnızca sen karar verirsin; davetle katıldığın ekiplerde kapalı başlar.
 • Hesabını ve verilerini istediğin an panelden silebilirsin.
 • Uzantı hiçbir siteye içerik betiği eklemez, gezinme geçmişini okumaz.
 • Açık kaynaklıdır (GPL-3.0): https://github.com/Helyosfer/magnetosphere
