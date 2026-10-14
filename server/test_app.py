@@ -1,4 +1,5 @@
 """Sahte bir Kick API'sine karşı uçtan uca testler: python -m unittest test_app"""
+import http.client
 import json
 import os
 import sqlite3
@@ -381,6 +382,70 @@ class CrossBanTest(unittest.TestCase):
                          [(1, "mod", 1), (2, "mod", 1)])
         self.assertEqual(db.execute("SELECT join_role FROM teams").fetchone(), ("mod",))
         db.close()
+
+    def test_hardening(self):
+        """Güvenlik QA'sında bulunan sorunların regresyon testleri."""
+        user = self.login(1)
+        host, port = urllib.parse.urlsplit(self.base).netloc.split(":")
+
+        def raw(method, path, headers, body=b""):
+            conn = http.client.HTTPConnection(host, int(port), timeout=10)
+            conn.putrequest(method, path)
+            for key, value in headers.items():
+                conn.putheader(key, value)
+            conn.endheaders(body)
+            res = conn.getresponse()
+            res.read()
+            conn.close()
+            return res.status
+
+        # Yönlendirme adresinde satır sonu ya da boşluk olamaz (yanıt başlığına sızmasın).
+        for bad in (REDIRECT + "%0D%0AX-Test:%201", REDIRECT + "a%0Db", REDIRECT + "a%20b"):
+            self.assertEqual(call(self.base, "GET", "/auth/login?redirect=" + bad)[0], 400, bad)
+        self.assertEqual(call(self.base, "GET", "/auth/login?redirect=" + urllib.parse.quote(REDIRECT + "cb"))[0], 302)
+
+        # Bozuk Content-Length beklemeye yol açmaz, hemen reddedilir.
+        auth = {"Authorization": f"Bearer {user}"}
+        self.assertEqual(raw("POST", "/teams", {**auth, "Content-Length": "-1"}), 400)
+        self.assertEqual(raw("POST", "/teams", {**auth, "Content-Length": "abc"}), 400)
+
+        # Çok derin iç içe JSON ve yanlış türler bağlantıyı koparmaz, 400 döner.
+        deep = b"[" * 50_000 + b"]" * 50_000
+        self.assertEqual(raw("POST", "/teams", {**auth, "Content-Length": str(len(deep))}, deep), 400)
+        _, team, _ = call(self.base, "POST", "/teams", user, {"name": "Sertleştirme"})
+        tid = team["id"]
+        for slug in ({"a": 1}, ["yayinci-b"], 5, None):
+            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": slug})[0], 400, slug)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", user,
+                              {"username": "trol", "duration": True})[0], 400)
+        # SQLite'a sığmayan kimlik 404 olur, sunucu hatası değil.
+        self.assertEqual(call(self.base, "GET", "/teams/" + "9" * 30, user)[0], 404)
+
+        # Beklenmeyen hata istemciye ayrıntı sızdırmadan 500 olarak döner.
+        app.ROUTES.insert(0, ("GET", r"/patla", lambda req: 1 / 0, False))
+        try:
+            status, res, _ = call(self.base, "GET", "/patla")
+            self.assertEqual((status, "ZeroDivision" in json.dumps(res)), (500, False))
+        finally:
+            app.ROUTES.pop(0)
+
+        # İzleyici olarak katılan biri ekip üyeliğiyle bandan korunmaz; moderatör korunur.
+        code = call(self.base, "GET", f"/teams/{tid}", user)[1]["invite_code"]
+        call(self.base, "POST", f"/teams/{tid}/settings", user, {"join_role": "viewer"})
+        call(self.base, "POST", "/teams/join", self.login(99), {"invite_code": code})
+        MODS[1].add(1)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", user, {"username": "trol"})[0], 200)
+        call(self.base, "POST", f"/teams/{tid}/members/99/role", user, {"role": "mod"})
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", user, {"username": "trol"})[0], 400)
+
+        # Bir kullanıcının aynı anda Kick'e giden işlemleri sınırlıdır.
+        app.MAX_KICK_CALLS_PER_USER = 0
+        try:
+            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", user, {"username": "mod-ali"})[0], 429)
+        finally:
+            app.MAX_KICK_CALLS_PER_USER = 2
+        self.assertEqual(app.KICK_CALLS, {})
+        call(self.base, "DELETE", f"/teams/{tid}", user)
 
     def test_limits(self):
         user = self.login(3)

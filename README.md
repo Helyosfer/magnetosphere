@@ -60,7 +60,7 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını ekler. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici; davetle katılanların hangi rolle başlayacağı seçilebilir. |
 | **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalında yetkisini ekibe açar; kararı yalnızca kendisi verir. |
-| **Koruma** | Ekip üyeleri ve ekipteki yayıncılar banlanamaz. |
+| **Koruma** | Ban yetkisi olan ekip üyeleri ve ekipteki yayıncılar yanlışlıkla banlanamaz. |
 | **Hesap ve ekip yönetimi** | Ekipten ayrılma, sahipliği devretme, ekibi silme ve hesabı panelden silme. |
 
 ## Başlarken
@@ -287,7 +287,10 @@ yeterlidir.
 - **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
   Bir hesap dakikada en fazla 300 istek atabilir, en fazla 10 ekip kurabilir ve 50 ekibe üye olabilir;
-  bir ekipte en fazla 50 kanal ve 200 üye olur.
+  bir ekipte en fazla 50 kanal ve 200 üye olur. Bir hesabın aynı anda Kick'e giden en fazla iki işlemi
+  olabilir; böylece tek bir hesap ortak Kick hız sınırını doldurup diğerlerini bekletemez.
+- **Sağlam istek işleme.** Bozuk ya da yarım gönderilen istekler bağlantıyı askıda tutmaz (30 saniye
+  zaman aşımı); beklenmeyen hatalar istemciye ayrıntı sızdırmadan 500 olarak döner.
 - **Adil sıra.** Sıra ekipler arasında dönüşümlü işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
 
 ### Sunucuyu işleten kişinin sorumlulukları

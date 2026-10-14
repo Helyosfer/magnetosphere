@@ -12,6 +12,7 @@ import secrets
 import sqlite3
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -61,7 +62,8 @@ CFG = {
 
 VERSION = "0.5.0"
 SCOPES = "user:read channel:read moderation:ban"
-REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/.*")
+# Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
+REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
 MAX_IMPORT = 5000
 MAX_BODY_BYTES = 1_000_000
 MAX_QUEUE_PER_TEAM = 20_000   # bir ekibin sırada bekleyebilecek en fazla kaydı
@@ -75,6 +77,7 @@ MAX_TEAMS_OWNED = 10          # bir kullanıcının sahibi olabileceği ekip say
 MAX_TEAMS_JOINED = 50         # bir kullanıcının üyesi olabileceği ekip sayısı
 MAX_CHANNELS_PER_TEAM = 50    # her ban, kanal sayısı kadar Kick isteğine dönüşür
 MAX_MEMBERS_PER_TEAM = 200
+MAX_KICK_CALLS_PER_USER = 2   # bir kullanıcının aynı anda Kick'e giden ban/kaldırma/kanal işlemi
 REQUEST_LIMIT = 300           # bir kullanıcının REQUEST_WINDOW saniyede atabileceği istek sayısı
 REQUEST_WINDOW = 60
 
@@ -389,7 +392,7 @@ def fresh_token(db, user):
 
 def to_slug(value):
     """Kullanıcı adı, @ad, kick.com/ad ya da https://kick.com/ad -> kanal slug'ı."""
-    value = (value or "").strip()
+    value = value.strip() if isinstance(value, str) else ""
     value = re.sub(r"^(https?://)?(www\.)?kick\.com/", "", value, flags=re.I)
     value = value.split("/")[0].split("?")[0].lstrip("@").lower().replace("_", "-")
     if not re.fullmatch(r"[a-z0-9-]{1,25}", value):
@@ -566,6 +569,29 @@ def throttle_user(user_id):
         REQUEST_HITS[user_id] = (start, count + 1)
     if count >= REQUEST_LIMIT:
         raise ApiError(429, "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene")
+
+
+KICK_CALLS = {}                  # kullanıcı -> Kick'e giden, sürmekte olan işlem sayısı
+
+
+@contextlib.contextmanager
+def kick_slot(user_id):
+    """Bir kullanıcının aynı anda yürüttüğü Kick işlemlerini sınırlar.
+
+    Kick isteklerinin hız sınırı tüm kullanıcılar için ortak; 50 kanallı bir ekipte art arda gelen
+    banlar diğer herkesin işlemini bekletebilir.
+    """
+    with LOGIN_LOCK:
+        if KICK_CALLS.get(user_id, 0) >= MAX_KICK_CALLS_PER_USER:
+            raise ApiError(429, "Önceki işlemin bitmesini bekle, sonra tekrar dene")
+        KICK_CALLS[user_id] = KICK_CALLS.get(user_id, 0) + 1
+    try:
+        yield
+    finally:
+        with LOGIN_LOCK:
+            KICK_CALLS[user_id] -= 1
+            if not KICK_CALLS[user_id]:
+                del KICK_CALLS[user_id]
 
 
 def role_of(team, user_id, role):
@@ -887,7 +913,8 @@ def channel_add(req, team_id):
     if req.db.execute("SELECT COUNT(*) FROM channels WHERE team_id = ?",
                       (team["id"],)).fetchone()[0] >= MAX_CHANNELS_PER_TEAM:
         raise ApiError(400, f"Bir ekibe en fazla {MAX_CHANNELS_PER_TEAM} kanal eklenebilir")
-    broadcaster_id, slug = lookup_channel(req.db, req.user, req.body.get("slug"))
+    with kick_slot(req.user["id"]):
+        broadcaster_id, slug = lookup_channel(req.db, req.user, req.body.get("slug"))
     req.db.execute("INSERT OR REPLACE INTO channels (team_id, broadcaster_id, slug) VALUES (?,?,?)",
                    (team["id"], broadcaster_id, slug))
     return {"broadcaster_id": broadcaster_id, "slug": slug}
@@ -922,7 +949,7 @@ def ban_list(req, team_id):
 def parse_ban_options(body):
     reason = str(body.get("reason") or "").strip()[:100]
     duration = body.get("duration")
-    if duration is not None and (not isinstance(duration, int) or not 1 <= duration <= 10080):
+    if duration is not None and (type(duration) is not int or not 1 <= duration <= 10080):
         raise ApiError(400, "Süre 1 ile 10080 dakika arasında olmalı")
     return reason, duration
 
@@ -933,8 +960,11 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
     resolved: (user_id, slug) önceden sorgulandıysa Kick'e yeniden sorulmaz.
     """
     target_id, slug = resolved or lookup_channel(db, actor, username)
+    # Sızan bir davet koduyla izleyici olarak katılan biri kendini bandan korumasın diye
+    # yalnızca ban yetkisi olan üyeler ve ekibin kanallarının yayıncıları korunur.
     protected = db.execute(
-        "SELECT 1 FROM members WHERE team_id = ? AND user_id = ? UNION "
+        "SELECT 1 FROM members m JOIN teams t ON t.id = m.team_id WHERE m.team_id = ? AND m.user_id = ? "
+        "AND (m.role IN ('mod', 'admin', 'owner') OR t.owner_id = m.user_id) UNION "
         "SELECT 1 FROM channels WHERE team_id = ? AND broadcaster_id = ?",
         (team["id"], target_id, team["id"], target_id)).fetchone()
     if protected:
@@ -957,7 +987,8 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
 def ban_create(req, team_id):
     team = team_for(req, team_id, need="mod")
     reason, duration = parse_ban_options(req.body)
-    ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
+    with kick_slot(req.user["id"]):
+        ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
     return ban_json(req.db, ban)
 
 
@@ -967,7 +998,8 @@ def ban_retry(req, team_id, ban_id):
     ban = ban_for(req, team, ban_id)
     if ban["revoked_at"]:
         raise ApiError(400, "Bu ban kaldırılmış")
-    apply_ban(req.db, ban, req.user, only_unfinished=True)
+    with kick_slot(req.user["id"]):
+        apply_ban(req.db, ban, req.user, only_unfinished=True)
     return ban_json(req.db, ban)
 
 
@@ -976,7 +1008,8 @@ def ban_revoke(req, team_id, ban_id):
     ban = ban_for(req, team, ban_id)
     if ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
         raise ApiError(403, "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir")
-    apply_ban(req.db, ban, req.user, unban=True)
+    with kick_slot(req.user["id"]):
+        apply_ban(req.db, ban, req.user, unban=True)
     req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?",
                    (req.user["id"], int(time.time()), ban["id"]))
     return ban_json(req.db, ban_for(req, team, ban_id))
@@ -1164,28 +1197,30 @@ ROUTES = [
     ("DELETE", r"/me", account_delete, True),
     ("POST", r"/teams", team_create, True),
     ("POST", r"/teams/join", team_join, True),
-    ("POST", r"/teams/(\d+)/invite", invite_rotate, True),
-    ("POST", r"/teams/(\d+)/settings", team_update, True),
-    ("POST", r"/teams/(\d+)/leave", team_leave, True),
-    ("POST", r"/teams/(\d+)/lend", member_lend, True),
-    ("POST", r"/teams/(\d+)/members/(\d+)/role", member_role, True),
-    ("GET", r"/teams/(\d+)", team_get, True),
-    ("DELETE", r"/teams/(\d+)", team_delete, True),
-    ("DELETE", r"/teams/(\d+)/members/(\d+)", member_remove, True),
-    ("POST", r"/teams/(\d+)/channels", channel_add, True),
-    ("DELETE", r"/teams/(\d+)/channels/(\d+)", channel_remove, True),
-    ("GET", r"/teams/(\d+)/bans", ban_list, True),
-    ("POST", r"/teams/(\d+)/bans", ban_create, True),
-    ("POST", r"/teams/(\d+)/bans/(\d+)/retry", ban_retry, True),
-    ("DELETE", r"/teams/(\d+)/bans/(\d+)", ban_revoke, True),
-    ("GET", r"/teams/(\d+)/imports", import_status, True),
-    ("POST", r"/teams/(\d+)/imports", import_create, True),
-    ("DELETE", r"/teams/(\d+)/imports/(pending|finished)", import_clear, True),
+    ("POST", r"/teams/(\d{1,18})/invite", invite_rotate, True),
+    ("POST", r"/teams/(\d{1,18})/settings", team_update, True),
+    ("POST", r"/teams/(\d{1,18})/leave", team_leave, True),
+    ("POST", r"/teams/(\d{1,18})/lend", member_lend, True),
+    ("POST", r"/teams/(\d{1,18})/members/(\d{1,18})/role", member_role, True),
+    ("GET", r"/teams/(\d{1,18})", team_get, True),
+    ("DELETE", r"/teams/(\d{1,18})", team_delete, True),
+    ("DELETE", r"/teams/(\d{1,18})/members/(\d{1,18})", member_remove, True),
+    ("POST", r"/teams/(\d{1,18})/channels", channel_add, True),
+    ("DELETE", r"/teams/(\d{1,18})/channels/(\d{1,18})", channel_remove, True),
+    ("GET", r"/teams/(\d{1,18})/bans", ban_list, True),
+    ("POST", r"/teams/(\d{1,18})/bans", ban_create, True),
+    ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
+    ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),
+    ("GET", r"/teams/(\d{1,18})/imports", import_status, True),
+    ("POST", r"/teams/(\d{1,18})/imports", import_create, True),
+    ("DELETE", r"/teams/(\d{1,18})/imports/(pending|finished)", import_clear, True),
 ]
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "KickCrossban/0.1"
+    # Gövdesini yavaş yollayan ya da hiç yollamayan bağlantı bir iş parçacığını süresiz tutmasın.
+    timeout = 30
 
     def log_message(self, fmt, *args):
         # Sorgu dizgesinde OAuth kodu taşındığı için yalnızca yolu yaz.
@@ -1230,13 +1265,16 @@ class Handler(BaseHTTPRequestHandler):
                 if method != self.command or not match:
                     continue
                 body = {}
-                length = int(self.headers.get("Content-Length") or 0)
+                raw_length = self.headers.get("Content-Length") or "0"
+                if not raw_length.isdigit():
+                    raise ApiError(400, "Geçersiz istek")
+                length = int(raw_length)
                 if length > MAX_BODY_BYTES:
                     raise ApiError(413, "İstek çok büyük")
                 if length:
                     try:
                         body = json.loads(self.rfile.read(length))
-                    except ValueError:
+                    except (ValueError, RecursionError):
                         raise ApiError(400, "Geçersiz JSON")
                     if not isinstance(body, dict):
                         raise ApiError(400, "Geçersiz JSON")
@@ -1262,6 +1300,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(302, location=r.url)
         except ApiError as e:
             self.send_json(e.status, {"error": e.message})
+        except Exception:
+            # Ayrıntı yalnızca sunucu günlüğüne; istemci bağlantı kopması yerine sade bir yanıt alır.
+            print(f"{self.command} {self.path.split('?')[0]} beklenmeyen hata:\n{traceback.format_exc()}")
+            self.send_json(500, {"error": "Sunucuda beklenmeyen bir hata oluştu"})
         finally:
             db.close()
 
