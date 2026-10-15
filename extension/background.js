@@ -1,5 +1,10 @@
+importScripts("server-url.js");
+
 // Giriş akışı burada çalışır: Kick penceresi açılınca popup kapanır, service worker açık kalır.
 async function login(server) {
+  // Panel de denetler; burada tekrar bakılır ki başka yoldan gelen mesaj token'ı şifresiz adrese taşımasın.
+  const problem = serverUrlProblem(server);
+  if (problem) throw Object.assign(new Error(problem), { friendly: true });
   const redirect = chrome.identity.getRedirectURL();
   const url = `${server}/auth/login?redirect=${encodeURIComponent(redirect)}`;
   const finalUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true });

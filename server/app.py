@@ -250,6 +250,14 @@ class ApiError(Exception):
         self.message = message
 
 
+def text_field(body, key, label, default=""):
+    """Gövdedeki metin alanı. null, liste, sayı gibi değerler str() ile "None", "[]" olmasın diye 400 döner."""
+    value = body.get(key, default)
+    if not isinstance(value, str):
+        raise ApiError(400, f"{label} metin olmalı")
+    return value.strip()
+
+
 class Redirect(Exception):
     def __init__(self, url):
         super().__init__(url)
@@ -747,7 +755,7 @@ def account_delete(req):
 
 
 def team_create(req):
-    name = str(req.body.get("name", "")).strip()[:60]
+    name = text_field(req.body, "name", "Ekip adı")[:60]
     if not name:
         raise ApiError(400, "Ekip adı gerekli")
     if CFG["team_creators"] and req.user["id"] not in CFG["team_creators"]:
@@ -782,7 +790,7 @@ def team_update(req, team_id):
     """Ekip ayarları: ad ve davet koduyla katılanların başlangıç rolü."""
     team = team_for(req, team_id, need="owner")
     if "name" in req.body:
-        name = str(req.body["name"]).strip()[:60]
+        name = text_field(req.body, "name", "Ekip adı")[:60]
         if not name:
             raise ApiError(400, "Ekip adı gerekli")
         req.db.execute("UPDATE teams SET name = ? WHERE id = ?", (name, team["id"]))
@@ -795,7 +803,7 @@ def team_update(req, team_id):
 
 def team_join(req):
     team = req.db.execute("SELECT * FROM teams WHERE invite_code = ?",
-                          (str(req.body.get("invite_code", "")).strip(),)).fetchone()
+                          (text_field(req.body, "invite_code", "Davet kodu"),)).fetchone()
     if not team:
         raise ApiError(404, "Davet kodu geçersiz")
     count = lambda where, arg: req.db.execute(f"SELECT COUNT(*) FROM members WHERE {where}", (arg,)).fetchone()[0]
@@ -947,7 +955,8 @@ def ban_list(req, team_id):
 
 
 def parse_ban_options(body):
-    reason = str(body.get("reason") or "").strip()[:100]
+    # Sebep isteğe bağlı: hiç gönderilmemesi ya da null olması boş sebep demektir.
+    reason = "" if body.get("reason") is None else text_field(body, "reason", "Ban sebebi")[:100]
     duration = body.get("duration")
     if duration is not None and (type(duration) is not int or not 1 <= duration <= 10080):
         raise ApiError(400, "Süre 1 ile 10080 dakika arasında olmalı")
@@ -1033,7 +1042,10 @@ def import_create(req, team_id):
         raise ApiError(400, "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene")
     now, added = int(time.time()), 0
     for name in usernames:
-        name = str(name).strip().lstrip("@")[:60]
+        # Metin olmayan öğe atlanır; str() ile null "None" adlı bir Kick kullanıcısına dönüşüp banlanmasın.
+        if not isinstance(name, str):
+            continue
+        name = name.strip().lstrip("@")[:60]
         if not name or name.lower() in waiting or added == room:
             continue
         waiting.add(name.lower())

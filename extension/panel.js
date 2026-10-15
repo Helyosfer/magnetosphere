@@ -56,6 +56,9 @@ function showMessage(text, kind = "error") {
 $("message-close").onclick = () => showMessage("");
 
 async function api(method, path, body) {
+  // Token taşıyan her istek buradan geçer; şifresiz uzak sunucuya hiçbir koşulda gitmez.
+  const problem = serverUrlProblem(state.server);
+  if (problem) throw new Error(problem);
   let res;
   try {
     res = await fetch(state.server + path, {
@@ -555,6 +558,8 @@ addEventListener("scroll", () => document.body.classList.toggle("scrolled", scro
 
 $("login").onclick = () => run($("login"), async () => {
   const server = ($("server").value.trim() || DEFAULT_SERVER).replace(/\/+$/, "");
+  const problem = serverUrlProblem(server);
+  if (problem) throw new Error(problem);
   state.server = server;
   await chrome.storage.local.set({ server });
   // Kick penceresi açılınca bu popup kapanabilir; oturum arka planda kaydedilir.
@@ -815,7 +820,14 @@ chrome.storage.onChanged.addListener((changes) => {
   state.server = stored.server || DEFAULT_SERVER;
   state.token = stored.token || null;
   state.teamId = stored.teamId || null;
+  // Eski sürümlerin kaydettiği şifresiz adresle oturum açılmaz; kullanıcı adresi düzeltip yeniden giriş yapar.
+  const serverProblem = serverUrlProblem(state.server);
+  if (serverProblem) state.token = null;
   // Sağ tık menüsünden açıldıysa kullanıcı adı hazır gelir.
   $("username").value = new URLSearchParams(location.search).get("user") || "";
   await render();
+  if (serverProblem) {
+    $("server").closest("details").open = true;
+    showMessage(`Kayıtlı sunucu adresi kullanılamıyor: ${serverProblem}`);
+  }
 })();
