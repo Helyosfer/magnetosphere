@@ -210,8 +210,10 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
    }
    ```
 
-   Giriş sınırı gerçek istemci adresini `X-Forwarded-For` başlığının son değerinden okur; vekilin bu
-   başlığı eklediğinden emin ol (Caddy ve nginx varsayılan ayarla ekler).
+   Giriş sınırı gerçek istemci adresini `X-Forwarded-For` başlığının son değerinden okur. Caddy bu
+   başlığı varsayılan ayarla doğru yazar. nginx yazmaz ve istemcinin gönderdiği başlığı olduğu gibi
+   iletir; nginx kullanıyorsan `proxy_set_header X-Forwarded-For $remote_addr;` satırını ekle. Başlık
+   hiç gelmezse bütün istemciler tek bir adres sayılır ve giriş sınırı herkes için ortak olur.
 3. **Servis.** Sunucuyu yetkisiz bir sistem kullanıcısıyla, systemd servisi olarak çalıştır:
 
    ```ini
@@ -272,6 +274,11 @@ yeterlidir.
   başlatabilir ne de tarayıcıdan API'yi çağırabilir (CORS yalnızca izinli kimliğe açılır).
 - **Giriş akışı.** OAuth, PKCE ve tek kullanımlık `state` ile yapılır; oturum yalnızca Chrome'un uzantıya
   özel yönlendirme adresine teslim edilir.
+- **Oturum yalnızca şifreli bağlantıyla gider.** Uzantı, `localhost`, `127.0.0.1` ve `[::1]` dışındaki
+  `http://` adreslere oturum anahtarı göndermez: girişi başlatmaz, kayıtlı adres şifresizse oturumu
+  kullanmaz ve uyarı gösterir.
+- **Metin alanları denetlenir.** Ekip adı, davet kodu ve ban sebebi metin değilse istek reddedilir;
+  `null` ya da liste gibi değerler metne çevrilip kaydedilmez.
 - **Ekipler birbirinden yalıtılmıştır.** Bir ekibin kanallarını, üyelerini ve listesini yalnızca o
   ekibin üyeleri görür.
 - **Roller sunucuda denetlenir.** Her işlem sunucuda rol kontrolünden geçer; panelin düğmeyi gizlemesine
@@ -306,6 +313,43 @@ yeterlidir.
 - Davet koduyla katılan kişi varsayılan olarak moderatör olur ve ekibin kanallarında ban atabilir; kodu
   yalnızca güvendiğin kişilerle paylaş ya da katılanları izleyici olarak başlat.
 - İstek sınırı hesap başınadır ve bellekte tutulur; oturumsuz isteklere karşı ters vekilde ayrıca sınır koy.
+- Sahiplik devri ile devralacak üyenin ekipten ayrılması tam aynı anda olursa ekip sahipsiz kalabilir.
+  Hesap silme ile ekibe yeni bir üyenin katılması aynı anda olursa ekip, uyarı verilmeden silinebilir.
+  İkisi de çok dar bir zaman aralığı gerektirir; düzeltilmesi planlanıyor.
+- `TOKEN_ENCRYPTION_KEY` boşsa sunucu yalnızca uyarı basar ve tokenları düz metin saklar. Herkese açık
+  bir sunucuda anahtarı mutlaka tanımla.
+
+### Bağımsız denetim (Ekim 2026)
+
+Sunucu ve uzantı 15 Ekim 2026'da bağımsız olarak denetlendi. Bu depodaki testlerin yanında ayrı bir test
+takımı kullanıldı:
+
+- **Tarayıcıda uçtan uca testler (Playwright).** Panel, sahte Kick'e bağlı gerçek sunucuyla açıldı. Ekip
+  adı, kullanıcı adı ve ban sebebindeki HTML'in çalışmadığı (XSS), sunucu 401 dönünce oturumun kapandığı,
+  şifresiz sunucu adresinin reddedildiği ve erişilebilirlik (axe) denendi.
+- **Saldırgan gözüyle sunucu testleri.**
+  - Üyesi olunmayan ekibin bütün uç noktaları: hepsi 404 döndü.
+  - Başka ekibin ban kaydına kendi ekibinin yolundan dokunma.
+  - Sahte, süresi dolmuş ve çıkış yapılmış oturumlar.
+  - `state`'in ikinci kez kullanılması ve açık yönlendirme denemeleri.
+  - İzinli olmayan uzantı kimliği ve yenilenmiş eski davet kodu.
+  - Yöneticinin kendini sahip yapması.
+  - Hata yanıtlarında iç ayrıntı sızması.
+- **Mutasyon kontrolü.** Şu savunmalar tek tek geçici olarak bozuldu; her birini en az bir test yakaladı:
+  - ekip üyeliği denetimi
+  - `state`'in tek kullanımlığı
+  - yönlendirme adresi denetimi
+  - oturum süresi
+  - sahip yetkisi
+  - panelde metnin HTML olarak yazılmaması
+  - 401 alınınca oturumun silinmesi
+- **Statik analiz.** Bandit'in 6 uyarısı (SQL'de f-string, `urlopen`) satır satır incelendi. Hiçbirinde
+  kullanıcı girdisi SQL metnine ya da istek adresinin şemasına veya sunucusuna ulaşmıyor; değerler
+  parametre olarak gidiyor.
+- **Bulunan ve 0.5.1'de düzeltilenler.** Uzantının şifresiz (`http://`) sunucuya oturum anahtarı
+  gönderebilmesi ve metin olmayan alanların metne çevrilip kaydedilmesi.
+
+Sonuç: test edilen alanlarda başka açık bulunmadı. Bilinen sınırlar yukarıda.
 
 ### Açık bildirimi
 
