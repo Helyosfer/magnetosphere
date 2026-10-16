@@ -391,16 +391,23 @@ function showTab(name) {
   if (name === "list") run(null, loadBans);
 }
 
-async function selectTeam(teamId) {
+// teamRequest: açılışta /me ile birlikte gönderilmiş ekip isteği; varsa yanıtı ikinci kez beklenmez.
+async function selectTeam(teamId, teamRequest) {
   state.teamId = teamId;
   state.listLoaded = false;
   await chrome.storage.local.set({ teamId });
   $("team").value = String(teamId);
   $("team-view").hidden = false;
   $("ban-result").replaceChildren();
-  await loadTeam();
-  await loadBans();
-  await pollQueue();
+  const team = teamRequest && await teamRequest;
+  if (team) {
+    state.team = team;
+    renderTeam();
+  } else {
+    await loadTeam();
+  }
+  // Liste ve sıra paneli bekletmez; ikisi birlikte istenir, liste gelene dek iskeleti görünür.
+  Promise.all([loadBans(), pollQueue()]).catch((e) => showMessage(e.message));
 }
 
 const PROBLEM_LABEL = {
@@ -494,7 +501,7 @@ $("file-input").onchange = () => run($("file-pick"), async () => {
   showMessage(`${files.map((f) => f.name).join(", ")}: ${added} kullanıcı yüklendi.`, "info");
 });
 
-async function loadMe(preferredTeamId) {
+async function loadMe(preferredTeamId, teamRequest) {
   state.me = await api("GET", "/me");
   $("who").textContent = state.me.user.name;
   $("avatar").textContent = state.me.user.name.slice(0, 1).toUpperCase();
@@ -517,7 +524,7 @@ async function loadMe(preferredTeamId) {
     : "Başlamak için ekibinden bir davet kodu iste ve aşağıya yapıştır.";
   if (teams.length) {
     const wanted = teams.find((t) => t.id === preferredTeamId) || teams[0];
-    await selectTeam(wanted.id);
+    await selectTeam(wanted.id, wanted.id === preferredTeamId ? teamRequest : null);
   }
 }
 
@@ -532,8 +539,11 @@ async function render() {
   showMessage("");
   $("app-view").classList.remove("failed");
   $("app-view").classList.add("loading");
+  // Son seçilen ekip /me ile aynı anda istenir; panel iki yanıtı art arda beklemez.
+  // Kullanıcı o ekipten çıkmışsa yanıt boş sayılır ve ekip /me'den sonra yeniden seçilir.
+  const teamRequest = state.teamId ? api("GET", `/teams/${state.teamId}`).catch(() => null) : null;
   try {
-    await loadMe(state.teamId);
+    await loadMe(state.teamId, teamRequest);
   } catch (e) {
     // Oturum düştüyse giriş ekranı zaten açılmıştır; diğer durumda yarım panel yerine tekrar deneme sunulur.
     if (state.token) {
