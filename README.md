@@ -3,7 +3,7 @@
 <img src="store/tanitim-buyuk-1400x560.png" alt="Magnetosphere: Kick mod ekipleri için ortak ban listesi" width="100%">
 
 **Kick moderatörleri ve mod ekipleri için ortak ban listesi.**<br>
-Bir kullanıcıyı moderatörü olduğun tüm kanallarda tek işlemle banla.
+Bir kullanıcıyı moderatörü olduğun tüm kanallarda tek seferde banla.
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kjbbjooackbcfeeoolkfpmdbkomjiflh?label=Chrome%20Web%20Store&style=flat-square&color=5eead4)](https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh)
 [![Lisans: GPL-3.0](https://img.shields.io/badge/lisans-GPL--3.0-38bdf8?style=flat-square)](LICENSE)
@@ -23,17 +23,19 @@ Bir kullanıcıyı moderatörü olduğun tüm kanallarda tek işlemle banla.
 
 <br>
 
-Birden fazla kanalda moderatörlük yapanlar, bir trolü ya da spam botunu her kanalda tek tek banlamak
-zorunda kalır. Magnetosphere bunu tek işleme indirir: kullanıcı adını bir kez girersin (ya da binlercesini
-bir dosyadan yüklersin), listendeki tüm kanallarda banlanır ve kimin, kimi, ne zaman ve neden banladığı
+Birden fazla kanalda moderatörlük yapıyorsan bir trolü ya da spam botunu her kanalda ayrı ayrı banlaman
+gerekir. Magnetosphere bunu tek adıma indirir: kullanıcı adını bir kez yazarsın (ya da binlerce adı bir
+dosyadan yüklersin), ban listendeki bütün kanallara uygulanır. Kimin kimi, ne zaman ve neden banladığı da
 kaydedilir.
 
-**Tek başına** kullanabilirsin: kimseyi davet etmeden moderatörü olduğun kanalları ekler ve banlarsın.
-**Ekip olarak** kullanınca üç şey eklenir: herkes aynı listeyi görür, bir kişinin banı bütün kanalları
-korur ve ekipteki bir yayıncı yetkisini paylaşırsa, o kanalda moderatör olmayan üyelerin banları da
-orada tutar.
+**Tek başına** kullanabilirsin: kimseyi davet etmeden moderatörü olduğun kanalları ekler ve ban atarsın.
+**Ekip olarak** kullanırsan şunlar da gelir:
 
-Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
+- Herkes aynı ban listesini görür.
+- Bir kişinin attığı ban, ekibin bütün kanallarına uygulanır.
+- Ekipteki bir yayıncı yetkisini paylaşırsa, o kanalda moderatör olmayan üyelerin banları da orada geçerli olur.
+
+Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (manyetosfer) alır.
 
 > Magnetosphere bağımsız bir projedir; Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir.
 
@@ -42,26 +44,26 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
 | | |
 |:-:|:-:|
 | <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-2-liste.png" alt="Liste sekmesi: banlar ve her kanaldaki sonuç" width="420"> |
-| **Banla:** adları yaz, sebep ve süre seç; tüm kanallarda tek işlemle. | **Liste:** kim, kimi, neden banladı ve ban hangi kanalda tuttu. |
+| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Liste:** kim kimi neden banladı, ban hangi kanallarda uygulandı. |
 | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> | <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> |
-| **Sıra:** binlerce ad arka planda işlenir; panel kapansa da sürer. | **Ekip:** kanallar, yayıncı yetkisi paylaşımı ve rollerle üyeler. |
+| **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. | **Ekip:** kanallar, yayıncı yetkisi paylaşımı, üyeler ve rolleri. |
 
 ## Özellikler
 
 | | |
 |---|---|
-| **Tek işlemle çoklu kanal banı** | Kalıcı ban ya da 7 güne kadar süreli uzaklaştırma; kanallara aynı anda uygulanır. |
-| **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000'e kadar). CSV'de yalnızca ilk sütun alınır, başlık satırı atlanır. |
+| **Birden çok kanalda tek seferde ban** | Kalıcı ban ya da 10 dakika, 1 saat, 1 gün veya 7 günlük uzaklaştırma; bütün kanallara aynı anda uygulanır. |
+| **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
-| **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır; Kick yavaşlatırsa kayıtlar kaybolmaz, sıraya geri döner. |
-| **Ortak liste** | Her ban için kim attı, ne zaman, neden ve hangi kanalda tuttu bilgisi; ad ya da sebebe göre arama. |
-| **Tekrar dene ve geri al** | Tutmayan kanallara banı yeniden uygular; banı tek tıkla tüm kanallarda kaldırır. |
-| **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, "Ekibin tüm kanallarında banla". |
-| **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını ekler. |
-| **Roller** | Sahip, yönetici, moderatör ve izleyici; davetle katılanların hangi rolle başlayacağı seçilebilir. |
-| **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalında yetkisini ekibe açar; kararı yalnızca kendisi verir. |
-| **Koruma** | Ban yetkisi olan ekip üyeleri ve ekipteki yayıncılar yanlışlıkla banlanamaz. |
-| **Hesap ve ekip yönetimi** | Ekipten ayrılma, sahipliği devretme, ekibi silme ve hesabı panelden silme. |
+| **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
+| **Ortak liste** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. |
+| **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
+| **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. |
+| **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
+| **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
+| **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalındaki ban yetkisini ekibin kullanımına açar; bu kararı yalnızca kendisi verir. |
+| **Yanlış ban koruması** | Ekipte ban yetkisi olan üyeler ve ekipteki yayıncılar banlanamaz. |
+| **Hesap ve ekip yönetimi** | Ekipten ayrılma, sahipliği devretme, ekibi ve hesabı silme; hepsi panelden. |
 
 ## Başlarken
 
@@ -77,10 +79,10 @@ Adını, Dünya'yı güneş rüzgârından koruyan manyetik kalkandan alır.
    bağlantısıyla ekle.
 5. **Banla.** **Banla** sekmesine kullanıcı adlarını yaz ya da **Dosyadan yükle** ile liste seç. 10 addan
    uzun listeler sıraya alınır ve arka planda işlenir.
-6. **Takip et.** **Liste** sekmesi her banın kanal kanal sonucunu gösterir; buradan ban kaldırılır ya da
-   tutmayan kanallar için yeniden denenir.
+6. **Takip et.** **Liste** sekmesi her banın kanal kanal sonucunu gösterir. Banı buradan kaldırabilir ya da
+   uygulanamadığı kanallarda yeniden deneyebilirsin.
 
-İstersen ekip ol: **Ekip** sekmesindeki davet kodunu paylaş; katılanlar aynı kanal listesini ve ban
+Ekip kurmak istersen **Ekip** sekmesindeki davet kodunu paylaş; katılanlar aynı kanal listesini ve ban
 listesini kullanır.
 
 <br clear="right">
