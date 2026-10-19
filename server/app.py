@@ -60,7 +60,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.5.3"
+VERSION = "0.6.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -144,7 +144,8 @@ CREATE TABLE IF NOT EXISTS bans (
     created_by INTEGER NOT NULL REFERENCES users(id),
     created_at INTEGER NOT NULL,
     revoked_by INTEGER REFERENCES users(id),
-    revoked_at INTEGER
+    revoked_at INTEGER,
+    external INTEGER NOT NULL DEFAULT 0   -- 1: ban Kick'te Magnetosphere dışında atılmıştı, kayıt kaldırılırken açıldı
 );
 CREATE TABLE IF NOT EXISTS ban_results (
     ban_id INTEGER NOT NULL REFERENCES bans(id),
@@ -195,6 +196,8 @@ def init_db():
         db.execute("UPDATE members SET lend = 1")
     if "join_role" not in [c["name"] for c in db.execute("PRAGMA table_info(teams)")]:
         db.execute("ALTER TABLE teams ADD COLUMN join_role TEXT NOT NULL DEFAULT 'mod'")
+    if "external" not in [c["name"] for c in db.execute("PRAGMA table_info(bans)")]:
+        db.execute("ALTER TABLE bans ADD COLUMN external INTEGER NOT NULL DEFAULT 0")
     # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
     if fernet():
         for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
@@ -478,7 +481,8 @@ def call_channel(candidates, body, unban):
     return False, detail, via
 
 
-def apply_ban(db, ban, actor, unban=False, only_unfinished=False):
+def apply_ban(db, ban, actor, unban=False, only_unfinished=False, everywhere=False):
+    """everywhere: ban kaldırılırken kayıtta tutmamış kanallar da denenir (ban Kick'te elle atılmış olabilir)."""
     channels = db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
                           (ban["team_id"],)).fetchall()
     done = {r["broadcaster_id"]: r["status"] for r in db.execute(
@@ -486,7 +490,7 @@ def apply_ban(db, ban, actor, unban=False, only_unfinished=False):
     jobs = []
     for channel in channels:
         current = done.get(channel["broadcaster_id"])
-        if unban and current not in ("ok", "unban_failed"):
+        if unban and not everywhere and current not in ("ok", "unban_failed"):
             continue
         if only_unfinished and current == "ok":
             continue
@@ -528,6 +532,7 @@ def ban_json(db, ban):
         "created_by_id": ban["created_by"],
         "created_at": ban["created_at"],
         "revoked_at": ban["revoked_at"],
+        "external": bool(ban["external"]),
         "results": [{
             "slug": c["slug"],
             "status": results[c["broadcaster_id"]]["status"] if c["broadcaster_id"] in results else "pending",
@@ -1024,6 +1029,36 @@ def ban_revoke(req, team_id, ban_id):
     return ban_json(req.db, ban_for(req, team, ban_id))
 
 
+def unban_create(req, team_id):
+    """Kullanıcı adıyla banı ekibin bütün kanallarında kaldırır.
+
+    Resmi API kanaldaki banları listelemediği için ban listede olmayabilir (Magnetosphere'den önce ya da
+    Kick'te elle atılmış); o durumda kaldırma işlemi listeye "dışarıda atılmış" bir kayıt olarak girer.
+    """
+    team = team_for(req, team_id, need="mod")
+    if not req.db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
+        raise ApiError(400, "Önce ekibe en az bir kanal ekle")
+    with kick_slot(req.user["id"]):
+        target_id, slug = lookup_channel(req.db, req.user, req.body.get("username"))
+        now = int(time.time())
+        ban = req.db.execute(
+            "SELECT b.*, u.name AS creator FROM bans b LEFT JOIN users u ON u.id = b.created_by "
+            "WHERE b.team_id = ? AND b.target_id = ? AND b.revoked_at IS NULL", (team["id"], target_id)).fetchone()
+        if ban and ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
+            raise ApiError(403, f"{slug} listede {ban['creator'] or 'başka bir üye'} tarafından banlanmış; "
+                                "başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir")
+        if not ban:
+            # Kayıt baştan kaldırılmış açılır; Kick isteği yarıda kalsa da listede aktif ban gibi görünmez.
+            cur = req.db.execute(
+                "INSERT INTO bans (team_id, target_id, target_name, reason, created_by, created_at, "
+                "revoked_by, revoked_at, external) VALUES (?,?,?,?,?,?,?,?,1)",
+                (team["id"], target_id, slug, "", req.user["id"], now, req.user["id"], now))
+            ban = req.db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
+        apply_ban(req.db, ban, req.user, unban=True, everywhere=True)
+    req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?", (req.user["id"], now, ban["id"]))
+    return ban_json(req.db, ban_for(req, team, ban["id"]))
+
+
 def import_create(req, team_id):
     """Uzun listeleri sıraya alır; banları arka plandaki işçi atar."""
     team = team_for(req, team_id, need="mod")
@@ -1223,6 +1258,7 @@ ROUTES = [
     ("POST", r"/teams/(\d{1,18})/bans", ban_create, True),
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),
+    ("POST", r"/teams/(\d{1,18})/unbans", unban_create, True),
     ("GET", r"/teams/(\d{1,18})/imports", import_status, True),
     ("POST", r"/teams/(\d{1,18})/imports", import_create, True),
     ("DELETE", r"/teams/(\d{1,18})/imports/(pending|finished)", import_clear, True),

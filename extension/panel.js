@@ -175,12 +175,14 @@ function banCard(ban) {
     ? el("span", { className: "tag off", textContent: "Kaldırıldı" })
     : el("span", { className: `tag ${ban.duration ? "timed" : "perm"}`, textContent: formatDuration(ban.duration) });
 
+  // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
+  const reason = ban.external ? "Ban Kick'te Magnetosphere dışında atılmıştı" : ban.reason || "Sebep belirtilmedi";
   const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
-    el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: ban.reason || "Sebep belirtilmedi" }),
+    el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: reason }),
     el("div", { className: "meta" },
       el("span", { className: "avatar mini", textContent: ban.created_by.slice(0, 1).toUpperCase() }),
-      el("span", { className: "who", textContent: ban.created_by }),
+      el("span", { className: "who", textContent: ban.external ? `${ban.created_by} kaldırdı` : ban.created_by }),
       "·",
       timeEl(ban.created_at))
   );
@@ -282,7 +284,7 @@ function renderTeam() {
   } else {
     $("targets").textContent = "Ekipte henüz kanal yok. Kanalları ekip sahibi ve yöneticiler ekleyebilir.";
   }
-  $("ban-submit").textContent = slugs.length > 1 ? `${slugs.length} kanalda banla` : "Banla";
+  syncMode();
   $("ban-submit").disabled = !slugs.length;
 
   $("channel-add").hidden = !admin;
@@ -747,6 +749,64 @@ for (const preset of $("reason-presets").children) {
 $("reason").oninput = syncPresets;
 syncPresets();
 
+const unbanMode = () => $("tab-ban").elements.mode.value === "unban";
+
+// Ban kaldırmada sebep ve süre yoktur; düğme yapılacak işi söyler.
+function syncMode() {
+  const unban = unbanMode();
+  const count = state.team ? state.team.channels.length : 0;
+  $("reason-field").hidden = unban;
+  $("duration-field").hidden = unban;
+  $("unban-hint").hidden = !unban;
+  $("ban-submit").className = unban ? "primary wide" : "danger wide";
+  $("ban-submit").textContent = unban
+    ? (count > 1 ? `${count} kanalda banı kaldır` : "Banı kaldır")
+    : (count > 1 ? `${count} kanalda banla` : "Banla");
+}
+
+for (const radio of $("tab-ban").elements.mode) {
+  radio.onchange = () => {
+    syncMode();
+    $("ban-result").replaceChildren();
+  };
+}
+
+// Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
+function submitUnban(form, button, usernames, count) {
+  if (usernames.length > QUEUE_THRESHOLD) {
+    showMessage(`Ban kaldırmada tek seferde en fazla ${QUEUE_THRESHOLD} kullanıcı girilebilir (${usernames.length} girildi).`);
+    return;
+  }
+  const label = button.textContent;
+  run(button, async () => {
+    const who = usernames.length === 1 ? usernames[0] : `${usernames.length} kullanıcı`;
+    if (!(await ask(`${who} için ban ${count} kanalda kaldırılacak. Onaylıyor musun?`))) return;
+    const failed = [];
+    $("ban-result").replaceChildren();
+    try {
+      for (const [index, username] of usernames.entries()) {
+        button.textContent = `${index + 1} / ${usernames.length} kaldırılıyor…`;
+        try {
+          const ban = await api("POST", `/teams/${state.teamId}/unbans`, { username });
+          $("ban-result").prepend(banCard(ban));
+        } catch (e) {
+          if (!state.token) throw e;
+          failed.push(username);
+          $("ban-result").prepend(el("div", { className: "ban error" },
+            el("div", { className: "head" }, el("span", { className: "name", textContent: username })),
+            el("div", { className: "reason", textContent: e.message })));
+        }
+      }
+    } finally {
+      button.textContent = label;
+    }
+    form.username.value = failed.join("\n");
+    updateNameCount();
+    if (failed.length) showMessage(`${failed.length} kullanıcının banı kaldırılamadı; adlar alanda bırakıldı.`);
+    await loadBans();
+  });
+}
+
 $("tab-ban").onsubmit = (event) => {
   event.preventDefault();
   const form = event.target;
@@ -759,6 +819,7 @@ $("tab-ban").onsubmit = (event) => {
     return;
   }
   if (!usernames.length) return;
+  if (unbanMode()) return submitUnban(form, button, usernames, count);
   if (usernames.length > MAX_IMPORT) {
     showMessage(`Tek seferde en fazla ${MAX_IMPORT} kullanıcı gönderilebilir (${usernames.length} girildi).`);
     return;

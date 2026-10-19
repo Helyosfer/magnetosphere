@@ -20,9 +20,10 @@ REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 
 # Sahte Kick: kullanıcı kimliği N için token "tok-N", kanal slug'ı USERS[N].
 USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod-veli",
-         20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol"}
+         20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
+         30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
-MODS = {1: {10}, 2: set(), 3: {22}, 20: set()}
+MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}}
 BANNED = set()               # (broadcaster_id, user_id)
 LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
 REVOKED = set()              # hesap silinince geri alınan tokenlar
@@ -366,6 +367,11 @@ class CrossBanTest(unittest.TestCase):
             "CREATE TABLE teams (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
             "invite_code TEXT NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id));"
             "CREATE TABLE members (team_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (team_id, user_id));"
+            "CREATE TABLE bans (id INTEGER PRIMARY KEY AUTOINCREMENT, team_id INTEGER NOT NULL, "
+            "target_id INTEGER NOT NULL, target_name TEXT NOT NULL, reason TEXT NOT NULL, duration INTEGER, "
+            "created_by INTEGER NOT NULL, created_at INTEGER NOT NULL, revoked_by INTEGER, revoked_at INTEGER);"
+            "INSERT INTO bans (team_id, target_id, target_name, reason, created_by, created_at) "
+            "VALUES (1, 9, 'trol', '', 1, 0);"
             "INSERT INTO users VALUES (1, 'a', 'x', 'y', 0), (2, 'b', 'x', 'y', 0);"
             "INSERT INTO teams VALUES (1, 'Eski', 'kod', 1);"
             "INSERT INTO members VALUES (1, 1), (1, 2);")
@@ -381,7 +387,52 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(db.execute("SELECT user_id, role, lend FROM members ORDER BY user_id").fetchall(),
                          [(1, "mod", 1), (2, "mod", 1)])
         self.assertEqual(db.execute("SELECT join_role FROM teams").fetchone(), ("mod",))
+        self.assertEqual(db.execute("SELECT external FROM bans").fetchone(), (0,))
         db.close()
+
+    def test_unban_by_name(self):
+        sahip, mod, izleyici = (self.login(i) for i in (30, 31, 32))
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Kaldırma"})
+        tid = team["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        for token in (mod, izleyici):
+            call(self.base, "POST", "/teams/join", token, {"invite_code": code})
+        call(self.base, "POST", f"/teams/{tid}/members/32/role", sahip, {"role": "viewer"})
+        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-b"})
+        unban = lambda token, name: call(self.base, "POST", f"/teams/{tid}/unbans", token, {"username": name})
+
+        # Magnetosphere'den önce Kick'te elle atılmış ban: listede yok ama adıyla kaldırılır.
+        BANNED.add((30, 98))
+        self.assertEqual(unban(izleyici, "eski-trol")[0], 403)
+        self.assertEqual(unban(mod, "yok-boyle-biri")[0], 404)
+        self.assertEqual(unban(mod, "geçersiz ad!")[0], 400)
+        status, ban, _ = unban(mod, "eski-trol")
+        self.assertEqual(status, 200)
+        self.assertNotIn((30, 98), BANNED)
+        self.assertEqual((ban["external"], ban["created_by_id"], bool(ban["revoked_at"])), (True, 31, True))
+        # Moderatörün yetkisi olmayan kanal kayıtta "kaldırılamadı" olarak görünür.
+        self.assertEqual({r["slug"]: r["status"] for r in ban["results"]},
+                         {"sahip-u": "unbanned", "yayinci-b": "unban_failed"})
+        # Kaldırma, aktif ban sayılmaz; kaldırılanlar arasında görünür.
+        _, listing, _ = call(self.base, "GET", f"/teams/{tid}/bans", mod)
+        self.assertEqual((listing["bans"], listing["active_total"]), ([], 0))
+        _, listing, _ = call(self.base, "GET", f"/teams/{tid}/bans?revoked=1", mod)
+        self.assertEqual([b["id"] for b in listing["bans"]], [ban["id"]])
+
+        # Listede başkasının attığı ban varsa onun kuralı geçerli: moderatör kaldıramaz, sahip kaldırır.
+        _, listed, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-iki"})
+        self.assertIn((30, 97), BANNED)
+        status, res, _ = unban(mod, "trol-iki")
+        self.assertEqual((status, "sahip-u" in res["error"]), (403, True))
+        status, ban, _ = unban(sahip, "trol-iki")
+        self.assertEqual((status, ban["id"], ban["external"], bool(ban["revoked_at"])), (200, listed["id"], False, True))
+        self.assertNotIn((30, 97), BANNED)
+
+        # Moderatör kendi attığı banı adıyla kaldırabilir; yeniden ban yeni bir kayıt açar.
+        _, again, _ = call(self.base, "POST", f"/teams/{tid}/bans", mod, {"username": "trol-iki"})
+        self.assertNotEqual(again["id"], listed["id"])
+        self.assertEqual(unban(mod, "trol-iki")[1]["id"], again["id"])
+        self.assertNotIn((30, 97), BANNED)
 
     def test_hardening(self):
         """Güvenlik QA'sında bulunan sorunların regresyon testleri."""

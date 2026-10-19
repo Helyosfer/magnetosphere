@@ -58,6 +58,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
 | **Ortak liste** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
+| **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
 | **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. |
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
@@ -94,6 +95,7 @@ listesini kullanır.
 | Ortak listeyi görme | ✓ | ✓ | ✓ | ✓ |
 | Ban atma, tekrar deneme, liste yükleme | | ✓ | ✓ | ✓ |
 | Kendi attığı banı kaldırma | | ✓ | ✓ | ✓ |
+| Listede olmayan (Kick'te elle atılmış) banı adıyla kaldırma | | ✓ | ✓ | ✓ |
 | Başkasının attığı banı kaldırma | | | ✓ | ✓ |
 | Kanal ekleme ve kaldırma | | | ✓ | ✓ |
 | Davet kodunu görme ve yenileme | | | ✓ | ✓ |
@@ -412,6 +414,9 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - Kullanıcı adı, Kick'in kanal adresi kuralıyla aranır (küçük harf, `_` yerine `-`, en fazla 25 karakter).
 - Kendi kanalın dışındaki kanallar elle eklenir; resmi API "moderatörü olduğum kanallar" listesini vermiyor.
 - Süreli banlar süresi dolduktan sonra da listede aktif görünür.
+- Resmi API bir kanaldaki mevcut banları listelemiyor; Magnetosphere'den önce atılmış banlar listede görünmez.
+  Bu banlar **Ban kaldır** ile kullanıcı adı yazılarak kaldırılabilir. Kullanıcı bir kanalda zaten banlı
+  değilse o kanal sonuçta "kaldırılamadı" görünebilir.
 - Hız, Kick'in istek sınırıyla belirlenir: iki kanallı bir ekipte hesap başına yaklaşık bir saniye.
 
 ## Katkı
