@@ -791,6 +791,10 @@ function submitUnban(form, button, usernames, count) {
           $("ban-result").prepend(banCard(ban));
         } catch (e) {
           if (!state.token) throw e;
+          // 0.6.0 öncesi sunucu bu yolu tanımaz; yalın "Bulunamadı" kullanıcıya bir şey söylemez.
+          if (e.message === "Bulunamadı") {
+            throw new Error("Bağlı sunucu adıyla ban kaldırmayı henüz desteklemiyor; sunucunun 0.6.0'a güncellenmesi gerekiyor.");
+          }
           failed.push(username);
           $("ban-result").prepend(el("div", { className: "ban error" },
             el("div", { className: "head" }, el("span", { className: "name", textContent: username })),

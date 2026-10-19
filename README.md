@@ -247,6 +247,27 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
 Sunucu açılışta eski bir veritabanını kendiliğinden yeni şemaya geçirir; güncellemeden önce yedek almak
 yeterlidir.
 
+### Sunucuyu güncellemek
+
+Yukarıdaki kurulumda (kod `/opt/magnetosphere/app`, veritabanı `/opt/magnetosphere/data`):
+
+```bash
+# 1. Yedek
+sqlite3 /opt/magnetosphere/data/crossban.db ".backup '/opt/backups/crossban-$(date +%F)-guncelleme.db'"
+# 2. Kod
+git -C /opt/magnetosphere/app pull
+/opt/magnetosphere/venv/bin/pip install -r /opt/magnetosphere/app/server/requirements.txt
+# 3. Yeniden başlat ve kontrol et
+sudo systemctl restart magnetosphere
+curl -s https://<alan-adın>/health          # {"ok": true, "version": "<yeni sürüm>"}
+journalctl -u magnetosphere -n 30 --no-pager
+```
+
+Oturumlar güncellemeden etkilenmez; kimsenin yeniden giriş yapması gerekmez. Uzantının yeni sürümü yeni bir
+sunucu özelliği kullanıyorsa önce sunucuyu, sonra uzantıyı güncelle; eski uzantı yeni sunucuyla çalışmaya
+devam eder. 0.6.0'dan 0.5.2'ye dönmek için `git checkout 5c3f7d0` yapıp servisi yeniden başlatmak yeterlidir
+(0.5.2, 0.6.0'ın güncellediği veritabanıyla çalışır). Yedeği yalnızca veri bozulduysa, servis durdurulmuşken geri koy.
+
 ### Ayarlar
 
 `server/.env` dosyasından okunur.
