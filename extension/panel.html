@@ -142,6 +142,12 @@
         <p id="viewer-note" class="note" hidden>İzleyici rolündesin: ortak listeyi görebilirsin ama ban atamazsın. Ban yetkisi için ekip sahibine yaz.</p>
 
         <fieldset id="ban-fields" class="stack">
+        <div class="segmented" role="radiogroup" aria-label="İşlem">
+          <label><input type="radio" name="mode" value="ban" checked><span>Banla</span></label>
+          <label><input type="radio" name="mode" value="unban"><span>Ban kaldır</span></label>
+        </div>
+        <p id="unban-hint" class="muted small" hidden>Ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kaldırılır.</p>
+
         <div class="field">
           <div class="label">
             <label for="username">Kullanıcı adları</label>
@@ -155,7 +161,7 @@
                     placeholder="Her satıra bir kullanıcı adı&#10;ya da virgülle ayır" required></textarea>
         </div>
 
-        <div class="field">
+        <div id="reason-field" class="field">
           <label class="label" for="reason">Sebep</label>
           <input id="reason" name="reason" maxlength="100" placeholder="İsteğe bağlı; ortak listede görünür">
           <div id="reason-presets" class="presets">
@@ -166,7 +172,7 @@
           </div>
         </div>
 
-        <div class="field">
+        <div id="duration-field" class="field">
           <span class="label">Süre</span>
           <div class="segmented">
             <label><input type="radio" name="duration" value="" checked><span>Kalıcı</span></label>
