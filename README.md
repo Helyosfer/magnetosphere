@@ -43,10 +43,12 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 
 | | |
 |:-:|:-:|
-| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-2-liste.png" alt="Liste sekmesi: banlar ve her kanaldaki sonuç" width="420"> |
-| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Liste:** kim kimi neden banladı, ban hangi kanallarda uygulandı. |
-| <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> | <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> |
-| **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. | **Ekip:** kanallar, yayıncı yetkisi paylaşımı, üyeler ve rolleri. |
+| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-kaldir.png" alt="Ban kaldır: kullanıcı adıyla bütün kanallardan kaldırma" width="420"> |
+| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Ban kaldır:** adı yaz; Kick'te elle atılmış ban da bütün kanallardan kalkar. |
+| <img src="store/ekran-2-liste.png" alt="Liste sekmesi: banlar ve her kanaldaki sonuç" width="420"> | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> |
+| **Liste:** kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
+| <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> | |
+| **Ekip:** kanallar, yayıncı yetkisi paylaşımı, üyeler ve rolleri. | |
 
 ## Özellikler
 
@@ -82,6 +84,8 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
    uzun listeler sıraya alınır ve arka planda işlenir.
 6. **Takip et.** **Liste** sekmesi her banın kanal kanal sonucunu gösterir. Banı buradan kaldırabilir ya da
    uygulanamadığı kanallarda yeniden deneyebilirsin.
+7. **Eski banları kaldır.** Listede olmayan bir ban (Kick'te elle ya da Magnetosphere'den önce atılmış) için
+   **Banla** sekmesinde **Ban kaldır**'ı seç ve kullanıcı adını yaz; ban ekibin bütün kanallarından kalkar.
 
 Ekip kurmak istersen **Ekip** sekmesindeki davet kodunu paylaş; katılanlar aynı kanal listesini ve ban
 listesini kullanır.
@@ -105,6 +109,9 @@ listesini kullanır.
 
 Davetle katılanlar varsayılan olarak moderatör olur; sahip bunu "izleyici olarak başlar" yapabilir.
 Sahip dışındaki herkes ekipten istediği an ayrılabilir.
+
+**Ban kaldır** ile adı yazılan kullanıcının listede başka bir üyenin attığı aktif bir banı varsa, liste
+kuralı geçerlidir: o banı yalnızca sahip ve yöneticiler kaldırabilir.
 
 ### Yayıncı yetkisi paylaşımı
 
@@ -254,14 +261,18 @@ Yukarıdaki kurulumda (kod `/opt/magnetosphere/app`, veritabanı `/opt/magnetosp
 ```bash
 # 1. Yedek
 sqlite3 /opt/magnetosphere/data/crossban.db ".backup '/opt/backups/crossban-$(date +%F)-guncelleme.db'"
-# 2. Kod
-git -C /opt/magnetosphere/app pull
+# 2. Kod; klasörün sahibi olarak çekilir (başka kullanıcıyla git "dubious ownership" deyip reddeder)
+sudo -u "$(stat -c %U /opt/magnetosphere/app)" git -C /opt/magnetosphere/app pull
+grep '^VERSION' /opt/magnetosphere/app/server/app.py   # yeni sürümü görmeden devam etme
 /opt/magnetosphere/venv/bin/pip install -r /opt/magnetosphere/app/server/requirements.txt
 # 3. Yeniden başlat ve kontrol et
 sudo systemctl restart magnetosphere
 curl -s https://<alan-adın>/health          # {"ok": true, "version": "<yeni sürüm>"}
 journalctl -u magnetosphere -n 30 --no-pager
 ```
+
+`/health` hâlâ eski sürümü gösteriyorsa ya `git pull` hata vermiştir ya da servis başka bir klasörden
+çalışıyordur; `systemctl cat magnetosphere` ile `WorkingDirectory` değerine bak.
 
 Oturumlar güncellemeden etkilenmez; kimsenin yeniden giriş yapması gerekmez. Uzantının yeni sürümü yeni bir
 sunucu özelliği kullanıyorsa önce sunucuyu, sonra uzantıyı güncelle; eski uzantı yeni sunucuyla çalışmaya
@@ -393,8 +404,8 @@ python -m unittest test_app
 ```
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
-düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, hesap silme, eski
-veritabanından geçiş ve güvenlik kuralları kapsanır.
+düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, adıyla ban kaldırma,
+hesap silme, eski veritabanından geçiş ve güvenlik kuralları kapsanır.
 
 ### Chrome Web Store
 
@@ -409,7 +420,7 @@ Mağaza sayfasının metni [`store/aciklama.md`](store/aciklama.md) içindedir. 
 
 | Alan | Dosya | Boyut |
 |---|---|---|
-| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png) | 1280×800 |
+| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png), [`ekran-5-kaldir.png`](store/ekran-5-kaldir.png) | 1280×800 |
 | Küçük tanıtım kutusu | [`tanitim-kucuk-440x280.png`](store/tanitim-kucuk-440x280.png) | 440×280 |
 | Büyük tanıtım kutusu | [`tanitim-buyuk-1400x560.png`](store/tanitim-buyuk-1400x560.png) | 1400×560 |
 | Simge | [`extension/icons/icon128.png`](extension/icons/icon128.png) | 128×128 |
@@ -426,6 +437,7 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] [Chrome Web Store yayını](https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh)
 - [x] Tek başına kullanım, ekip içi roller, yayıncı yetkisi için açık rıza, ekipten ayrılma ve hesap silme
 - [x] Herkese açık kullanım için hesap başına sınırlar
+- [x] Kullanıcı adıyla ban kaldırma; Kick'te elle atılmış banlar dahil
 - [ ] İngilizce arayüz
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 - [ ] Süresi dolan süreli banların listede kendiliğinden kapanması

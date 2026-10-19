@@ -56,6 +56,7 @@ Magnetosphere bağımsız bir projedir; Kick ile bağlantılı değildir ve Kick
 | Ekran görüntüsü 2 | `ekran-2-liste.png` | 1280×800 |
 | Ekran görüntüsü 3 | `ekran-3-sira.png` | 1280×800 |
 | Ekran görüntüsü 4 | `ekran-4-ekip.png` | 1280×800 |
+| Ekran görüntüsü 5 | `ekran-5-kaldir.png` | 1280×800 |
 | Küçük tanıtım kutusu | `tanitim-kucuk-440x280.png` | 440×280 |
 | Büyük tanıtım kutusu (isteğe bağlı) | `tanitim-buyuk-1400x560.png` | 1400×560 |
 
