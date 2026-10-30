@@ -12,35 +12,38 @@ Kick'te moderatörü olduğun tüm kanallarda bir kullanıcıyı tek seferde ban
 Mağazadaki açıklama kutusu düz metin kabul eder; aşağıdaki metin olduğu gibi yapıştırılır.
 
 ```text
-Magnetosphere, birden fazla Kick kanalında moderatörlük yapanlar için bir ban aracıdır. Bir kullanıcıyı bir kez banlarsın; Magnetosphere bu banı listendeki bütün kanallara uygular.
+Magnetosphere, birden fazla Kick kanalında moderatörlük yapanlar için ortak bir ban listesidir.
 
-Bir trolü ya da spam botunu her kanalda tek tek banlamakla uğraşmazsın. Kullanıcı adını bir kez yazman yeterli. Kimin kimi, ne zaman ve neden banladığı da kayıt altına alınır.
+Bir trolü ya da spam botunu her kanalda ayrı ayrı banlamana gerek yok. Kullanıcı adını bir kez yazman yeterli; Magnetosphere banı listendeki bütün kanallara uygular. Kimin kimi, ne zaman ve neden banladığı da kayda geçer.
 
-Magnetosphere'i tek başına kullanabilirsin: kimseyi davet etmeden kanallarını ekler ve ban atarsın. Mod ekibinle kullanırsan herkes aynı ban listesini görür ve bir moderatörün attığı ban, ekibin bütün kanallarına uygulanır.
+Sohbette birinin adına tıkladığında açılan kullanıcı kartında, o kişinin ekibinin kaç kanalında banlı olduğunu da görürsün: "20 kanaldan banlı" gibi. Satıra tıklayınca hangi kanallarda banlı olduğu ve süreli banların ne zaman biteceği açılır.
 
-NELER YAPABİLİRSİN
-• Birden çok kanalda tek seferde ban: Kalıcı ban at ya da kullanıcıyı 10 dakika, 1 saat, 1 gün veya 7 gün uzaklaştır.
+Magnetosphere'i tek başına kullanabilir, kimseyi davet etmeden kendi ban listeni kurabilirsin. Ekiple kullandığında herkes aynı listeyi görür ve bir moderatörün attığı ban, ekibin bütün kanallarına uygulanır.
+
+ÖZELLİKLER
+• Çoklu kanalda ban: Tek işlemle bütün kanallarda kalıcı ban at ya da kullanıcıyı 10 dakika, 1 saat, 1 gün veya 7 gün uzaklaştır.
+• Kullanıcı kartında ban sayısı: kick.com'da bir kullanıcının kartını açınca ekibinin kaç kanalında banlı olduğunu anında gör. Satıra tıklayınca kanallar ve kalan süreler listelenir.
 • Toplu ban: Kullanıcı adlarını yapıştır ya da .txt, .csv veya .json dosyasından yükle (tek seferde 5.000 ada kadar).
-• Arka planda işleme: Uzun listeler sunucuda sırayla işlenir. Paneli, hatta tarayıcıyı kapatsan da banlar atılmaya devam eder.
-• Ortak ban kaydı: Her banı kimin, ne zaman ve neden attığını, banın hangi kanallarda uygulandığını gör.
+• Arka planda işlem: Uzun listeler sunucuda işlenmeye devam eder; paneli, hatta tarayıcıyı kapatsan bile.
+• Ortak ban geçmişi: Kimin kimi, ne zaman ve neden banladığını, banın hangi kanallarda uygulandığını gör.
 • Yeniden deneme: Bir kanalda uygulanamayan banı tek tıkla tekrar dene.
-• Geri alma: Bir banı tek tıkla bütün kanallardan kaldır.
-• Adıyla ban kaldırma: Kullanıcı adını yaz, banı bütün kanallardan kaldır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kaldırılır.
-• Kullanıcı kartında ban sayısı: kick.com'da bir kullanıcının kartını açınca, ekibinin kaç kanalında banlı olduğunu görürsün.
-• Sağ tık kısayolu: kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç.
+• Tüm kanallarda geri alma: Bir banı tek tıkla bütün kanallardan kaldır.
+• Adıyla ban kaldırma: Kullanıcı adını yaz, banı bütün kanallardan kaldır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kalkar.
+• Sağ tıkla banla: kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç.
 • Ekip rolleri: Sahip, yönetici, moderatör ve izleyici rolleriyle kimin neyi yapabileceğini belirle.
 
-NASIL BAŞLANIR
+NASIL BAŞLANIR?
 1. Uzantıyı ekle ve Kick hesabınla giriş yap.
 2. "Tek başıma başla"ya tıkla ya da seni davet eden ekibin kodunu gir.
 3. Moderatörü olduğun kanalları ekle. Artık hepsindeki banları tek yerden yönetebilirsin.
 
 GÜVENLİK VE GİZLİLİK
 • Şifren sende kalır: Giriş Kick'in kendi sayfasında yapılır; uzantı Kick şifreni görmez.
-• Resmi API: Banlar Kick'in resmi API'si üzerinden ve senin moderatör yetkinle atılır. Moderatörü olmadığın bir kanalda banın uygulanması için o kanalın yayıncısının yetkisini ekiple paylaşmış olması gerekir.
+• Resmî API: Banlar Kick'in resmî API'si üzerinden ve senin moderatör yetkinle atılır. Moderatörü olmadığın bir kanalda banın uygulanması için o kanalın yayıncısının yetkisini ekiple paylaşmış olması gerekir.
 • Karar yayıncıda: Yayıncıysan ekibin senin yetkinle ban atıp atamayacağına yalnızca sen karar verirsin. Davetle katıldığın ekiplerde bu paylaşım kapalı başlar.
-• Hesap silme: Hesabını istediğin an panelden silebilirsin; oturumların ve Kick'teki erişim izni de silinir.
-• Gereksiz erişim yok: Uzantı ziyaret ettiğin sitelere kod eklemez ve gezinme geçmişini okumaz.
+• Sınırlı erişim: Uzantı yalnızca kick.com'da çalışır ve orada yalnızca açtığın kullanıcı kartındaki adı okur. Sohbet mesajlarını ve gezinme geçmişini okumaz, başka sitelere kod eklemez.
+• Ekip verisi ekipte kalır: Karttaki ban sayısı yalnızca senin ekibinin kayıtlarından gelir; başka ekiplerin verisi gösterilmez.
+• Hesap silme: Hesabını ve verilerini istediğin an panelden silebilirsin.
 • Açık kaynak: Magnetosphere GPL-3.0 lisansıyla yayımlanır. Kaynak kodu: https://github.com/Helyosfer/magnetosphere
 
 DESTEK VE GERİ BİLDİRİM
