@@ -1,5 +1,4 @@
 const $ = (id) => document.getElementById(id);
-const DEFAULT_SERVER = "https://magnetosphere.helyosfer.me";
 const MAX_IMPORT = 5000;
 // Bundan uzun listeler sunucudaki sıraya gider; panel kapansa da işlenmeye devam eder.
 const QUEUE_THRESHOLD = 10;

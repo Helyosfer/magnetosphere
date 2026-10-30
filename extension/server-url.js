@@ -1,5 +1,6 @@
 // Panel ve service worker ortak kullanır: token yalnızca şifreli (https://) bağlantıyla gider.
 // Şifresiz http:// yalnızca bu bilgisayardaki sunucu için (yerel deneme) kabul edilir.
+const DEFAULT_SERVER = "https://magnetosphere.helyosfer.me";
 const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
 
 // Adres kullanılabilirse null, değilse kullanıcıya gösterilecek açıklamayı döndürür.

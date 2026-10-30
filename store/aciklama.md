@@ -26,6 +26,7 @@ NELER YAPABİLİRSİN
 • Yeniden deneme: Bir kanalda uygulanamayan banı tek tıkla tekrar dene.
 • Geri alma: Bir banı tek tıkla bütün kanallardan kaldır.
 • Adıyla ban kaldırma: Kullanıcı adını yaz, banı bütün kanallardan kaldır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kaldırılır.
+• Kullanıcı kartında ban sayısı: kick.com'da bir kullanıcının kartını açınca, ekibinin kaç kanalında banlı olduğunu görürsün.
 • Sağ tık kısayolu: kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç.
 • Ekip rolleri: Sahip, yönetici, moderatör ve izleyici rolleriyle kimin neyi yapabileceğini belirle.
 
