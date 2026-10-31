@@ -60,7 +60,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.6.0"
+VERSION = "0.7.1"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -522,12 +522,18 @@ def ban_json(db, ban):
     channels = db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
                           (ban["team_id"],)).fetchall()
     creator = db.execute("SELECT name FROM users WHERE id = ?", (ban["created_by"],)).fetchone()
+    # Süreli uzaklaştırma her kanalda uygulandığı andan itibaren işler; en son uygulanan kanal bitişi belirler.
+    expires_at = None
+    if ban["duration"]:
+        applied = [r["updated_at"] for r in results.values() if r["status"] == "ok"]
+        expires_at = max(applied or [ban["created_at"]]) + ban["duration"] * 60
     return {
         "id": ban["id"],
         "target_id": ban["target_id"],
         "target_name": ban["target_name"],
         "reason": ban["reason"],
         "duration": ban["duration"],
+        "expires_at": expires_at,
         "created_by": creator["name"] if creator else "?",
         "created_by_id": ban["created_by"],
         "created_at": ban["created_at"],

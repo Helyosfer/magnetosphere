@@ -146,9 +146,41 @@ function timeEl(seconds) {
   return node;
 }
 
-// Panel açık kaldıkça göreli zamanlar eskimesin.
+// Süreli uzaklaştırmanın bitişi; eski sunucu expires_at göndermezse banın atıldığı andan hesaplanır.
+function banExpiry(ban) {
+  if (!ban.duration) return null;
+  return ban.expires_at ?? ban.created_at + ban.duration * 60;
+}
+
+// "45 dk kaldı" gibi kalan süre.
+function formatLeft(seconds) {
+  const minutes = Math.max(1, Math.ceil((seconds - Date.now() / 1000) / 60));
+  if (minutes < 60) return `${minutes} dk kaldı`;
+  if (minutes < 1440) return `${Math.round(minutes / 60)} saat kaldı`;
+  return `${Math.round(minutes / 1440)} gün kaldı`;
+}
+
+// Süreli banın etiketi: süre dolunca "Ceza bitti" olur ve kart sönükleşir.
+function updateTimedTag(tag) {
+  const expires = Number(tag.dataset.expires);
+  const ended = Date.now() / 1000 >= expires;
+  const card = tag.closest(".ban");
+  tag.className = `tag ${ended ? "ended" : "timed"}`;
+  tag.textContent = ended ? "Ceza bitti" : formatDuration(Number(tag.dataset.duration));
+  tag.title = ended
+    ? `${formatDuration(Number(tag.dataset.duration))} uzaklaştırma ${formatDate(expires)} tarihinde bitti`
+    : `${formatLeft(expires)} (bitiş: ${formatDate(expires)})`;
+  if (card) {
+    card.classList.toggle("ended", ended);
+    // Süresi dolan uzaklaştırmayı yeniden denemek kullanıcıyı baştan uzaklaştırırdı.
+    card.querySelector(".retry")?.toggleAttribute("hidden", ended);
+  }
+}
+
+// Panel açık kaldıkça göreli zamanlar ve süreli ban etiketleri eskimesin.
 setInterval(() => {
   for (const node of document.querySelectorAll("time[data-ts]")) node.textContent = formatAgo(Number(node.dataset.ts));
+  for (const tag of document.querySelectorAll(".tag[data-expires]")) updateTimedTag(tag);
 }, 30000);
 
 const STATUS_TITLE = {
@@ -173,6 +205,10 @@ function banCard(ban) {
   const tag = ban.revoked_at
     ? el("span", { className: "tag off", textContent: "Kaldırıldı" })
     : el("span", { className: `tag ${ban.duration ? "timed" : "perm"}`, textContent: formatDuration(ban.duration) });
+  if (!ban.revoked_at && ban.duration) {
+    tag.dataset.expires = banExpiry(ban);
+    tag.dataset.duration = ban.duration;
+  }
 
   // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
   const reason = ban.external ? "Ban Kick'te Magnetosphere dışında atılmıştı" : ban.reason || "Sebep belirtilmedi";
@@ -191,7 +227,7 @@ function banCard(ban) {
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
     if (!complete) {
-      const retry = el("button", { className: "ghost small", textContent: "Tekrar dene" });
+      const retry = el("button", { className: "ghost small retry", textContent: "Tekrar dene" });
       retry.onclick = () => run(retry, async () => {
         await api("POST", `/teams/${state.teamId}/bans/${ban.id}/retry`);
         await loadBans();
@@ -210,6 +246,7 @@ function banCard(ban) {
     if (actions.children.length) foot.append(actions);
   }
   card.append(foot);
+  if (tag.dataset.expires) updateTimedTag(tag);
   return card;
 }
 

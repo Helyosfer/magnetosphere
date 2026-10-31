@@ -322,6 +322,9 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .ban.partial { border-left-color: var(--warn); }
 .ban.error { border-left-color: var(--danger); }
 .ban.revoked { border-left-color: var(--line); opacity: .6; }
+.ban.ended { border-left-color: var(--line); }
+.ban.ended .name, .ban.ended .reason { color: var(--muted); }
+.ban.ended .chip.ok::before { background: var(--muted); }
 .ban .head { display: flex; align-items: center; gap: 6px; }
 .ban .name { flex: 1; min-width: 0; font-family: var(--mono); font-weight: 700; overflow-wrap: anywhere; }
 .ban .reason { margin-top: 3px; overflow-wrap: anywhere; }
@@ -345,6 +348,7 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .tag.perm { background: rgba(255, 93, 108, .14); color: #ff9aa4; }
 .tag.timed { background: rgba(255, 180, 84, .14); color: var(--warn); }
 .tag.off { background: var(--raised); color: var(--muted); }
+.tag.ended { background: rgba(92, 242, 165, .12); color: var(--accent); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 10px; background: var(--raised); font-size: 11px; line-height: 18px; }

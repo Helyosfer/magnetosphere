@@ -572,7 +572,10 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(LOOKUPS, [])
 
         _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-iki"})
-        call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "eski-trol", "duration": 10})
+        _, timed, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "eski-trol", "duration": 10})
+        # Listede süreli banın bitişi gelir; panel süre dolunca "Ceza bitti" yazar.
+        self.assertIsNone(ban["expires_at"])
+        self.assertAlmostEqual(timed["expires_at"], time.time() + 600, delta=5)
         # Ad, Kick'teki gibi büyük harf ve alt çizgiyle de yazılabilir.
         data = count("Trol_Iki")
         self.assertEqual((data["count"], data["permanent"], data["team_channels"]), (2, 2, 2))
