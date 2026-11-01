@@ -60,7 +60,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.6.0"
+VERSION = "0.7.1"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -522,12 +522,18 @@ def ban_json(db, ban):
     channels = db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
                           (ban["team_id"],)).fetchall()
     creator = db.execute("SELECT name FROM users WHERE id = ?", (ban["created_by"],)).fetchone()
+    # Süreli uzaklaştırma her kanalda uygulandığı andan itibaren işler; en son uygulanan kanal bitişi belirler.
+    expires_at = None
+    if ban["duration"]:
+        applied = [r["updated_at"] for r in results.values() if r["status"] == "ok"]
+        expires_at = max(applied or [ban["created_at"]]) + ban["duration"] * 60
     return {
         "id": ban["id"],
         "target_id": ban["target_id"],
         "target_name": ban["target_name"],
         "reason": ban["reason"],
         "duration": ban["duration"],
+        "expires_at": expires_at,
         "created_by": creator["name"] if creator else "?",
         "created_by_id": ban["created_by"],
         "created_at": ban["created_at"],
@@ -959,6 +965,39 @@ def ban_list(req, team_id):
     }
 
 
+def user_bans(req, team_id, name):
+    """kick.com'daki kullanıcı kartı için: kullanıcı ekibin kaç kanalında şu an banlı.
+
+    Yalnızca bu ekibin kayıtlarına bakar ve Kick'e istek atmaz; kart her açıldığında çağrılabilir.
+    Süreli uzaklaştırmalar, banın o kanalda son uygulandığı andan itibaren süresi dolunca sayılmaz.
+    """
+    team = team_for(req, team_id)
+    slug = to_slug(name)
+    now = int(time.time())
+    rows = req.db.execute(
+        "SELECT c.slug, b.duration, r.updated_at FROM bans b "
+        "JOIN ban_results r ON r.ban_id = b.id AND r.status = 'ok' "
+        "JOIN channels c ON c.team_id = b.team_id AND c.broadcaster_id = r.broadcaster_id "
+        "WHERE b.team_id = ? AND b.target_name = ? AND b.revoked_at IS NULL "
+        "AND (b.duration IS NULL OR r.updated_at + b.duration * 60 > ?) ORDER BY c.slug",
+        (team["id"], slug, now)).fetchall()
+    channels = {}
+    for row in rows:
+        expires = None if row["duration"] is None else row["updated_at"] + row["duration"] * 60
+        # Aynı kanalda birden çok kayıt olursa kalıcı olan ya da en geç biten kazanır.
+        old = channels.get(row["slug"], {"expires_at": 0})
+        if old["expires_at"] is not None and (expires is None or expires > old["expires_at"]):
+            channels[row["slug"]] = {"slug": row["slug"], "expires_at": expires}
+    return {
+        "username": slug,
+        "count": len(channels),
+        "permanent": sum(1 for c in channels.values() if c["expires_at"] is None),
+        "channels": list(channels.values()),
+        "team_channels": req.db.execute("SELECT COUNT(*) FROM channels WHERE team_id = ?",
+                                        (team["id"],)).fetchone()[0],
+    }
+
+
 def parse_ban_options(body):
     # Sebep isteğe bağlı: hiç gönderilmemesi ya da null olması boş sebep demektir.
     reason = "" if body.get("reason") is None else text_field(body, "reason", "Ban sebebi")[:100]
@@ -1259,10 +1298,16 @@ ROUTES = [
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),
     ("POST", r"/teams/(\d{1,18})/unbans", unban_create, True),
+    ("GET", r"/teams/(\d{1,18})/users/([A-Za-z0-9_-]{1,25})/bans", user_bans, True),
     ("GET", r"/teams/(\d{1,18})/imports", import_status, True),
     ("POST", r"/teams/(\d{1,18})/imports", import_create, True),
     ("DELETE", r"/teams/(\d{1,18})/imports/(pending|finished)", import_clear, True),
 ]
+
+
+def log_path(path):
+    """Günlüğe yazılacak yol: sorgu dizgesi (OAuth kodu) ve kullanıcı kartından sorulan ad çıkarılır."""
+    return re.sub(r"/users/[^/]+/", "/users/*/", path.split("?")[0])
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1272,7 +1317,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         # Sorgu dizgesinde OAuth kodu taşındığı için yalnızca yolu yaz.
-        print(f"{self.command} {self.path.split('?')[0]} -> {args[1] if len(args) > 1 else ''}")
+        print(f"{self.command} {log_path(self.path)} -> {args[1] if len(args) > 1 else ''}")
 
     def send_json(self, status, payload=None, location=None):
         raw = b"" if payload is None else json.dumps(payload, ensure_ascii=False).encode()
@@ -1350,7 +1395,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(e.status, {"error": e.message})
         except Exception:
             # Ayrıntı yalnızca sunucu günlüğüne; istemci bağlantı kopması yerine sade bir yanıt alır.
-            print(f"{self.command} {self.path.split('?')[0]} beklenmeyen hata:\n{traceback.format_exc()}")
+            print(f"{self.command} {log_path(self.path)} beklenmeyen hata:\n{traceback.format_exc()}")
             self.send_json(500, {"error": "Sunucuda beklenmeyen bir hata oluştu"})
         finally:
             db.close()

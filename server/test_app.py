@@ -21,9 +21,10 @@ REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 # Sahte Kick: kullanıcı kimliği N için token "tok-N", kanal slug'ı USERS[N].
 USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod-veli",
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
-         30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol"}
+         30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
+         40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
-MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}}
+MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
 LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
 REVOKED = set()              # hesap silinince geri alınan tokenlar
@@ -552,6 +553,56 @@ class CrossBanTest(unittest.TestCase):
         self.assertIsNone(db.execute("SELECT 1 FROM teams WHERE id = ?", (tid,)).fetchone())
         db.close()
         self.assertIn("tok-3", REVOKED)
+
+    def test_user_bans(self):
+        """kick.com kullanıcı kartındaki sayaç: kullanıcı ekibin kaç kanalında şu an banlı."""
+        sahip, baska = self.login(40), self.login(42)
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Sayaç"})
+        tid = team["id"]
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-k"})[0], 200)
+
+        def count(name, token=sahip):
+            status, data, _ = call(self.base, "GET", f"/teams/{tid}/users/{name}/bans", token)
+            self.assertEqual(status, 200)
+            return data
+
+        # Hiç banlanmamış ya da Kick'te olmayan biri için Kick'e sorulmadan sıfır döner.
+        LOOKUPS.clear()
+        self.assertEqual(count("yok-boyle-biri")["count"], 0)
+        self.assertEqual(LOOKUPS, [])
+
+        _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-iki"})
+        _, timed, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "eski-trol", "duration": 10})
+        # Listede süreli banın bitişi gelir; panel süre dolunca "Ceza bitti" yazar.
+        self.assertIsNone(ban["expires_at"])
+        self.assertAlmostEqual(timed["expires_at"], time.time() + 600, delta=5)
+        # Ad, Kick'teki gibi büyük harf ve alt çizgiyle de yazılabilir.
+        data = count("Trol_Iki")
+        self.assertEqual((data["count"], data["permanent"], data["team_channels"]), (2, 2, 2))
+        self.assertEqual([c["slug"] for c in data["channels"]], ["sahip-k", "yayinci-k"])
+        self.assertIsNone(data["channels"][0]["expires_at"])
+        data = count("eski-trol")
+        self.assertEqual((data["count"], data["permanent"]), (2, 0))
+        self.assertGreater(data["channels"][0]["expires_at"], time.time())
+
+        # Süresi dolan uzaklaştırma sayılmaz.
+        db = sqlite3.connect(app.CFG["db"])
+        db.execute("UPDATE ban_results SET updated_at = updated_at - 601 WHERE ban_id = "
+                   "(SELECT id FROM bans WHERE team_id = ? AND target_name = 'eski-trol')", (tid,))
+        db.commit()
+        db.close()
+        self.assertEqual(count("eski-trol")["count"], 0)
+
+        # Kaldırılan ban sayılmaz; ekipten çıkarılan kanal da sayılmaz.
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/channels/41", sahip)[0], 200)
+        self.assertEqual(count("trol-iki")["count"], 1)
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", sahip)
+        self.assertEqual(count("trol-iki")["count"], 0)
+
+        # Başka ekibin kaydı görünmez; geçersiz ad reddedilir.
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans", baska)[0], 404)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/a.b/bans", sahip)[0], 404)
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans")[0], 401)
 
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))

@@ -61,6 +61,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Ortak liste** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
+| **Kullanıcı kartında ban sayısı** | kick.com'da sohbette bir kullanıcının adına tıklayınca açılan kartta, kişinin ekibinin kaç kanalında şu an banlı olduğu yazar ("20 kanaldan banlı"). Satıra tıklayınca kanallar ve süreli banların kalan süresi açılır. Sayı yalnızca seçili ekibin kayıtlarından gelir. |
 | **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. |
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
@@ -326,7 +327,8 @@ devam eder. 0.6.0'dan 0.5.2'ye dönmek için `git checkout 5c3f7d0` yapıp servi
 - **Hesap silme.** Kullanıcı hesabını sildiğinde oturumları, üyelikleri ve tokenları silinir, Kick'teki
   erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Uzantı
-  yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği eklemez.
+  yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır. Tek içerik betiği kick.com'dadır: açılan
+  kullanıcı kartından yalnızca kullanıcı adını okur; oturum anahtarı sayfaya inmez, sunucuya isteği service worker atar.
 - **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
   Bir hesap dakikada en fazla 300 istek atabilir, en fazla 10 ekip kurabilir ve 50 ekibe üye olabilir;
