@@ -10,7 +10,7 @@ const ROLE_LABEL = { owner: "Sahip", admin: "Yönetici", mod: "Moderatör", view
 const roleOf = (item) => item.role || (item.owner ? "owner" : "mod");
 const can = (need) => ROLE_RANK[roleOf(state.team)] >= ROLE_RANK[need];
 
-let state = { server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, list: { bans: [], matched: 0, active_total: 0 } };
+let state = { server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, view: "list", list: { bans: [], matched: 0, active_total: 0 } };
 
 function el(tag, props = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -172,8 +172,8 @@ function updateTimedTag(tag) {
     : `${formatLeft(expires)} (bitiş: ${formatDate(expires)})`;
   if (card) {
     card.classList.toggle("ended", ended);
-    // Süresi dolan uzaklaştırmayı yeniden denemek kullanıcıyı baştan uzaklaştırırdı.
-    card.querySelector(".retry")?.toggleAttribute("hidden", ended);
+    // Süresi dolan uzaklaştırmada "Tekrar dene" kullanıcıyı baştan uzaklaştırır, "Kaldır" da boşa gider.
+    card.querySelector(".actions")?.toggleAttribute("hidden", ended);
   }
 }
 
@@ -250,20 +250,33 @@ function banCard(ban) {
   return card;
 }
 
+// Liste: kalıcı banlar ve süren uzaklaştırmalar. Geçmiş: kaldırılanlar ve süresi dolan uzaklaştırmalar.
+function isActive(ban) {
+  if (ban.revoked_at) return false;
+  return !ban.duration || banExpiry(ban) > Date.now() / 1000;
+}
+
 function renderBans() {
-  const { bans, matched, active_total: activeTotal } = state.list;
+  const { matched, active_total: activeTotal } = state.list;
+  const history = state.view === "history";
+  // 0.7.1 ve öncesindeki sunucu görünümü ayırmaz; ayrım burada da yapılır.
+  const bans = state.list.bans.filter((ban) => isActive(ban) !== history);
   $("list-count").textContent = activeTotal;
   $("list-count").hidden = !activeTotal;
+  $("ban-list").classList.toggle("history", history);
 
   const searching = $("list-search").value.trim();
   const empty = searching
     ? emptyState("search", "Eşleşen kayıt yok", "Başka bir kullanıcı adı ya da sebep dene.")
-    : emptyState("shield", "Ortak liste boş", "İlk banı Banla sekmesinden at; burada görünür.");
+    : history
+      ? emptyState("history", "Geçmiş boş", "Kaldırılan banlar ve süresi dolan uzaklaştırmalar burada görünür.")
+      : emptyState("shield", "Aktif ban yok", "Kalıcı banlar ve süren uzaklaştırmalar burada görünür.");
   const cards = bans.length ? bans.map(banCard) : [empty];
-  if (matched > bans.length) {
+  // Sunucu en fazla 200 kayıt döndürür; matched, bu görünümdeki toplam kayıttır.
+  if (matched > state.list.bans.length) {
     cards.push(el("p", {
       className: "muted small",
-      textContent: `${matched} kayıttan en yeni ${bans.length} tanesi gösteriliyor. Diğerleri için arama yap.`,
+      textContent: `${matched} kayıttan en yeni ${state.list.bans.length} tanesi gösteriliyor. Diğerleri için arama yap.`,
     }));
   }
   $("ban-list").replaceChildren(...cards);
@@ -273,7 +286,9 @@ async function loadBans() {
   const params = new URLSearchParams();
   const query = $("list-search").value.trim();
   if (query) params.set("q", query);
-  if ($("list-revoked").checked) params.set("revoked", "1");
+  const view = state.view;
+  // Eski sunucu view'ı tanımaz; revoked=1 ile hepsini döndürür, ayrımı renderBans yapar.
+  if (view === "history") params.set("view", "history"), params.set("revoked", "1");
   const teamId = state.teamId;
   // Ekibin listesi ilk kez gelirken iskelet; sonraki yenilemelerde eldeki kartlar yerinde kalır.
   if (!state.listLoaded) $("ban-list").replaceChildren(...[0, 1, 2].map(skeletonCard));
@@ -281,12 +296,12 @@ async function loadBans() {
   try {
     list = await api("GET", `/teams/${teamId}/bans?${params}`);
   } catch (e) {
-    if (teamId === state.teamId && !state.listLoaded) {
+    if (teamId === state.teamId && view === state.view && !state.listLoaded) {
       $("ban-list").replaceChildren(emptyState("alert", "Liste yüklenemedi", "Sekmeye yeniden tıklayarak tekrar dene."));
     }
     throw e;
   }
-  if (teamId !== state.teamId) return;
+  if (teamId !== state.teamId || view !== state.view) return;
   state.list = list;
   state.listLoaded = true;
   renderBans();
@@ -421,12 +436,22 @@ async function loadTeam() {
   renderTeam();
 }
 
+// Liste ve Geçmiş aynı paneli (arama + kartlar) paylaşır.
+const PANEL_OF = { history: "list" };
+
 function showTab(name) {
+  const panel = PANEL_OF[name] || name;
   for (const button of document.querySelectorAll(".tabs button")) {
     button.classList.toggle("active", button.dataset.tab === name);
-    $(`tab-${button.dataset.tab}`).hidden = button.dataset.tab !== name;
+    const own = PANEL_OF[button.dataset.tab] || button.dataset.tab;
+    $(`tab-${own}`).hidden = own !== panel;
   }
-  if (name === "list") run(null, loadBans);
+  if (panel !== "list") return;
+  if (state.view !== name) {
+    state.view = name;
+    state.listLoaded = false;
+  }
+  run(null, loadBans);
 }
 
 // teamRequest: açılışta /me ile birlikte gönderilmiş ekip isteği; varsa yanıtı ikinci kez beklenmez.
@@ -745,7 +770,6 @@ $("list-search").oninput = () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => run(null, loadBans), 250);
 };
-$("list-revoked").onchange = () => run(null, loadBans);
 
 // Satır, virgül ya da boşlukla ayrılmış adları tekilleştirir; tırnak ve köşeli parantezleri yok sayar.
 function parseUsernames(text) {

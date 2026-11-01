@@ -58,10 +58,9 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
-| **Ortak liste** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. |
+| **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
-| **Kullanıcı kartında ban sayısı** | kick.com'da sohbette bir kullanıcının adına tıklayınca açılan kartta, kişinin ekibinin kaç kanalında şu an banlı olduğu yazar ("20 kanaldan banlı"). Satıra tıklayınca kanallar ve süreli banların kalan süresi açılır. Sayı yalnızca seçili ekibin kayıtlarından gelir. |
 | **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. |
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
@@ -83,7 +82,8 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
    bağlantısıyla ekle.
 5. **Banla.** **Banla** sekmesine kullanıcı adlarını yaz ya da **Dosyadan yükle** ile liste seç. 10 addan
    uzun listeler sıraya alınır ve arka planda işlenir.
-6. **Takip et.** **Liste** sekmesi her banın kanal kanal sonucunu gösterir. Banı buradan kaldırabilir ya da
+6. **Takip et.** **Liste** sekmesi aktif banların kanal kanal sonucunu gösterir; kaldırılan banlar ve süresi
+   dolan uzaklaştırmalar **Geçmiş** sekmesine geçer. Banı buradan kaldırabilir ya da
    uygulanamadığı kanallarda yeniden deneyebilirsin.
 7. **Eski banları kaldır.** Listede olmayan bir ban (Kick'te elle ya da Magnetosphere'den önce atılmış) için
    **Banla** sekmesinde **Ban kaldır**'ı seç ve kullanıcı adını yaz; ban ekibin bütün kanallarından kalkar.
@@ -327,8 +327,7 @@ devam eder. 0.6.0'dan 0.5.2'ye dönmek için `git checkout 5c3f7d0` yapıp servi
 - **Hesap silme.** Kullanıcı hesabını sildiğinde oturumları, üyelikleri ve tokenları silinir, Kick'teki
   erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Uzantı
-  yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır. Tek içerik betiği kick.com'dadır: açılan
-  kullanıcı kartından yalnızca kullanıcı adını okur; oturum anahtarı sayfaya inmez, sunucuya isteği service worker atar.
+  yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği eklemez.
 - **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
   Bir hesap dakikada en fazla 300 istek atabilir, en fazla 10 ekip kurabilir ve 50 ekibe üye olabilir;
