@@ -26,7 +26,7 @@ Magnetosphere'i tek başına kullanabilir, kimseyi davet etmeden kendi ban liste
 • Yeniden deneme: Bir kanalda uygulanamayan banı tek tıkla tekrar dene.
 • Tüm kanallarda geri alma: Bir banı tek tıkla bütün kanallardan kaldır.
 • Adıyla ban kaldırma: Kullanıcı adını yaz, banı bütün kanallardan kaldır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kalkar.
-• Sağ tıkla banla: kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç.
+• Sağ tıkla banla: kick.com'da sohbette kullanıcının kartını aç, adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır.
 • Ekip rolleri: Sahip, yönetici, moderatör ve izleyici rolleriyle kimin neyi yapabileceğini belirle.
 
 NASIL BAŞLANIR?
@@ -56,7 +56,7 @@ Magnetosphere bağımsız bir projedir; Kick ile bağlantılı değildir ve Kick
 | Ekran görüntüsü 2 | `ekran-2-liste.png` | 1280×800 |
 | Ekran görüntüsü 3 | `ekran-3-sira.png` | 1280×800 |
 | Ekran görüntüsü 4 | `ekran-4-ekip.png` | 1280×800 |
-| Ekran görüntüsü 5 | `ekran-5-gecmis.png` | 1280×800 |
+| Ekran görüntüsü 5 | `ekran-5-sagtik.png` | 1280×800 |
 | Küçük tanıtım kutusu | `tanitim-kucuk-440x280.png` | 440×280 |
 | Büyük tanıtım kutusu (isteğe bağlı) | `tanitim-buyuk-1400x560.png` | 1400×560 |
 

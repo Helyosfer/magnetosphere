@@ -43,8 +43,8 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 
 | | |
 |:-:|:-:|
-| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-gecmis.png" alt="Geçmiş sekmesi: kaldırılan banlar ve süresi dolan uzaklaştırmalar" width="420"> |
-| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Geçmiş:** kaldırılan banlar ve süresi dolan uzaklaştırmalar burada kalır. |
+| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-sagtik.png" alt="Sağ tık: kullanıcı kartındaki ada sağ tıklayıp bütün kanallarda banlama" width="420"> |
+| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Sağ tık:** sohbette kullanıcının kartını aç, adına sağ tıkla; panel o adla açılır. |
 | <img src="store/ekran-2-liste.png" alt="Liste sekmesi: aktif banlar ve her kanaldaki sonuç" width="420"> | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> |
 | **Liste:** aktif banlar: kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
 | <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> | |
@@ -61,7 +61,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
-| **Sağ tık kısayolu** | kick.com'da bir kullanıcı adını seç, sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. |
+| **Sağ tık kısayolu** | kick.com'da sohbette kullanıcının kartını aç, kartındaki adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır. |
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
 | **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalındaki ban yetkisini ekibin kullanımına açar; bu kararı yalnızca kendisi verir. |
@@ -421,7 +421,7 @@ Mağaza sayfasının metni [`store/aciklama.md`](store/aciklama.md) içindedir. 
 
 | Alan | Dosya | Boyut |
 |---|---|---|
-| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png), [`ekran-5-gecmis.png`](store/ekran-5-gecmis.png) | 1280×800 |
+| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png), [`ekran-5-sagtik.png`](store/ekran-5-sagtik.png) | 1280×800 |
 | Küçük tanıtım kutusu | [`tanitim-kucuk-440x280.png`](store/tanitim-kucuk-440x280.png) | 440×280 |
 | Büyük tanıtım kutusu | [`tanitim-buyuk-1400x560.png`](store/tanitim-buyuk-1400x560.png) | 1400×560 |
 | Simge | [`extension/icons/icon128.png`](extension/icons/icon128.png) | 128×128 |
