@@ -46,7 +46,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-sagtik.png" alt="Sağ tık: kullanıcı kartındaki ada sağ tıklayıp bütün kanallarda banlama" width="420"> |
 | **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Sağ tık:** sohbette kullanıcının kartını aç, adına sağ tıkla; panel o adla açılır. |
 | <img src="store/ekran-2-liste.png" alt="Liste sekmesi: aktif banlar ve her kanaldaki sonuç" width="420"> | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> |
-| **Liste:** aktif banlar: kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
+| **Liste:** aktif banlar; kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
 | <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> | |
 | **Ekip:** kanallar, yayıncı yetkisi paylaşımı, üyeler ve rolleri. | |
 
@@ -122,7 +122,7 @@ yayıncının yetkisiyle uygulanır.
 
 - Paylaşım, ekibi kuran kişi için açık, davetle katılanlar için kapalı başlar.
 - Yalnızca yayıncının kendisi açıp kapatabilir; davet koduyla bir ekibe katılmak tek başına bu yetkiyi vermez.
-- Moderatörü olmadığın ve yayıncısı yetkisini paylaşmayan bir kanalda banın tutmaz; listede o kanal kırmızı görünür.
+- Moderatörü olmadığın ve yayıncısı yetkisini paylaşmayan bir kanalda ban uygulanmaz; listede o kanal kırmızı görünür.
 
 ## Nasıl çalışır
 
@@ -198,7 +198,7 @@ Sunucu `http://localhost:8787` adresinde dinler. Eksik bir güvenlik ayarı vars
 3. Magnetosphere simgesine tıkla, **Gelişmiş: kendi sunucunu kullan** alanına sunucunun adresini yaz
    (yerel deneme için `http://localhost:8787`) ve **Kick ile giriş yap**'a bas.
 
-Ekibindeki herkesin adresi elle girmesini istemiyorsan `extension/panel.js` içindeki `DEFAULT_SERVER`
+Ekibindeki herkesin adresi elle girmesini istemiyorsan `extension/server-url.js` içindeki `DEFAULT_SERVER`
 değerini kendi adresinle değiştirip klasörü öyle dağıt.
 
 Elle yüklenen uzantının kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
@@ -275,10 +275,15 @@ journalctl -u magnetosphere -n 30 --no-pager
 `/health` hâlâ eski sürümü gösteriyorsa ya `git pull` hata vermiştir ya da servis başka bir klasörden
 çalışıyordur; `systemctl cat magnetosphere` ile `WorkingDirectory` değerine bak.
 
+Gizlilik sayfasını ters vekilde statik bir dosyadan sunuyorsan (ör. `/var/www/magnetosphere/privacy.html`)
+`git pull` onu güncellemez; güncellemeden sonra `docs/privacy.html` dosyasını oraya kopyala ya da ters
+vekili doğrudan depodaki `docs/` klasörünü gösterecek şekilde ayarla.
+
 Oturumlar güncellemeden etkilenmez; kimsenin yeniden giriş yapması gerekmez. Uzantının yeni sürümü yeni bir
 sunucu özelliği kullanıyorsa önce sunucuyu, sonra uzantıyı güncelle; eski uzantı yeni sunucuyla çalışmaya
-devam eder. 0.6.0'dan 0.5.2'ye dönmek için `git checkout 5c3f7d0` yapıp servisi yeniden başlatmak yeterlidir
-(0.5.2, 0.6.0'ın güncellediği veritabanıyla çalışır). Yedeği yalnızca veri bozulduysa, servis durdurulmuşken geri koy.
+devam eder. Bir önceki sürüme dönmek için `git log` ile o sürümün commit'ini bul, `git checkout <commit>`
+yapıp servisi yeniden başlat. 0.6.0'dan bu yana veritabanı şeması değişmedi; 0.6.x ve 0.7.x sürümleri aynı
+veritabanıyla çalışır. Yedeği yalnızca veri bozulduysa, servis durdurulmuşken geri koy.
 
 ### Ayarlar
 
@@ -406,7 +411,8 @@ python -m unittest test_app
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
 düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, adıyla ban kaldırma,
-hesap silme, eski veritabanından geçiş ve güvenlik kuralları kapsanır.
+hesap silme, Liste ve Geçmiş ayrımı, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
+geçiş ve güvenlik kuralları kapsanır.
 
 ### Chrome Web Store
 
@@ -439,15 +445,14 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Tek başına kullanım, ekip içi roller, yayıncı yetkisi için açık rıza, ekipten ayrılma ve hesap silme
 - [x] Herkese açık kullanım için hesap başına sınırlar
 - [x] Kullanıcı adıyla ban kaldırma; Kick'te elle atılmış banlar dahil
+- [x] Liste ve Geçmiş ayrımı: süresi dolan uzaklaştırmalar ve kaldırılan banlar Geçmiş'e geçer
 - [ ] İngilizce arayüz
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
-- [ ] Süresi dolan süreli banların listede kendiliğinden kapanması
 
 ### Bilinen kısıtlar
 
 - Kullanıcı adı, Kick'in kanal adresi kuralıyla aranır (küçük harf, `_` yerine `-`, en fazla 25 karakter).
 - Kendi kanalın dışındaki kanallar elle eklenir; resmi API "moderatörü olduğum kanallar" listesini vermiyor.
-- Süreli banlar süresi dolduktan sonra da listede aktif görünür.
 - Resmi API bir kanaldaki mevcut banları listelemiyor; Magnetosphere'den önce atılmış banlar listede görünmez.
   Bu banlar **Ban kaldır** ile kullanıcı adı yazılarak kaldırılabilir. Kullanıcı bir kanalda zaten banlı
   değilse o kanal sonuçta "kaldırılamadı" görünebilir.
