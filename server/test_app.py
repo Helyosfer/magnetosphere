@@ -554,55 +554,61 @@ class CrossBanTest(unittest.TestCase):
         db.close()
         self.assertIn("tok-3", REVOKED)
 
-    def test_user_bans(self):
-        """kick.com kullanıcı kartındaki sayaç: kullanıcı ekibin kaç kanalında şu an banlı."""
-        sahip, baska = self.login(40), self.login(42)
-        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Sayaç"})
+    def test_history(self):
+        """Liste: kalıcı banlar ve süren uzaklaştırmalar. Geçmiş: kaldırılanlar ve süresi dolanlar."""
+        sahip = self.login(40)
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Geçmiş"})
         tid = team["id"]
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-k"})[0], 200)
 
-        def count(name, token=sahip):
-            status, data, _ = call(self.base, "GET", f"/teams/{tid}/users/{name}/bans", token)
+        def view(name=None, **params):
+            query = urllib.parse.urlencode({**({"view": name} if name else {}), **params})
+            status, data, _ = call(self.base, "GET", f"/teams/{tid}/bans?{query}", sahip)
             self.assertEqual(status, 200)
             return data
 
-        # Hiç banlanmamış ya da Kick'te olmayan biri için Kick'e sorulmadan sıfır döner.
-        LOOKUPS.clear()
-        self.assertEqual(count("yok-boyle-biri")["count"], 0)
-        self.assertEqual(LOOKUPS, [])
+        def names(data):
+            return sorted(b["target_name"] for b in data["bans"])
 
-        _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-iki"})
+        _, perm, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-iki"})
         _, timed, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "eski-trol", "duration": 10})
-        # Listede süreli banın bitişi gelir; panel süre dolunca "Ceza bitti" yazar.
-        self.assertIsNone(ban["expires_at"])
+        self.assertIsNone(perm["expires_at"])
         self.assertAlmostEqual(timed["expires_at"], time.time() + 600, delta=5)
-        # Ad, Kick'teki gibi büyük harf ve alt çizgiyle de yazılabilir.
-        data = count("Trol_Iki")
-        self.assertEqual((data["count"], data["permanent"], data["team_channels"]), (2, 2, 2))
-        self.assertEqual([c["slug"] for c in data["channels"]], ["sahip-k", "yayinci-k"])
-        self.assertIsNone(data["channels"][0]["expires_at"])
-        data = count("eski-trol")
-        self.assertEqual((data["count"], data["permanent"]), (2, 0))
-        self.assertGreater(data["channels"][0]["expires_at"], time.time())
+        self.assertEqual((names(view()), view()["active_total"]), (["eski-trol", "trol-iki"], 2))
+        self.assertEqual(names(view("history")), [])
 
-        # Süresi dolan uzaklaştırma sayılmaz.
+        # Süresi dolan uzaklaştırma geçmişe düşer.
         db = sqlite3.connect(app.CFG["db"])
-        db.execute("UPDATE ban_results SET updated_at = updated_at - 601 WHERE ban_id = "
-                   "(SELECT id FROM bans WHERE team_id = ? AND target_name = 'eski-trol')", (tid,))
+        db.execute("UPDATE ban_results SET updated_at = updated_at - 601 WHERE ban_id = ?", (timed["id"],))
         db.commit()
         db.close()
-        self.assertEqual(count("eski-trol")["count"], 0)
+        self.assertEqual((names(view()), view()["active_total"]), (["trol-iki"], 1))
+        self.assertEqual(names(view("history")), ["eski-trol"])
+        self.assertLess(view("history")["bans"][0]["expires_at"], time.time())
+        # 0.7.1 ve öncesindeki panelin "Kaldırılanlar" isteği hepsini görür.
+        self.assertEqual(names(view(revoked="1")), ["eski-trol", "trol-iki"])
 
-        # Kaldırılan ban sayılmaz; ekipten çıkarılan kanal da sayılmaz.
-        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/channels/41", sahip)[0], 200)
-        self.assertEqual(count("trol-iki")["count"], 1)
-        call(self.base, "DELETE", f"/teams/{tid}/bans/{ban['id']}", sahip)
-        self.assertEqual(count("trol-iki")["count"], 0)
+        # Süre dolduktan sonra yeniden banlamak yeni kayıt açar ve Kick'e gerçekten gider.
+        BANNED.discard((40, 98))
+        BANNED.discard((41, 98))
+        _, again, _ = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "eski-trol", "duration": 10})
+        self.assertNotEqual(again["id"], timed["id"])
+        self.assertTrue({(40, 98), (41, 98)} <= BANNED)
+        self.assertEqual(names(view()), ["eski-trol", "trol-iki"])
+        self.assertEqual([b["id"] for b in view("history")["bans"]], [timed["id"]])
 
-        # Başka ekibin kaydı görünmez; geçersiz ad reddedilir.
-        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans", baska)[0], 404)
-        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/a.b/bans", sahip)[0], 404)
-        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans")[0], 401)
+        # Kaldırılan ban geçmişe geçer; adıyla kaldırma süresi dolmuş eski kaydı değil en yenisini kapatır.
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{perm['id']}", sahip)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/unbans", sahip, {"username": "eski-trol"})[0], 200)
+        self.assertEqual((view()["bans"], view()["active_total"]), ([], 0))
+        history = view("history")
+        self.assertEqual([b["id"] for b in history["bans"]], [again["id"], timed["id"], perm["id"]])
+        self.assertIsNotNone(history["bans"][0]["revoked_at"])
+        self.assertIsNone(history["bans"][1]["revoked_at"])
+        self.assertEqual(names(view("history", q="trol-iki")), ["trol-iki"])
+
+        # Kullanıcı kartı sayacı kaldırıldı; eski uzantının isteği 404 alır ve kartta satır görünmez.
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans", sahip)[0], 404)
 
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))

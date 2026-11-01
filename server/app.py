@@ -60,7 +60,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -946,12 +946,35 @@ def channel_remove(req, team_id, broadcaster_id):
     return {}
 
 
+# Banın hâlâ geçerli olduğu koşul (tek "?" = şimdiki zaman). Süreli uzaklaştırma, en son uygulandığı
+# kanaldan itibaren süresi dolunca biter; kaldırılmış ya da bitmiş kayıtlar geçmişe düşer.
+ACTIVE_SQL = (
+    "({t}.revoked_at IS NULL AND ({t}.duration IS NULL OR COALESCE("
+    "(SELECT MAX(r.updated_at) FROM ban_results r WHERE r.ban_id = {t}.id AND r.status = 'ok'), "
+    "{t}.created_at) + {t}.duration * 60 > ?))"
+)
+
+
+def active_sql(table="bans"):
+    return ACTIVE_SQL.format(t=table)
+
+
 def ban_list(req, team_id):
-    """En yeni 200 kaydı döndürür; ?q= ad ya da sebepte arar, ?revoked=1 kaldırılanları da katar."""
+    """En yeni 200 kaydı döndürür; ?q= ad ya da sebepte arar.
+
+    ?view=history kaldırılmış banları ve süresi dolmuş uzaklaştırmaları, varsayılan görünüm kalıcı banları ve
+    süren uzaklaştırmaları döndürür. 0.7.1 ve öncesindeki panelin ?revoked=1 isteği hepsini döndürür.
+    """
     team = team_for(req, team_id)
+    now = int(time.time())
     where, args = "team_id = ?", [team["id"]]
-    if req.query.get("revoked") != "1":
-        where += " AND revoked_at IS NULL"
+    view = req.query.get("view", "active")
+    if view == "history":
+        where += f" AND NOT {active_sql()}"
+        args.append(now)
+    elif req.query.get("revoked") != "1":
+        where += f" AND {active_sql()}"
+        args.append(now)
     query = req.query.get("q", "").strip().lower()
     if query:
         where += " AND (instr(lower(target_name), ?) > 0 OR instr(lower(reason), ?) > 0)"
@@ -961,40 +984,7 @@ def ban_list(req, team_id):
         "bans": [ban_json(req.db, b) for b in bans],
         "matched": req.db.execute(f"SELECT COUNT(*) FROM bans WHERE {where}", args).fetchone()[0],
         "active_total": req.db.execute(
-            "SELECT COUNT(*) FROM bans WHERE team_id = ? AND revoked_at IS NULL", (team["id"],)).fetchone()[0],
-    }
-
-
-def user_bans(req, team_id, name):
-    """kick.com'daki kullanıcı kartı için: kullanıcı ekibin kaç kanalında şu an banlı.
-
-    Yalnızca bu ekibin kayıtlarına bakar ve Kick'e istek atmaz; kart her açıldığında çağrılabilir.
-    Süreli uzaklaştırmalar, banın o kanalda son uygulandığı andan itibaren süresi dolunca sayılmaz.
-    """
-    team = team_for(req, team_id)
-    slug = to_slug(name)
-    now = int(time.time())
-    rows = req.db.execute(
-        "SELECT c.slug, b.duration, r.updated_at FROM bans b "
-        "JOIN ban_results r ON r.ban_id = b.id AND r.status = 'ok' "
-        "JOIN channels c ON c.team_id = b.team_id AND c.broadcaster_id = r.broadcaster_id "
-        "WHERE b.team_id = ? AND b.target_name = ? AND b.revoked_at IS NULL "
-        "AND (b.duration IS NULL OR r.updated_at + b.duration * 60 > ?) ORDER BY c.slug",
-        (team["id"], slug, now)).fetchall()
-    channels = {}
-    for row in rows:
-        expires = None if row["duration"] is None else row["updated_at"] + row["duration"] * 60
-        # Aynı kanalda birden çok kayıt olursa kalıcı olan ya da en geç biten kazanır.
-        old = channels.get(row["slug"], {"expires_at": 0})
-        if old["expires_at"] is not None and (expires is None or expires > old["expires_at"]):
-            channels[row["slug"]] = {"slug": row["slug"], "expires_at": expires}
-    return {
-        "username": slug,
-        "count": len(channels),
-        "permanent": sum(1 for c in channels.values() if c["expires_at"] is None),
-        "channels": list(channels.values()),
-        "team_channels": req.db.execute("SELECT COUNT(*) FROM channels WHERE team_id = ?",
-                                        (team["id"],)).fetchone()[0],
+            f"SELECT COUNT(*) FROM bans WHERE team_id = ? AND {active_sql()}", (team["id"], now)).fetchone()[0],
     }
 
 
@@ -1024,9 +1014,10 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
         raise ApiError(400, "Ekip üyeleri ve ekipteki yayıncılar banlanamaz")
     if not db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
         raise ApiError(400, "Önce ekibe en az bir kanal ekle")
+    # Süresi dolmuş uzaklaştırma aktif sayılmaz: yeniden banlamak yeni kayıt açar ve Kick'e gerçekten gider.
     ban = db.execute(
-        "SELECT * FROM bans WHERE team_id = ? AND target_id = ? AND revoked_at IS NULL",
-        (team["id"], target_id)).fetchone()
+        f"SELECT * FROM bans WHERE team_id = ? AND target_id = ? AND {active_sql()} ORDER BY id DESC",
+        (team["id"], target_id, int(time.time()))).fetchone()
     if not ban:
         cur = db.execute(
             "INSERT INTO bans (team_id, target_id, target_name, reason, duration, created_by, created_at) "
@@ -1082,7 +1073,8 @@ def unban_create(req, team_id):
         now = int(time.time())
         ban = req.db.execute(
             "SELECT b.*, u.name AS creator FROM bans b LEFT JOIN users u ON u.id = b.created_by "
-            "WHERE b.team_id = ? AND b.target_id = ? AND b.revoked_at IS NULL", (team["id"], target_id)).fetchone()
+            "WHERE b.team_id = ? AND b.target_id = ? AND b.revoked_at IS NULL ORDER BY b.id DESC",
+            (team["id"], target_id)).fetchone()
         if ban and ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
             raise ApiError(403, f"{slug} listede {ban['creator'] or 'başka bir üye'} tarafından banlanmış; "
                                 "başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir")
@@ -1298,7 +1290,6 @@ ROUTES = [
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),
     ("POST", r"/teams/(\d{1,18})/unbans", unban_create, True),
-    ("GET", r"/teams/(\d{1,18})/users/([A-Za-z0-9_-]{1,25})/bans", user_bans, True),
     ("GET", r"/teams/(\d{1,18})/imports", import_status, True),
     ("POST", r"/teams/(\d{1,18})/imports", import_create, True),
     ("DELETE", r"/teams/(\d{1,18})/imports/(pending|finished)", import_clear, True),

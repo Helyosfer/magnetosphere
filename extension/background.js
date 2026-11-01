@@ -16,27 +16,7 @@ async function login(server) {
   await chrome.storage.local.set({ token });
 }
 
-// kick.com'daki kullanıcı kartı sorar: kullanıcı seçili ekibin kaç kanalında banlı.
-// Token yalnızca burada kullanılır; içerik betiğine sadece sonuç döner.
-async function userBans(username) {
-  if (typeof username !== "string" || !/^[A-Za-z0-9_-]{1,25}$/.test(username)) return { ok: false };
-  const { token, teamId, server: stored } = await chrome.storage.local.get(["token", "teamId", "server"]);
-  const server = stored || DEFAULT_SERVER;
-  if (!token || !teamId || serverUrlProblem(server)) return { ok: false };
-  const res = await fetch(`${server}/teams/${Number(teamId)}/users/${username}/bans`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return { ok: false };
-  return { ok: true, bans: await res.json() };
-}
-
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "userBans") {
-    // Yalnızca bu uzantının kick.com'daki içerik betiği sorabilir.
-    if (sender.id !== chrome.runtime.id || !/^https:\/\/(www\.)?kick\.com\//.test(sender.url || "")) return;
-    userBans(msg.username).then(sendResponse, () => sendResponse({ ok: false }));
-    return true;
-  }
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "login") return;
   login(msg.server).then(
     () => sendResponse({ ok: true }),

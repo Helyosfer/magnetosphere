@@ -323,6 +323,9 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .ban.error { border-left-color: var(--danger); }
 .ban.revoked { border-left-color: var(--line); opacity: .6; }
 .ban.ended { border-left-color: var(--line); }
+/* Geçmişte her kart kaldırılmış ya da bitmiş; hepsini soluklaştırmak okumayı zorlaştırır. */
+#ban-list.history .ban.revoked { opacity: 1; }
+#ban-list.history .ban.revoked .name, #ban-list.history .ban.revoked .reason { color: var(--muted); }
 .ban.ended .name, .ban.ended .reason { color: var(--muted); }
 .ban.ended .chip.ok::before { background: var(--muted); }
 .ban .head { display: flex; align-items: center; gap: 6px; }

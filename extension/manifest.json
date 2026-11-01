@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Magnetosphere",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Kick'te moderatörü olduğun tüm kanallarda bir kullanıcıyı tek seferde banla. Ban listeni istersen mod ekibinle paylaş.",
   "homepage_url": "https://github.com/Helyosfer/magnetosphere",
   "permissions": [
@@ -19,14 +19,6 @@
       "128": "icons/icon128.png"
     }
   },
-  "content_scripts": [
-    {
-      "matches": ["https://kick.com/*", "https://www.kick.com/*"],
-      "js": ["kick-card.js"],
-      "css": ["kick-card.css"],
-      "run_at": "document_idle"
-    }
-  ],
   "background": {
     "service_worker": "background.js"
   },
