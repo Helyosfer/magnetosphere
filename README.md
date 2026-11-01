@@ -43,10 +43,10 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 
 | | |
 |:-:|:-:|
-| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-kaldir.png" alt="Ban kaldır: kullanıcı adıyla bütün kanallardan kaldırma" width="420"> |
-| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Ban kaldır:** adı yaz; Kick'te elle atılmış ban da bütün kanallardan kalkar. |
-| <img src="store/ekran-2-liste.png" alt="Liste sekmesi: banlar ve her kanaldaki sonuç" width="420"> | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> |
-| **Liste:** kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
+| <img src="store/ekran-1-banla.png" alt="Banla sekmesi: kullanıcı adları, sebep ve süre" width="420"> | <img src="store/ekran-5-gecmis.png" alt="Geçmiş sekmesi: kaldırılan banlar ve süresi dolan uzaklaştırmalar" width="420"> |
+| **Banla:** adları yaz, sebep ve süre seç; ban tüm kanallara birden gider. | **Geçmiş:** kaldırılan banlar ve süresi dolan uzaklaştırmalar burada kalır. |
+| <img src="store/ekran-2-liste.png" alt="Liste sekmesi: aktif banlar ve her kanaldaki sonuç" width="420"> | <img src="store/ekran-3-sira.png" alt="Sıra: uzun listelerin arka planda işlenmesi" width="420"> |
+| **Liste:** aktif banlar: kim kimi neden banladı, ban hangi kanallarda uygulandı. | **Sıra:** binlerce ad arka planda işlenir; panel kapansa da devam eder. |
 | <img src="store/ekran-4-ekip.png" alt="Ekip sekmesi: kanallar, yayıncı yetkisi ve roller" width="420"> | |
 | **Ekip:** kanallar, yayıncı yetkisi paylaşımı, üyeler ve rolleri. | |
 
@@ -421,7 +421,7 @@ Mağaza sayfasının metni [`store/aciklama.md`](store/aciklama.md) içindedir. 
 
 | Alan | Dosya | Boyut |
 |---|---|---|
-| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png), [`ekran-5-kaldir.png`](store/ekran-5-kaldir.png) | 1280×800 |
+| Ekran görüntüleri | [`ekran-1-banla.png`](store/ekran-1-banla.png), [`ekran-2-liste.png`](store/ekran-2-liste.png), [`ekran-3-sira.png`](store/ekran-3-sira.png), [`ekran-4-ekip.png`](store/ekran-4-ekip.png), [`ekran-5-gecmis.png`](store/ekran-5-gecmis.png) | 1280×800 |
 | Küçük tanıtım kutusu | [`tanitim-kucuk-440x280.png`](store/tanitim-kucuk-440x280.png) | 440×280 |
 | Büyük tanıtım kutusu | [`tanitim-buyuk-1400x560.png`](store/tanitim-buyuk-1400x560.png) | 1400×560 |
 | Simge | [`extension/icons/icon128.png`](extension/icons/icon128.png) | 128×128 |
