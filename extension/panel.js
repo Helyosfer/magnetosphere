@@ -5,7 +5,8 @@ const QUEUE_THRESHOLD = 10;
 
 // Ekip içi roller, yetkiye göre sıralı (sunucudaki ROLES ile aynı).
 const ROLE_RANK = { viewer: 0, mod: 1, admin: 2, owner: 3 };
-const ROLE_LABEL = { owner: "Sahip", admin: "Yönetici", mod: "Moderatör", viewer: "İzleyici" };
+const ROLE_KEY = { owner: "roleOwner", admin: "roleAdmin", mod: "roleMod", viewer: "roleViewer" };
+const roleLabel = (role) => t(ROLE_KEY[role]);
 // Rol bilgisi göndermeyen eski sunucularda sahip dışındaki herkes moderatör sayılır.
 const roleOf = (item) => item.role || (item.owner ? "owner" : "mod");
 const can = (need) => ROLE_RANK[roleOf(state.team)] >= ROLE_RANK[need];
@@ -64,13 +65,15 @@ async function api(method, path, body) {
       method,
       headers: {
         Authorization: `Bearer ${state.token}`,
+        // Sunucu hata mesajlarını bu dilde döndürür (eski sunucular yok sayar).
+        "Accept-Language": LANG,
         ...(body ? { "Content-Type": "application/json" } : {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
     // Tarayıcının "Failed to fetch" hatası kullanıcıya bir şey söylemez.
-    throw new Error("Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.");
+    throw new Error(t("netDown"));
   }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
@@ -78,7 +81,7 @@ async function api(method, path, body) {
     state.token = null;
     render();
   }
-  if (!res.ok) throw new Error(data.error || `Sunucu şu an yanıt veremiyor (${res.status}). Biraz sonra tekrar dene.`);
+  if (!res.ok) throw new Error(data.error || t("serverDown", res.status));
   return data;
 }
 
@@ -116,14 +119,14 @@ function ask(text) {
 }
 
 function formatDuration(minutes) {
-  if (!minutes) return "Kalıcı";
-  if (minutes % 1440 === 0) return `${minutes / 1440} gün`;
-  if (minutes % 60 === 0) return `${minutes / 60} saat`;
-  return `${minutes} dk`;
+  if (!minutes) return t("permanent");
+  if (minutes % 1440 === 0) return t("days", minutes / 1440);
+  if (minutes % 60 === 0) return t("hours", minutes / 60);
+  return t("minutes", minutes);
 }
 
 function formatDate(seconds) {
-  return new Date(seconds * 1000).toLocaleString("tr-TR", {
+  return new Date(seconds * 1000).toLocaleString(localeTag(), {
     day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
@@ -131,13 +134,13 @@ function formatDate(seconds) {
 // "3 dk önce" gibi göreli zaman; bir haftadan eskiler kısa tarihle gösterilir.
 function formatAgo(seconds) {
   const diff = Math.max(0, Date.now() / 1000 - seconds);
-  if (diff < 45) return "az önce";
-  if (diff < 3600) return `${Math.max(1, Math.round(diff / 60))} dk önce`;
-  if (diff < 86400) return `${Math.round(diff / 3600)} sa önce`;
-  if (diff < 7 * 86400) return `${Math.round(diff / 86400)} gün önce`;
+  if (diff < 45) return t("justNow");
+  if (diff < 3600) return t("minAgo", Math.max(1, Math.round(diff / 60)));
+  if (diff < 86400) return t("hourAgo", Math.round(diff / 3600));
+  if (diff < 7 * 86400) return t("dayAgo", Math.round(diff / 86400));
   const date = new Date(seconds * 1000);
   const sameYear = date.getFullYear() === new Date().getFullYear();
-  return date.toLocaleDateString("tr-TR", { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
+  return date.toLocaleDateString(localeTag(), { day: "numeric", month: "short", ...(sameYear ? {} : { year: "numeric" }) });
 }
 
 function timeEl(seconds) {
@@ -155,9 +158,9 @@ function banExpiry(ban) {
 // "45 dk kaldı" gibi kalan süre.
 function formatLeft(seconds) {
   const minutes = Math.max(1, Math.ceil((seconds - Date.now() / 1000) / 60));
-  if (minutes < 60) return `${minutes} dk kaldı`;
-  if (minutes < 1440) return `${Math.round(minutes / 60)} saat kaldı`;
-  return `${Math.round(minutes / 1440)} gün kaldı`;
+  if (minutes < 60) return t("minLeft", minutes);
+  if (minutes < 1440) return t("hourLeft", Math.round(minutes / 60));
+  return t("dayLeft", Math.round(minutes / 1440));
 }
 
 // Süreli banın etiketi: süre dolunca "Ceza bitti" olur ve kart sönükleşir.
@@ -166,10 +169,10 @@ function updateTimedTag(tag) {
   const ended = Date.now() / 1000 >= expires;
   const card = tag.closest(".ban");
   tag.className = `tag ${ended ? "ended" : "timed"}`;
-  tag.textContent = ended ? "Ceza bitti" : formatDuration(Number(tag.dataset.duration));
+  tag.textContent = ended ? t("ended") : formatDuration(Number(tag.dataset.duration));
   tag.title = ended
-    ? `${formatDuration(Number(tag.dataset.duration))} uzaklaştırma ${formatDate(expires)} tarihinde bitti`
-    : `${formatLeft(expires)} (bitiş: ${formatDate(expires)})`;
+    ? t("endedTitle", formatDuration(Number(tag.dataset.duration)), formatDate(expires))
+    : t("leftTitle", formatLeft(expires), formatDate(expires));
   if (card) {
     card.classList.toggle("ended", ended);
     // Süresi dolan uzaklaştırmada "Tekrar dene" kullanıcıyı baştan uzaklaştırır, "Kaldır" da boşa gider.
@@ -183,27 +186,27 @@ setInterval(() => {
   for (const tag of document.querySelectorAll(".tag[data-expires]")) updateTimedTag(tag);
 }, 30000);
 
-const STATUS_TITLE = {
-  ok: "Banlandı",
-  failed: "Banlanamadı",
-  pending: "Henüz uygulanmadı",
-  unbanned: "Ban kaldırıldı",
-  unban_failed: "Ban kaldırılamadı",
+const STATUS_KEY = {
+  ok: "statusOk",
+  failed: "statusFailed",
+  pending: "statusPending",
+  unbanned: "statusUnbanned",
+  unban_failed: "statusUnbanFailed",
 };
 
 function banCard(ban) {
   const applied = ban.results.filter((r) => r.status === "ok").length;
   const complete = applied === ban.results.length;
   const chips = ban.results.map((r) => {
-    const via = r.via === "broadcaster" && r.status === "ok" ? " (yayıncı yetkisiyle)" : "";
+    const via = r.via === "broadcaster" && r.status === "ok" ? t("viaBroadcaster") : "";
     return el("span", {
       className: `chip ${r.status}`,
-      title: `${STATUS_TITLE[r.status]}${via}${r.detail ? ` — ${r.detail}` : ""}`,
+      title: `${t(STATUS_KEY[r.status])}${via}${r.detail ? ` — ${r.detail}` : ""}`,
       textContent: r.slug,
     });
   });
   const tag = ban.revoked_at
-    ? el("span", { className: "tag off", textContent: "Kaldırıldı" })
+    ? el("span", { className: "tag off", textContent: t("revoked") })
     : el("span", { className: `tag ${ban.duration ? "timed" : "perm"}`, textContent: formatDuration(ban.duration) });
   if (!ban.revoked_at && ban.duration) {
     tag.dataset.expires = banExpiry(ban);
@@ -211,13 +214,13 @@ function banCard(ban) {
   }
 
   // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
-  const reason = ban.external ? "Ban Kick'te Magnetosphere dışında atılmıştı" : ban.reason || "Sebep belirtilmedi";
+  const reason = ban.external ? t("externalReason") : ban.reason || t("noReason");
   const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
     el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: reason }),
     el("div", { className: "meta" },
       el("span", { className: "avatar mini", textContent: ban.created_by.slice(0, 1).toUpperCase() }),
-      el("span", { className: "who", textContent: ban.external ? `${ban.created_by} kaldırdı` : ban.created_by }),
+      el("span", { className: "who", textContent: ban.external ? t("externalWho", ban.created_by) : ban.created_by }),
       "·",
       timeEl(ban.created_at))
   );
@@ -227,7 +230,7 @@ function banCard(ban) {
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
     if (!complete) {
-      const retry = el("button", { className: "ghost small retry", textContent: "Tekrar dene" });
+      const retry = el("button", { className: "ghost small retry", textContent: t("retry") });
       retry.onclick = () => run(retry, async () => {
         await api("POST", `/teams/${state.teamId}/bans/${ban.id}/retry`);
         await loadBans();
@@ -235,9 +238,9 @@ function banCard(ban) {
       actions.append(retry);
     }
     if (mine || can("admin")) {
-      const revoke = el("button", { className: "ghost small", textContent: "Kaldır" });
+      const revoke = el("button", { className: "ghost small", textContent: t("unban") });
       revoke.onclick = () => run(revoke, async () => {
-        if (!(await ask(`${ban.target_name} için ban tüm kanallarda kaldırılsın mı?`))) return;
+        if (!(await ask(t("confirmRevoke", ban.target_name)))) return;
         await api("DELETE", `/teams/${state.teamId}/bans/${ban.id}`);
         await loadBans();
       });
@@ -267,16 +270,16 @@ function renderBans() {
 
   const searching = $("list-search").value.trim();
   const empty = searching
-    ? emptyState("search", "Eşleşen kayıt yok", "Başka bir kullanıcı adı ya da sebep dene.")
+    ? emptyState("search", t("noMatchTitle"), t("noMatchHint"))
     : history
-      ? emptyState("history", "Geçmiş boş", "Kaldırılan banlar ve süresi dolan uzaklaştırmalar burada görünür.")
-      : emptyState("shield", "Aktif ban yok", "Kalıcı banlar ve süren uzaklaştırmalar burada görünür.");
+      ? emptyState("history", t("historyEmptyTitle"), t("historyEmptyHint"))
+      : emptyState("shield", t("noActiveTitle"), t("noActiveHint"));
   const cards = bans.length ? bans.map(banCard) : [empty];
   // Sunucu en fazla 200 kayıt döndürür; matched, bu görünümdeki toplam kayıttır.
   if (matched > state.list.bans.length) {
     cards.push(el("p", {
       className: "muted small",
-      textContent: `${matched} kayıttan en yeni ${state.list.bans.length} tanesi gösteriliyor. Diğerleri için arama yap.`,
+      textContent: t("moreRecords", matched, state.list.bans.length),
     }));
   }
   $("ban-list").replaceChildren(...cards);
@@ -297,7 +300,7 @@ async function loadBans() {
     list = await api("GET", `/teams/${teamId}/bans?${params}`);
   } catch (e) {
     if (teamId === state.teamId && view === state.view && !state.listLoaded) {
-      $("ban-list").replaceChildren(emptyState("alert", "Liste yüklenemedi", "Sekmeye yeniden tıklayarak tekrar dene."));
+      $("ban-list").replaceChildren(emptyState("alert", t("listFailedTitle"), t("listFailedHint")));
     }
     throw e;
   }
@@ -324,16 +327,16 @@ function renderTeam() {
   $("viewer-note").hidden = mod;
   $("ban-fields").hidden = !mod;
   if (slugs.length) {
-    $("targets").textContent = `${slugs.length} kanala uygulanacak: ${slugs.join(", ")}`;
+    $("targets").textContent = t("targets", slugs.length, slugs.join(", "));
   } else if (admin) {
-    const add = el("button", { type: "button", className: "link", textContent: "Kanal ekle" });
+    const add = el("button", { type: "button", className: "link", textContent: t("addChannel") });
     add.onclick = () => {
       showTab("crew");
       $("channel-add").elements.slug.focus();
     };
-    $("targets").replaceChildren("Ekipte henüz kanal yok. ", add);
+    $("targets").replaceChildren(t("noChannelsYet"), add);
   } else {
-    $("targets").textContent = "Ekipte henüz kanal yok. Kanalları ekip sahibi ve yöneticiler ekleyebilir.";
+    $("targets").textContent = t("noChannelsAdmins");
   }
   syncMode();
   $("ban-submit").disabled = !slugs.length;
@@ -345,7 +348,7 @@ function renderTeam() {
   // Kick'te kanal kimliği kullanıcı kimliğiyle aynı; kendi kanalı listede yoksa tek tıkla eklenebilsin.
   const own = team.channels.find((c) => c.broadcaster_id === me.id);
   $("channel-self").hidden = !admin || Boolean(own);
-  $("channel-self-text").textContent = `Kendi kanalın (${me.name}) listede değil; orada ban atılmaz.`;
+  $("channel-self-text").textContent = t("ownChannelMissing", me.name);
 
   // Yetki paylaşımı yalnızca kanalı bu ekibin listesinde olan üyeye sorulur; kararı yalnızca o verir.
   $("lend-card").hidden = !own || team.lend === undefined;
@@ -354,8 +357,8 @@ function renderTeam() {
   $("invite-card").hidden = !admin;
   $("invite").textContent = team.invite_code;
   $("invite-text").textContent = team.join_role === "viewer"
-    ? "Bu kodla katılanlar izleyici olarak başlar: listeyi görür, sahip rol verene dek ban atamaz."
-    : "Bu kodu alan herkes ekibe moderatör olarak katılıp ekibin kanallarında ban atabilir. Yalnızca güvendiğin kişilerle paylaş.";
+    ? t("inviteViewerText")
+    : t("inviteModText");
   $("join-role-row").hidden = !owner || team.join_role === undefined;
   $("join-role").value = team.join_role || "mod";
   $("team-leave-card").hidden = owner || team.role === undefined;
@@ -366,20 +369,20 @@ function renderTeam() {
     if (c.broadcaster_joined) {
       item.append(el("span", {
         className: "tag off",
-        textContent: "Yayıncı yetkisi açık",
-        title: "Moderatör yetkisi yetmediğinde ban, ekipteki yayıncının yetkisiyle uygulanır",
+        textContent: t("broadcasterOn"),
+        title: t("broadcasterOnTitle"),
       }));
     } else if (c.broadcaster_member) {
       item.append(el("span", {
         className: "tag off",
-        textContent: "Yayıncı ekipte",
-        title: "Yayıncı ekipte ama yetkisini paylaşmıyor; ban yalnızca orada moderatör olanların yetkisiyle tutar",
+        textContent: t("broadcasterMember"),
+        title: t("broadcasterMemberTitle"),
       }));
     }
     if (admin) {
-      const remove = el("button", { className: "ghost small", textContent: "Kaldır" });
+      const remove = el("button", { className: "ghost small", textContent: t("removeChannel") });
       remove.onclick = () => run(remove, async () => {
-        if (!(await ask(`${c.slug} kanalı ekipten kaldırılsın mı? Mevcut banlar Kick'te kalır.`))) return;
+        if (!(await ask(t("confirmChannelRemove", c.slug)))) return;
         await api("DELETE", `/teams/${team.id}/channels/${c.broadcaster_id}`);
         await loadTeam();
         await loadBans();
@@ -389,39 +392,39 @@ function renderTeam() {
     return item;
   }));
   if (!team.channels.length) {
-    $("channels").append(emptyState("channel", "Henüz kanal yok",
-      admin ? "Moderatörü olduğun kanalları aşağıdan ekle." : "Kanalları ekip sahibi ve yöneticiler ekleyebilir.", "li"));
+    $("channels").append(emptyState("channel", t("noChannelsTitle"),
+      admin ? t("noChannelsHintAdmin") : t("noChannelsHint"), "li"));
   }
 
   $("members").replaceChildren(...team.members.map((m) => {
     const role = roleOf(m);
     const item = el("li", {},
       el("span", { className: "avatar", textContent: m.name.slice(0, 1).toUpperCase() }),
-      el("span", { className: "grow" }, m.name, m.id === me.id ? el("span", { className: "you", textContent: " (sen)" }) : "")
+      el("span", { className: "grow" }, m.name, m.id === me.id ? el("span", { className: "you", textContent: t("you") }) : "")
     );
     if (owner && role !== "owner" && team.role !== undefined) {
       // Sahip, diğer üyelerin rolünü buradan değiştirir; son seçenek sahipliği devreder.
-      const select = el("select", { className: "small", ariaLabel: `${m.name} için rol` },
-        ...["admin", "mod", "viewer"].map((r) => el("option", { value: r, textContent: ROLE_LABEL[r], selected: r === role })),
-        el("option", { value: "owner", textContent: "Sahipliği devret…" }));
+      const select = el("select", { className: "small", ariaLabel: t("roleFor", m.name) },
+        ...["admin", "mod", "viewer"].map((r) => el("option", { value: r, textContent: roleLabel(r), selected: r === role })),
+        el("option", { value: "owner", textContent: t("transferOwnership") }));
       select.onchange = () => run(null, async () => {
         const next = select.value;
         try {
-          if (next === "owner" && !(await ask(`Sahiplik ${m.name} adlı üyeye devredilsin mi? Sen yönetici olursun; bunu yalnızca yeni sahip geri alabilir.`))) return;
+          if (next === "owner" && !(await ask(t("confirmTransfer", m.name)))) return;
           await api("POST", `/teams/${team.id}/members/${m.id}/role`, { role: next });
-          showMessage(next === "owner" ? `Sahiplik ${m.name} adlı üyeye devredildi.` : `${m.name} artık ${ROLE_LABEL[next].toLocaleLowerCase("tr")}.`, "info");
+          showMessage(next === "owner" ? t("transferred", m.name) : t("roleChanged", m.name, roleLabel(next)), "info");
         } finally {
           await loadTeam();   // vazgeçilirse ya da hata olursa seçim eski haline döner
         }
       });
       item.append(select);
     } else {
-      item.append(el("span", { className: "tag off", textContent: ROLE_LABEL[role] }));
+      item.append(el("span", { className: "tag off", textContent: roleLabel(role) }));
     }
     if (admin && m.id !== me.id && ROLE_RANK[role] < ROLE_RANK[roleOf(team)]) {
-      const remove = el("button", { className: "ghost small", textContent: "Çıkar" });
+      const remove = el("button", { className: "ghost small", textContent: t("removeMember") });
       remove.onclick = () => run(remove, async () => {
-        if (!(await ask(`${m.name} ekipten çıkarılsın mı?`))) return;
+        if (!(await ask(t("confirmRemoveMember", m.name)))) return;
         await api("DELETE", `/teams/${team.id}/members/${m.id}`);
         await loadTeam();
       });
@@ -473,11 +476,11 @@ async function selectTeam(teamId, teamRequest) {
   Promise.all([loadBans(), pollQueue()]).catch((e) => showMessage(e.message));
 }
 
-const PROBLEM_LABEL = {
-  notfound: "Kick'te bulunamadı",
-  rejected: "reddedildi",
-  partial: "bazı kanallarda tutmadı",
-  error: "hata",
+const PROBLEM_KEY = {
+  notfound: "problemNotfound",
+  rejected: "problemRejected",
+  partial: "problemPartial",
+  error: "problemError",
 };
 
 let queueTimer = null;
@@ -494,18 +497,17 @@ function renderQueue(status) {
 
   $("queue-progress").textContent = `${processed} / ${status.total}`;
   $("queue-bar").style.width = `${Math.round((processed / status.total) * 100)}%`;
-  const parts = [`${(counts.done || 0) + (counts.partial || 0)} banlandı`];
-  if (counts.notfound) parts.push(`${counts.notfound} bulunamadı`);
-  if (counts.rejected) parts.push(`${counts.rejected} reddedildi`);
-  if (counts.error) parts.push(`${counts.error} hata`);
-  $("queue-summary").textContent =
-    (pending ? `${pending} kullanıcı sırada. Paneli kapatabilirsin, işlem sürer. ` : "Sıra tamamlandı. ") + parts.join(" · ");
+  const parts = [t("queueBanned", (counts.done || 0) + (counts.partial || 0))];
+  if (counts.notfound) parts.push(t("queueNotfound", counts.notfound));
+  if (counts.rejected) parts.push(t("queueRejected", counts.rejected));
+  if (counts.error) parts.push(t("queueErrors", counts.error));
+  $("queue-summary").textContent = (pending ? t("queuePending", pending) : t("queueDone")) + parts.join(" · ");
 
   $("queue-problems").hidden = !queueProblems.length;
-  $("queue-problems").querySelector("summary").textContent = `${queueProblems.length} sorunlu kayıt`;
+  $("queue-problems").querySelector("summary").textContent = t("queueProblems", queueProblems.length);
   $("queue-problem-list").replaceChildren(...queueProblems.map((p) => el("li", {},
     el("span", { className: "grow mono", textContent: p.name }),
-    el("span", { className: "muted", textContent: p.detail || PROBLEM_LABEL[p.status], title: p.detail })
+    el("span", { className: "muted", textContent: p.detail || t(PROBLEM_KEY[p.status]), title: p.detail })
   )));
   $("queue-copy").hidden = !queueProblems.some((p) => p.status === "notfound");
   $("queue-cancel").hidden = !pending || !can("mod");
@@ -527,7 +529,7 @@ async function pollQueue() {
 }
 
 $("queue-cancel").onclick = () => run($("queue-cancel"), async () => {
-  if (!(await ask("Sırada bekleyen kullanıcılar iptal edilsin mi? Şimdiye kadar atılan banlar kalır."))) return;
+  if (!(await ask(t("confirmQueueCancel")))) return;
   await api("DELETE", `/teams/${state.teamId}/imports/pending`);
   await pollQueue();
 });
@@ -540,7 +542,7 @@ $("queue-clear").onclick = () => run($("queue-clear"), async () => {
 $("queue-copy").onclick = async () => {
   const names = queueProblems.filter((p) => p.status === "notfound").map((p) => p.name);
   await navigator.clipboard.writeText(names.join("\n"));
-  showMessage(`${names.length} kullanıcı adı kopyalandı.`, "info");
+  showMessage(t("namesCopied", names.length), "info");
 };
 
 // .csv dosyalarında yalnızca ilk sütun alınır; başlık satırı varsa atlanır.
@@ -561,7 +563,7 @@ $("file-input").onchange = () => run($("file-pick"), async () => {
   $("file-input").value = "";
   updateNameCount();
   const added = parseUsernames($("username").value).length - before;
-  showMessage(`${files.map((f) => f.name).join(", ")}: ${added} kullanıcı yüklendi.`, "info");
+  showMessage(t("fileLoaded", files.map((f) => f.name).join(", "), added), "info");
 });
 
 async function loadMe(preferredTeamId, teamRequest) {
@@ -581,10 +583,10 @@ async function loadMe(preferredTeamId, teamRequest) {
   $("solo-start").hidden = !canCreate;
   $("solo-hint").hidden = !canCreate;
   $("welcome").hidden = teams.length > 0;
-  $("welcome-title").textContent = `Hoş geldin, ${state.me.user.name}!`;
+  $("welcome-title").textContent = t("welcome", state.me.user.name);
   $("welcome-text").textContent = canCreate
-    ? "Kimseyi davet etmen gerekmez: moderatörü olduğun kanalları ekle, bir kullanıcıyı hepsinde birden banla."
-    : "Başlamak için ekibinden bir davet kodu iste ve aşağıya yapıştır.";
+    ? t("welcomeSolo")
+    : t("welcomeInvite");
   if (teams.length) {
     const wanted = teams.find((t) => t.id === preferredTeamId) || teams[0];
     await selectTeam(wanted.id, wanted.id === preferredTeamId ? teamRequest : null);
@@ -620,11 +622,11 @@ async function render() {
 
 $("load-retry").onclick = () => render();
 
-// Chrome'un İngilizce giriş hataları kullanıcının anlayacağı dile çevrilir.
+// Chrome'un ham giriş hataları kullanıcının anlayacağı bir mesaja çevrilir.
 function loginError(raw) {
-  if (/did not approve|cancel|closed/i.test(raw)) return "Giriş tamamlanmadı. İstersen tekrar dene.";
-  if (/could not be loaded|network/i.test(raw)) return "Giriş sayfası açılamadı. İnternet bağlantını kontrol edip tekrar dene.";
-  return `Giriş başarısız: ${raw}`;
+  if (/did not approve|cancel|closed/i.test(raw)) return t("loginCancelled");
+  if (/could not be loaded|network/i.test(raw)) return t("loginPageFailed");
+  return t("loginFailed", raw);
 }
 
 addEventListener("scroll", () => document.body.classList.toggle("scrolled", scrollY > 2), { passive: true });
@@ -668,24 +670,24 @@ $("team-join").onsubmit = (event) => {
     const { id, name } = await api("POST", "/teams/join", { invite_code: form.invite_code.value.trim() });
     form.reset();
     await loadMe(id);
-    showMessage(name ? `"${name}" ekibine katıldın.` : "Ekibe katıldın.", "info");
+    showMessage(name ? t("joined", name) : t("joinedPlain"), "info");
   });
 };
 
 // Tek kişilik kullanım: ad sormadan kullanıcının kendi listesi kurulur, sıradaki adım kanal eklemektir.
 $("solo-start").onclick = () => run($("solo-start"), async () => {
-  const { id } = await api("POST", "/teams", { name: `${state.me.user.name} ekibi` });
+  const { id } = await api("POST", "/teams", { name: t("soloTeamName", state.me.user.name) });
   await loadMe(id);
   showTab("crew");
-  showMessage("Listen hazır. Moderatörü olduğun kanalları buradan ekle.", "info");
+  showMessage(t("soloReady"), "info");
 });
 
 $("lend").onchange = () => run(null, async () => {
   const lend = $("lend").checked;
   try {
-    if (lend && !(await ask(`Ekipteki moderatörler ${state.me.user.name} kanalında senin yayıncı yetkinle ban atabilecek. Açılsın mı?`))) return;
+    if (lend && !(await ask(t("confirmLend", state.me.user.name)))) return;
     await api("POST", `/teams/${state.teamId}/lend`, { lend });
-    showMessage(lend ? "Yayıncı yetkin ekiple paylaşılıyor." : "Yayıncı yetkisi paylaşımı kapatıldı.", "info");
+    showMessage(lend ? t("lendOn") : t("lendOff"), "info");
   } finally {
     await loadTeam();
   }
@@ -694,7 +696,7 @@ $("lend").onchange = () => run(null, async () => {
 $("join-role").onchange = () => run(null, async () => {
   try {
     await api("POST", `/teams/${state.teamId}/settings`, { join_role: $("join-role").value });
-    showMessage("Kaydedildi.", "info");
+    showMessage(t("saved"), "info");
   } finally {
     await loadTeam();
   }
@@ -719,22 +721,22 @@ $("channel-self-add").onclick = () => run($("channel-self-add"), async () => {
 
 $("copy-invite").onclick = async () => {
   await navigator.clipboard.writeText($("invite").textContent);
-  showMessage("Davet kodu kopyalandı.", "info");
+  showMessage(t("inviteCopied"), "info");
 };
 
 $("rotate-invite").onclick = () => run($("rotate-invite"), async () => {
-  if (!(await ask("Davet kodu yenilensin mi? Eski kod artık çalışmaz; mevcut üyeler etkilenmez."))) return;
+  if (!(await ask(t("confirmRotate")))) return;
   await api("POST", `/teams/${state.teamId}/invite`);
   await loadTeam();
-  showMessage("Davet kodu yenilendi.", "info");
+  showMessage(t("rotated"), "info");
 });
 
 $("team-delete").onclick = () => run($("team-delete"), async () => {
   const { name } = state.team;
-  if (!(await ask(`"${name}" ekibi silinsin mi? Üyelikler, kanallar ve ortak liste kalıcı olarak silinir; bu geri alınamaz. Kick'teki banlar yerinde kalır.`))) return;
+  if (!(await ask(t("confirmTeamDelete", name)))) return;
   await api("DELETE", `/teams/${state.teamId}`);
   await forgetTeam();
-  showMessage(`"${name}" ekibi silindi.`, "info");
+  showMessage(t("teamDeleted", name), "info");
 });
 
 // Seçili ekip artık yok ya da erişilemez: kalan ekiplerden biri açılır.
@@ -748,21 +750,21 @@ async function forgetTeam() {
 
 $("team-leave").onclick = () => run($("team-leave"), async () => {
   const { name } = state.team;
-  if (!(await ask(`"${name}" ekibinden ayrılmak istiyor musun? Yeniden katılmak için davet kodu gerekir.`))) return;
+  if (!(await ask(t("confirmLeave", name)))) return;
   await api("POST", `/teams/${state.teamId}/leave`);
   await forgetTeam();
-  showMessage(`"${name}" ekibinden ayrıldın.`, "info");
+  showMessage(t("left", name), "info");
 });
 
 $("account-delete").onclick = () => run($("account-delete"), async () => {
-  if (!(await ask("Hesabın silinsin mi? Oturumların, üyeliklerin ve yalnızca senin olduğun ekipler kalıcı olarak silinir; Kick'e verdiğin erişim geri alınır. Başka ekiplerin listesindeki banların kalır ama adın görünmez. Kick'teki banlar etkilenmez."))) return;
+  if (!(await ask(t("confirmAccountDelete")))) return;
   await api("DELETE", "/me");
   clearTimeout(queueTimer);
   state.token = null;
   state.teamId = null;
   await chrome.storage.local.remove(["token", "teamId"]);
   await render();
-  showMessage("Hesabın silindi.", "info");
+  showMessage(t("accountDeleted"), "info");
 });
 
 let searchTimer = null;
@@ -784,7 +786,7 @@ function parseUsernames(text) {
 
 function updateNameCount() {
   const count = parseUsernames($("username").value).length;
-  $("name-count").textContent = `${count} kullanıcı`;
+  $("name-count").textContent = t("userCount", count);
   $("name-count").hidden = count < 2;
 }
 
@@ -820,8 +822,8 @@ function syncMode() {
   $("unban-hint").hidden = !unban;
   $("ban-submit").className = unban ? "primary wide" : "danger wide";
   $("ban-submit").textContent = unban
-    ? (count > 1 ? `${count} kanalda banı kaldır` : "Banı kaldır")
-    : (count > 1 ? `${count} kanalda banla` : "Banla");
+    ? (count > 1 ? t("unbanInN", count) : t("unbanOne"))
+    : (count > 1 ? t("banInN", count) : t("banOne"));
 }
 
 for (const radio of $("tab-ban").elements.mode) {
@@ -834,18 +836,18 @@ for (const radio of $("tab-ban").elements.mode) {
 // Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
 function submitUnban(form, button, usernames, count) {
   if (usernames.length > QUEUE_THRESHOLD) {
-    showMessage(`Ban kaldırmada tek seferde en fazla ${QUEUE_THRESHOLD} kullanıcı girilebilir (${usernames.length} girildi).`);
+    showMessage(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
     return;
   }
   const label = button.textContent;
   run(button, async () => {
-    const who = usernames.length === 1 ? usernames[0] : `${usernames.length} kullanıcı`;
-    if (!(await ask(`${who} için ban ${count} kanalda kaldırılacak. Onaylıyor musun?`))) return;
+    const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
+    if (!(await ask(t("confirmUnban", who, count)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
     try {
       for (const [index, username] of usernames.entries()) {
-        button.textContent = `${index + 1} / ${usernames.length} kaldırılıyor…`;
+        button.textContent = t("unbanning", index + 1, usernames.length);
         try {
           const ban = await api("POST", `/teams/${state.teamId}/unbans`, { username });
           $("ban-result").prepend(banCard(ban));
@@ -853,7 +855,7 @@ function submitUnban(form, button, usernames, count) {
           if (!state.token) throw e;
           // 0.6.0 öncesi sunucu bu yolu tanımaz; yalın "Bulunamadı" kullanıcıya bir şey söylemez.
           if (e.message === "Bulunamadı") {
-            throw new Error("Bağlı sunucu adıyla ban kaldırmayı henüz desteklemiyor; sunucunun 0.6.0'a güncellenmesi gerekiyor.");
+            throw new Error(t("oldServerUnban"));
           }
           failed.push(username);
           $("ban-result").prepend(el("div", { className: "ban error" },
@@ -866,7 +868,7 @@ function submitUnban(form, button, usernames, count) {
     }
     form.username.value = failed.join("\n");
     updateNameCount();
-    if (failed.length) showMessage(`${failed.length} kullanıcının banı kaldırılamadı; adlar alanda bırakıldı.`);
+    if (failed.length) showMessage(t("unbanFailedN", failed.length));
     await loadBans();
   });
 }
@@ -879,38 +881,38 @@ $("tab-ban").onsubmit = (event) => {
   const usernames = parseUsernames(form.username.value);
   const count = state.team ? state.team.channels.length : 0;
   if (!count) {
-    showMessage("Önce Ekip sekmesinden en az bir kanal ekle.");
+    showMessage(t("needChannel"));
     return;
   }
   if (!usernames.length) return;
   if (unbanMode()) return submitUnban(form, button, usernames, count);
   if (usernames.length > MAX_IMPORT) {
-    showMessage(`Tek seferde en fazla ${MAX_IMPORT} kullanıcı gönderilebilir (${usernames.length} girildi).`);
+    showMessage(t("banLimit", MAX_IMPORT, usernames.length));
     return;
   }
   run(button, async () => {
-    const who = usernames.length === 1 ? usernames[0] : `${usernames.length} kullanıcı`;
+    const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
     const reason = form.reason.value.trim();
     const duration = form.duration.value ? Number(form.duration.value) : null;
-    const how = duration ? `${formatDuration(duration)} süreyle` : "kalıcı olarak";
+    const how = duration ? t("howTimed", formatDuration(duration)) : t("howPerm");
     if (usernames.length > QUEUE_THRESHOLD) {
-      if (!(await ask(`${who} sıraya alınacak ve ${count} kanalda ${how} banlanacak. Paneli kapatsan da işlem sürer. Onaylıyor musun?`))) return;
+      if (!(await ask(t("confirmQueue", who, count, how)))) return;
       const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, reason, duration });
       form.username.value = "";
       form.reason.value = "";
       syncPresets();
       updateNameCount();
       $("ban-result").replaceChildren();
-      showMessage(`${added} kullanıcı sıraya alındı${skipped ? `, ${skipped} tanesi zaten sıradaydı` : ""}.`, "info");
+      showMessage(t("queued", added, skipped), "info");
       await pollQueue();
       return;
     }
-    if (!(await ask(`${who}, ${count} kanalda ${how} banlanacak ve ortak listeye eklenecek. Onaylıyor musun?`))) return;
+    if (!(await ask(t("confirmBan", who, count, how)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
     try {
       for (const [index, username] of usernames.entries()) {
-        button.textContent = `${index + 1} / ${usernames.length} banlanıyor…`;
+        button.textContent = t("banning", index + 1, usernames.length);
         try {
           const ban = await api("POST", `/teams/${state.teamId}/bans`, { username, reason, duration });
           $("ban-result").prepend(banCard(ban));
@@ -933,7 +935,7 @@ $("tab-ban").onsubmit = (event) => {
       form.reason.value = "";
       syncPresets();
     } else {
-      showMessage(`${failed.length} kullanıcı banlanamadı; adlar alanda bırakıldı.`);
+      showMessage(t("banFailedN", failed.length));
     }
     await loadBans();
   });
@@ -950,7 +952,17 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
+// Dil düğmesi: seçim saklanır, panel yeni dille baştan açılır.
+for (const button of document.querySelectorAll(".lang-switch")) {
+  button.onclick = async () => {
+    await chrome.storage.local.set({ lang: LANG === "tr" ? "en" : "tr" });
+    location.reload();
+  };
+}
+
 (async () => {
+  await loadLang();
+  applyI18n();
   const stored = await chrome.storage.local.get(["server", "token", "teamId"]);
   state.server = stored.server || DEFAULT_SERVER;
   state.token = stored.token || null;
@@ -963,6 +975,6 @@ chrome.storage.onChanged.addListener((changes) => {
   await render();
   if (serverProblem) {
     $("server").closest("details").open = true;
-    showMessage(`Kayıtlı sunucu adresi kullanılamıyor: ${serverProblem}`);
+    showMessage(t("storedServerBad", serverProblem));
   }
 })();
