@@ -37,35 +37,37 @@
     <div id="user" class="user" hidden>
       <span id="avatar" class="avatar"></span>
       <span id="who"></span>
-      <button id="logout" class="ghost small" title="Çıkış yap">Çıkış</button>
+      <button id="logout" class="ghost small" title="Çıkış yap" data-i18n="logout" data-i18n-title="logoutTitle">Çıkış</button>
     </div>
   </header>
 
   <div id="message" class="banner" role="alert" hidden>
     <span id="message-text"></span>
-    <button type="button" id="message-close" class="close" aria-label="Kapat">×</button>
+    <button type="button" id="message-close" class="close" aria-label="Kapat" data-i18n-aria="close">×</button>
   </div>
 
   <section id="login-view" class="hero" hidden>
     <svg class="logo big"><use href="#logo"/></svg>
-    <h1>Tüm kanalların için tek ban listesi</h1>
-    <p class="muted">Bir kullanıcıyı bir kez banla; moderatörü olduğun her kanalda uygulansın. Tek başına ya da ekibinle.</p>
+    <h1 data-i18n="heroTitle">Tüm kanalların için tek ban listesi</h1>
+    <p class="muted" data-i18n="heroText">Bir kullanıcıyı bir kez banla; moderatörü olduğun her kanalda uygulansın. Tek başına ya da ekibinle.</p>
     <ol class="steps">
-      <li><span>1</span>Kick hesabınla giriş yap</li>
-      <li><span>2</span>Moderatörü olduğun kanalları listene ekle</li>
-      <li><span>3</span>Kullanıcı adını yaz; hepsinde birden banlansın</li>
+      <li data-i18n="step1"><span>1</span>Kick hesabınla giriş yap</li>
+      <li data-i18n="step2"><span>2</span>Moderatörü olduğun kanalları listene ekle</li>
+      <li data-i18n="step3"><span>3</span>Kullanıcı adını yaz; hepsinde birden banlansın</li>
     </ol>
-    <button id="login" class="primary wide">Kick ile giriş yap</button>
-    <p class="muted small">Giriş Kick'in kendi sayfasında yapılır; Magnetosphere şifreni görmez.</p>
+    <button id="login" class="primary wide" data-i18n="login">Kick ile giriş yap</button>
+    <p class="muted small" data-i18n="loginNote">Giriş Kick'in kendi sayfasında yapılır; Magnetosphere şifreni görmez.</p>
     <details>
-      <summary>Gelişmiş: kendi sunucunu kullan</summary>
-      <p class="muted small">Ekibin kendi Magnetosphere sunucusunu çalıştırıyorsa adresini yaz. Emin değilsen dokunma.</p>
-      <input id="server" type="url" placeholder="https://magnetosphere.helyosfer.me" aria-label="Sunucu adresi">
+      <summary data-i18n="advanced">Gelişmiş: kendi sunucunu kullan</summary>
+      <p class="muted small" data-i18n="advancedText">Ekibin kendi Magnetosphere sunucusunu çalıştırıyorsa adresini yaz. Emin değilsen dokunma.</p>
+      <input id="server" type="url" placeholder="https://magnetosphere.helyosfer.me" aria-label="Sunucu adresi" data-i18n-aria="serverAddress">
     </details>
     <p class="links small">
-      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener">Gizlilik</a>
+      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener" data-i18n="privacy">Gizlilik</a>
       <span aria-hidden="true">·</span>
-      <a href="mailto:destek@helyosfer.me">Destek</a>
+      <a href="mailto:destek@helyosfer.me" data-i18n="support">Destek</a>
+      <span aria-hidden="true">·</span>
+      <button type="button" class="link quiet lang-switch" data-i18n="otherLang">English</button>
     </p>
   </section>
 
@@ -81,53 +83,53 @@
 
     <div id="load-error" class="empty" hidden>
       <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
-      <strong>Bağlanılamadı</strong>
+      <strong data-i18n="loadErrorTitle">Bağlanılamadı</strong>
       <span id="load-error-text" class="small"></span>
-      <button type="button" id="load-retry" class="ghost">Tekrar dene</button>
+      <button type="button" id="load-retry" class="ghost" data-i18n="tryAgain">Tekrar dene</button>
     </div>
 
     <div id="teambar" class="teambar">
-      <select id="team" aria-label="Ekip"></select>
-      <button id="team-menu" class="ghost" title="Yeni ekip kur ya da davet koduyla katıl" aria-expanded="false">+ Ekip</button>
+      <select id="team" aria-label="Ekip" data-i18n-aria="team"></select>
+      <button id="team-menu" class="ghost" title="Yeni ekip kur ya da davet koduyla katıl" aria-expanded="false" data-i18n="teamMenu" data-i18n-title="teamMenuTitle">+ Ekip</button>
     </div>
 
     <div id="team-forms" class="card stack" hidden>
       <div id="welcome" hidden>
         <strong id="welcome-title"></strong>
         <p id="welcome-text" class="muted small"></p>
-        <button type="button" id="solo-start" class="primary wide">Tek başıma başla</button>
-        <p id="solo-hint" class="muted small">Kendi kanal listen kurulur; moderatörü olduğun kanalları ekleyip hemen banlarsın. İstersen sonra başkalarını da davet edersin.</p>
+        <button type="button" id="solo-start" class="primary wide" data-i18n="soloStart">Tek başıma başla</button>
+        <p id="solo-hint" class="muted small" data-i18n="soloHint">Kendi kanal listen kurulur; moderatörü olduğun kanalları ekleyip hemen banlarsın. İstersen sonra başkalarını da davet edersin.</p>
       </div>
       <form id="team-join" class="field">
-        <label class="label" for="join-code">Bir ekibe mi davet edildin?</label>
+        <label class="label" for="join-code" data-i18n="joinLabel">Bir ekibe mi davet edildin?</label>
         <div class="row">
-          <input id="join-code" name="invite_code" placeholder="Davet kodunu yapıştır" required>
-          <button class="ghost">Katıl</button>
+          <input id="join-code" name="invite_code" placeholder="Davet kodunu yapıştır" data-i18n-placeholder="joinPlaceholder" required>
+          <button class="ghost" data-i18n="join">Katıl</button>
         </div>
       </form>
       <form id="team-create" class="field">
-        <label class="label" for="create-name">Yeni ekip kur</label>
+        <label class="label" for="create-name" data-i18n="createLabel">Yeni ekip kur</label>
         <div class="row">
-          <input id="create-name" name="name" maxlength="60" placeholder="Ekip adı, ör. Yayın modları" required>
-          <button class="ghost">Oluştur</button>
+          <input id="create-name" name="name" maxlength="60" placeholder="Ekip adı, ör. Yayın modları" data-i18n-placeholder="createPlaceholder" required>
+          <button class="ghost" data-i18n="create">Oluştur</button>
         </div>
-        <p class="muted small">Her ekibin kendi kanal listesi ve ortak ban listesi olur.</p>
+        <p class="muted small" data-i18n="createNote">Her ekibin kendi kanal listesi ve ortak ban listesi olur.</p>
       </form>
     </div>
 
     <div id="team-view" hidden>
       <div class="tabs-bar">
         <nav class="tabs">
-          <button data-tab="ban" class="active"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg>Banla</button>
-          <button data-tab="list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Liste <span id="list-count" class="count" hidden></span></button>
-          <button data-tab="history"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>Geçmiş</button>
-          <button data-tab="crew"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekip</button>
+          <button data-tab="ban" class="active" data-i18n="tabBan"><svg class="icon" aria-hidden="true"><use href="#i-ban"/></svg>Banla</button>
+          <button data-tab="list" data-i18n="tabList"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Liste <span id="list-count" class="count" hidden></span></button>
+          <button data-tab="history" data-i18n="tabHistory"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>Geçmiş</button>
+          <button data-tab="crew" data-i18n="tabCrew"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekip</button>
         </nav>
       </div>
 
       <form id="tab-ban" class="panel stack">
         <div id="queue" class="card queue" hidden>
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-queue"/></svg>Sıra <span id="queue-progress" class="count"></span></h3>
+          <h3 data-i18n="queue"><svg class="icon" aria-hidden="true"><use href="#i-queue"/></svg>Sıra <span id="queue-progress" class="count"></span></h3>
           <div class="bar"><div id="queue-bar"></div></div>
           <p id="queue-summary" class="small"></p>
           <details id="queue-problems" hidden>
@@ -135,147 +137,149 @@
             <ul id="queue-problem-list"></ul>
           </details>
           <div class="row end">
-            <button type="button" id="queue-copy" class="ghost small" hidden>Bulunamayanları kopyala</button>
-            <button type="button" id="queue-cancel" class="ghost small" hidden>Sırayı iptal et</button>
-            <button type="button" id="queue-clear" class="ghost small" hidden>Temizle</button>
+            <button type="button" id="queue-copy" class="ghost small" hidden data-i18n="queueCopy">Bulunamayanları kopyala</button>
+            <button type="button" id="queue-cancel" class="ghost small" hidden data-i18n="queueCancel">Sırayı iptal et</button>
+            <button type="button" id="queue-clear" class="ghost small" hidden data-i18n="queueClear">Temizle</button>
           </div>
         </div>
 
-        <p id="viewer-note" class="note" hidden>İzleyici rolündesin: ortak listeyi görebilirsin ama ban atamazsın. Ban yetkisi için ekip sahibine yaz.</p>
+        <p id="viewer-note" class="note" hidden data-i18n="viewerNote">İzleyici rolündesin: ortak listeyi görebilirsin ama ban atamazsın. Ban yetkisi için ekip sahibine yaz.</p>
 
         <fieldset id="ban-fields" class="stack">
-        <div class="segmented" role="radiogroup" aria-label="İşlem">
-          <label><input type="radio" name="mode" value="ban" checked><span>Banla</span></label>
-          <label><input type="radio" name="mode" value="unban"><span>Ban kaldır</span></label>
+        <div class="segmented" role="radiogroup" aria-label="İşlem" data-i18n-aria="action">
+          <label><input type="radio" name="mode" value="ban" checked><span data-i18n="modeBan">Banla</span></label>
+          <label><input type="radio" name="mode" value="unban"><span data-i18n="modeUnban">Ban kaldır</span></label>
         </div>
-        <p id="unban-hint" class="muted small" hidden>Ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kaldırılır.</p>
+        <p id="unban-hint" class="muted small" hidden data-i18n="unbanHint">Ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış banlar da kaldırılır.</p>
 
         <div class="field">
           <div class="label">
-            <label for="username">Kullanıcı adları</label>
+            <label for="username" data-i18n="usernames">Kullanıcı adları</label>
             <span class="tools">
               <span id="name-count" class="count" hidden></span>
-              <button type="button" id="file-pick" class="ghost small" title=".txt, .csv ya da .json">Dosyadan yükle</button>
+              <button type="button" id="file-pick" class="ghost small" title=".txt, .csv ya da .json" data-i18n="filePick" data-i18n-title="fileTitle">Dosyadan yükle</button>
               <input id="file-input" type="file" accept=".txt,.csv,.json,text/plain,text/csv" multiple hidden>
             </span>
           </div>
           <textarea id="username" name="username" class="mono" rows="4" spellcheck="false"
-                    placeholder="Her satıra bir kullanıcı adı&#10;ya da virgülle ayır" required></textarea>
+                    placeholder="Her satıra bir kullanıcı adı&#10;ya da virgülle ayır" data-i18n-placeholder="usernamesPlaceholder" required></textarea>
         </div>
 
         <div id="reason-field" class="field">
-          <label class="label" for="reason">Sebep</label>
-          <input id="reason" name="reason" maxlength="100" placeholder="İsteğe bağlı; ortak listede görünür">
+          <label class="label" for="reason" data-i18n="reason">Sebep</label>
+          <input id="reason" name="reason" maxlength="100" placeholder="İsteğe bağlı; ortak listede görünür" data-i18n-placeholder="reasonPlaceholder">
           <div id="reason-presets" class="presets">
-            <button type="button">Spam botu</button>
-            <button type="button">Küfür</button>
-            <button type="button">Trol</button>
-            <button type="button">Taciz</button>
+            <button type="button" data-i18n="presetSpam">Spam botu</button>
+            <button type="button" data-i18n="presetSwearing">Küfür</button>
+            <button type="button" data-i18n="presetTroll">Trol</button>
+            <button type="button" data-i18n="presetHarassment">Taciz</button>
           </div>
         </div>
 
         <div id="duration-field" class="field">
-          <span class="label">Süre</span>
+          <span class="label" data-i18n="duration">Süre</span>
           <div class="segmented">
-            <label><input type="radio" name="duration" value="" checked><span>Kalıcı</span></label>
-            <label><input type="radio" name="duration" value="10"><span>10 dk</span></label>
-            <label><input type="radio" name="duration" value="60"><span>1 saat</span></label>
-            <label><input type="radio" name="duration" value="1440"><span>1 gün</span></label>
-            <label><input type="radio" name="duration" value="10080"><span>7 gün</span></label>
+            <label><input type="radio" name="duration" value="" checked><span data-i18n="permanent">Kalıcı</span></label>
+            <label><input type="radio" name="duration" value="10"><span data-i18n="dur10">10 dk</span></label>
+            <label><input type="radio" name="duration" value="60"><span data-i18n="dur60">1 saat</span></label>
+            <label><input type="radio" name="duration" value="1440"><span data-i18n="dur1440">1 gün</span></label>
+            <label><input type="radio" name="duration" value="10080"><span data-i18n="dur10080">7 gün</span></label>
           </div>
         </div>
 
         <p id="targets" class="muted small"></p>
-        <button id="ban-submit" class="danger wide">Tüm kanallarda banla</button>
+        <button id="ban-submit" class="danger wide" data-i18n="banAll">Tüm kanallarda banla</button>
         </fieldset>
         <div id="ban-result" class="stack"></div>
       </form>
 
       <div id="tab-list" class="panel stack" hidden>
-        <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara">
+        <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara" data-i18n-placeholder="searchPlaceholder">
         <div id="ban-list" class="stack"></div>
       </div>
 
       <div id="tab-crew" class="panel stack" hidden>
         <div class="card">
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-channel"/></svg>Kanallar <span id="channel-count" class="count"></span></h3>
+          <h3 data-i18n="channels"><svg class="icon" aria-hidden="true"><use href="#i-channel"/></svg>Kanallar <span id="channel-count" class="count"></span></h3>
           <ul id="channels"></ul>
           <div id="channel-self" class="row self" hidden>
             <span id="channel-self-text" class="grow muted small"></span>
-            <button type="button" id="channel-self-add" class="ghost small">Ekle</button>
+            <button type="button" id="channel-self-add" class="ghost small" data-i18n="add">Ekle</button>
           </div>
           <form id="channel-add" class="row" hidden>
-            <input name="slug" placeholder="Kanal adı ya da kick.com/kanal" required>
-            <button class="primary">Ekle</button>
+            <input name="slug" placeholder="Kanal adı ya da kick.com/kanal" data-i18n-placeholder="channelPlaceholder" required>
+            <button class="primary" data-i18n="add">Ekle</button>
           </form>
-          <p class="muted small">Ban bir kanalda, sen orada moderatörsen ya da kanalın yayıncısı bu ekipte yetkisini paylaşıyorsa tutar.</p>
+          <p class="muted small" data-i18n="channelsNote">Ban bir kanalda, sen orada moderatörsen ya da kanalın yayıncısı bu ekipte yetkisini paylaşıyorsa tutar.</p>
         </div>
 
         <div id="lend-card" class="card" hidden>
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Yayıncı yetkin</h3>
-          <label class="switch"><input id="lend" type="checkbox"><span>Ekip, kanalımda benim yetkimle ban atabilsin</span></label>
-          <p class="muted small">Açıkken, kanalında moderatör olmayan ekip üyelerinin banları da senin yayıncı yetkinle uygulanır. İstediğin an kapatabilirsin.</p>
+          <h3 data-i18n="lendTitle"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>Yayıncı yetkin</h3>
+          <label class="switch"><input id="lend" type="checkbox"><span data-i18n="lendSwitch">Ekip, kanalımda benim yetkimle ban atabilsin</span></label>
+          <p class="muted small" data-i18n="lendNote">Açıkken, kanalında moderatör olmayan ekip üyelerinin banları da senin yayıncı yetkinle uygulanır. İstediğin an kapatabilirsin.</p>
         </div>
 
         <div class="card">
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Üyeler <span id="member-count" class="count"></span></h3>
+          <h3 data-i18n="members"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Üyeler <span id="member-count" class="count"></span></h3>
           <ul id="members"></ul>
           <details class="help">
-            <summary>Roller ne yapar?</summary>
+            <summary data-i18n="rolesHelp">Roller ne yapar?</summary>
             <ul class="roles">
-              <li><strong>Sahip</strong>Rolleri ve ayarları yönetir, sahipliği devreder, ekibi siler.</li>
-              <li><strong>Yönetici</strong>Kanalları ve davet kodunu yönetir, üye çıkarır, herkesin banını kaldırır.</li>
-              <li><strong>Moderatör</strong>Ban atar, tekrar dener, kendi attığı banı kaldırır.</li>
-              <li><strong>İzleyici</strong>Yalnızca ortak listeyi görür.</li>
+              <li data-i18n="roleOwnerHelp"><strong data-i18n="roleOwner">Sahip</strong>Rolleri ve ayarları yönetir, sahipliği devreder, ekibi siler.</li>
+              <li data-i18n="roleAdminHelp"><strong data-i18n="roleAdmin">Yönetici</strong>Kanalları ve davet kodunu yönetir, üye çıkarır, herkesin banını kaldırır.</li>
+              <li data-i18n="roleModHelp"><strong data-i18n="roleMod">Moderatör</strong>Ban atar, tekrar dener, kendi attığı banı kaldırır.</li>
+              <li data-i18n="roleViewerHelp"><strong data-i18n="roleViewer">İzleyici</strong>Yalnızca ortak listeyi görür.</li>
             </ul>
           </details>
         </div>
 
         <div id="invite-card" class="card" hidden>
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Davet kodu</h3>
+          <h3 data-i18n="inviteTitle"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Davet kodu</h3>
           <div class="row">
             <code id="invite" class="mono"></code>
-            <button id="copy-invite" class="ghost">Kopyala</button>
-            <button id="rotate-invite" class="ghost" title="Eski kodu geçersiz kılar">Yenile</button>
+            <button id="copy-invite" class="ghost" data-i18n="copy">Kopyala</button>
+            <button id="rotate-invite" class="ghost" title="Eski kodu geçersiz kılar" data-i18n="rotate" data-i18n-title="rotateTitle">Yenile</button>
           </div>
           <p id="invite-text" class="muted small"></p>
           <label id="join-role-row" class="row setting" hidden>
-            <span class="grow muted small">Bu kodla katılanlar</span>
+            <span class="grow muted small" data-i18n="joinRoleLabel">Bu kodla katılanlar</span>
             <select id="join-role" class="small">
-              <option value="mod">Moderatör olarak başlar</option>
-              <option value="viewer">İzleyici olarak başlar</option>
+              <option value="mod" data-i18n="joinRoleMod">Moderatör olarak başlar</option>
+              <option value="viewer" data-i18n="joinRoleViewer">İzleyici olarak başlar</option>
             </select>
           </label>
         </div>
 
         <div id="team-leave-card" class="card" hidden>
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekipten ayrıl</h3>
-          <p class="muted small">Bu ekibin listesini ve kanallarını artık göremezsin. Attığın banlar yerinde kalır.</p>
-          <button id="team-leave" class="danger-ghost">Ekipten ayrıl</button>
+          <h3 data-i18n="leaveTitle"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Ekipten ayrıl</h3>
+          <p class="muted small" data-i18n="leaveNote">Bu ekibin listesini ve kanallarını artık göremezsin. Attığın banlar yerinde kalır.</p>
+          <button id="team-leave" class="danger-ghost" data-i18n="leaveTitle">Ekipten ayrıl</button>
         </div>
 
         <div id="team-danger" class="card" hidden>
-          <h3><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>Ekibi sil</h3>
-          <p class="muted small">Ekip, üyelikler, kanallar ve ortak liste kalıcı olarak silinir. Kick'teki banlar yerinde kalır.</p>
-          <button id="team-delete" class="danger-ghost">Ekibi sil</button>
+          <h3 data-i18n="deleteTitle"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>Ekibi sil</h3>
+          <p class="muted small" data-i18n="deleteNote">Ekip, üyelikler, kanallar ve ortak liste kalıcı olarak silinir. Kick'teki banlar yerinde kalır.</p>
+          <button id="team-delete" class="danger-ghost" data-i18n="deleteTitle">Ekibi sil</button>
         </div>
       </div>
     </div>
 
     <p id="app-links" class="links small">
-      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener">Gizlilik</a>
+      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener" data-i18n="privacy">Gizlilik</a>
       <span aria-hidden="true">·</span>
-      <a href="mailto:destek@helyosfer.me">Destek</a>
+      <a href="mailto:destek@helyosfer.me" data-i18n="support">Destek</a>
       <span aria-hidden="true">·</span>
-      <button type="button" id="account-delete" class="link quiet">Hesabımı sil</button>
+      <button type="button" class="link quiet lang-switch" data-i18n="otherLang">English</button>
+      <span aria-hidden="true">·</span>
+      <button type="button" id="account-delete" class="link quiet" data-i18n="accountDelete">Hesabımı sil</button>
     </p>
   </section>
 
   <dialog id="confirm">
     <p id="confirm-text"></p>
     <div class="row end">
-      <button id="confirm-no" class="ghost">Vazgeç</button>
-      <button id="confirm-yes" class="danger">Onayla</button>
+      <button id="confirm-no" class="ghost" data-i18n="cancel">Vazgeç</button>
+      <button id="confirm-yes" class="danger" data-i18n="confirm">Onayla</button>
     </div>
   </dialog>
 
@@ -284,6 +288,7 @@
     <span id="toast-text"></span>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="server-url.js"></script>
   <script src="panel.js"></script>
 </body>

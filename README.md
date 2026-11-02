@@ -67,6 +67,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalındaki ban yetkisini ekibin kullanımına açar; bu kararı yalnızca kendisi verir. |
 | **Yanlış ban koruması** | Ekipte ban yetkisi olan üyeler ve ekipteki yayıncılar banlanamaz. |
 | **Hesap ve ekip yönetimi** | Ekipten ayrılma, sahipliği devretme, ekibi ve hesabı silme; hepsi panelden. |
+| **Türkçe ve İngilizce** | Panel tarayıcının diliyle açılır: Türkçe tarayıcıda Türkçe, diğerlerinde İngilizce. Alttaki dil düğmesiyle değiştirilebilir; sunucunun hata mesajları da seçilen dilde gelir. |
 
 ## Başlarken
 
@@ -411,7 +412,7 @@ python -m unittest test_app
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
 düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, adıyla ban kaldırma,
-hesap silme, Liste ve Geçmiş ayrımı, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
+hesap silme, Liste ve Geçmiş ayrımı, İngilizce hata mesajları, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
 geçiş ve güvenlik kuralları kapsanır.
 
 ### Chrome Web Store
@@ -446,7 +447,7 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Herkese açık kullanım için hesap başına sınırlar
 - [x] Kullanıcı adıyla ban kaldırma; Kick'te elle atılmış banlar dahil
 - [x] Liste ve Geçmiş ayrımı: süresi dolan uzaklaştırmalar ve kaldırılan banlar Geçmiş'e geçer
-- [ ] İngilizce arayüz
+- [x] İngilizce arayüz
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 
 ### Bilinen kısıtlar

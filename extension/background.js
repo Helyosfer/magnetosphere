@@ -1,18 +1,19 @@
-importScripts("server-url.js");
+importScripts("i18n.js", "server-url.js");
 
 // Giriş akışı burada çalışır: Kick penceresi açılınca popup kapanır, service worker açık kalır.
 async function login(server) {
+  await loadLang();
   // Panel de denetler; burada tekrar bakılır ki başka yoldan gelen mesaj token'ı şifresiz adrese taşımasın.
   const problem = serverUrlProblem(server);
   if (problem) throw Object.assign(new Error(problem), { friendly: true });
   const redirect = chrome.identity.getRedirectURL();
-  const url = `${server}/auth/login?redirect=${encodeURIComponent(redirect)}`;
+  const url = `${server}/auth/login?redirect=${encodeURIComponent(redirect)}&lang=${LANG}`;
   const finalUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
   const params = new URLSearchParams(new URL(finalUrl).hash.slice(1));
   // Sunucu, Kick tarafındaki hatayı kullanıcıya gösterilecek hazır bir mesajla döndürür.
   if (params.get("error")) throw Object.assign(new Error(params.get("error")), { friendly: true });
   const token = params.get("token");
-  if (!token) throw new Error("Sunucu oturum döndürmedi");
+  if (!token) throw new Error(t("noSession"));
   await chrome.storage.local.set({ token });
 }
 
@@ -25,13 +26,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
+  await loadLang();
   chrome.contextMenus.create({
     id: "crossban",
-    title: "Ekibin tüm kanallarında banla",
+    title: t("contextMenu"),
     contexts: ["selection", "link"],
     documentUrlPatterns: ["https://kick.com/*", "https://*.kick.com/*"],
   });
+});
+
+// Panelden dil değişince sağ tık menüsü de o dile geçer.
+chrome.storage.onChanged.addListener(async (changes) => {
+  if (!("lang" in changes)) return;
+  await loadLang();
+  chrome.contextMenus.update("crossban", { title: t("contextMenu") });
 });
 
 chrome.contextMenus.onClicked.addListener((info) => {

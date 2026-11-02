@@ -97,10 +97,12 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(NoRedirect)
 
 
-def call(base, method, path, token=None, body=None, origin=None):
+def call(base, method, path, token=None, body=None, origin=None, lang=None):
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     if origin:
         headers["Origin"] = origin
+    if lang:
+        headers["Accept-Language"] = lang
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
@@ -707,6 +709,43 @@ class CrossBanTest(unittest.TestCase):
         db.close()
         # Yeniden giriş yapınca boş bir hesapla başlar.
         self.assertEqual(call(self.base, "GET", "/me", self.login(22))[1]["teams"], [])
+
+    def test_english(self):
+        L = app.localize
+        # Sabit mesaj, kalıplı mesaj ve kayıtlı birleşik ayrıntılar çevrilir; bilinmeyen metin olduğu gibi kalır.
+        self.assertEqual(L("Ekip bulunamadı", "en"), "Team not found")
+        self.assertEqual(L("Ekip bulunamadı", "tr"), "Ekip bulunamadı")
+        self.assertEqual(L("'ali' Kick'te bulunamadı", "en"), "'ali' was not found on Kick")
+        self.assertEqual(L("Ekip adı metin olmalı", "en"), "Team name must be text")
+        self.assertEqual(L("x listede başka bir üye tarafından banlanmış; başkasının attığı banı yalnızca sahip ve "
+                           "yöneticiler kaldırabilir", "en"),
+                         "x was banned by another member on the list; only the owner and admins can remove someone else's ban")
+        self.assertEqual(L("403: bu kanalda ban yetkin yok (moderatör değilsin)", "en"),
+                         "403: you can't ban on this channel (you're not a moderator)")
+        self.assertEqual(L("kanal-a: 429: Kick istek sınırı; biraz sonra tekrar dene; kanal-b: ali: Kick oturumu yenilenemedi", "en"),
+                         "kanal-a: 429: Kick rate limit; try again in a moment; kanal-b: ali: couldn't refresh the Kick session")
+        self.assertEqual(L("500: Internal error", "en"), "500: Internal error")
+        # Yalnızca yeni panelin tek başına gönderdiği "en" İngilizce sayılır; tarayıcının kendi başlığı Türkçe kalır.
+        self.assertEqual([app.pick_lang(h) for h in ("en", "EN", "tr", "en-US,en;q=0.9", "", None)],
+                         ["en", "en", "tr", "tr", "tr", "tr"])
+
+        user = self.login(23)
+        self.assertEqual(call(self.base, "GET", "/teams/999999", user, lang="en")[1], {"error": "Team not found"})
+        self.assertEqual(call(self.base, "GET", "/teams/999999", user, lang="en-US,en;q=0.9")[1],
+                         {"error": "Ekip bulunamadı"})
+        self.assertEqual(call(self.base, "GET", "/nope", lang="en")[1], {"error": "Not found"})
+        # Ad, sebep gibi kullanıcı verisi çevrilmez.
+        _, team, _ = call(self.base, "POST", "/teams", user, {"name": "hata"}, lang="en")
+        self.assertEqual(call(self.base, "GET", f"/teams/{team['id']}", user, lang="en")[1]["name"], "hata")
+
+        # Giriş hatası, girişi başlatan panelin dilinde döner.
+        for lang, text in (("en", "Kick login wasn't approved"), (None, "Kick girişi onaylanmadı")):
+            path = "/auth/login?redirect=" + urllib.parse.quote(REDIRECT) + (f"&lang={lang}" if lang else "")
+            _, _, headers = call(self.base, "GET", path)
+            state = urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)["state"][0]
+            _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
+            self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
+        call(self.base, "DELETE", f"/teams/{team['id']}", user)
 
 
 if __name__ == "__main__":

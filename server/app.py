@@ -19,6 +19,8 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from i18n import localize, localize_payload, pick_lang
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -60,7 +62,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.7.2"
+VERSION = "0.8.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -649,6 +651,9 @@ def auth_login(req):
         raise ApiError(500, "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil")
     throttle_login(req.ip)
     state, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(48)
+    # Giriş penceresi Kick'ten döndüğünde panelin dili bilinmez; dil, state'in sonuna eklenip geri gelir.
+    if req.query.get("lang") == "en":
+        state += ".en"
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     req.db.execute("DELETE FROM oauth_states WHERE created_at < ?", (int(time.time()) - 600,))
     req.db.execute("INSERT INTO oauth_states VALUES (?,?,?,?)",
@@ -673,7 +678,8 @@ def auth_callback(req):
 
     def fail(message):
         # Bu noktada pencere Kick'ten dönmüştür; ham JSON yerine extension'a dönülür, mesajı panel gösterir.
-        return Redirect(row["redirect"].split("#")[0] + "#error=" + urllib.parse.quote(message))
+        lang = "en" if row["state"].endswith(".en") else "tr"
+        return Redirect(row["redirect"].split("#")[0] + "#error=" + urllib.parse.quote(localize(message, lang)))
 
     if "code" not in req.query:
         raise fail("Kick girişi onaylanmadı")
@@ -1311,6 +1317,7 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{self.command} {log_path(self.path)} -> {args[1] if len(args) > 1 else ''}")
 
     def send_json(self, status, payload=None, location=None):
+        payload = localize_payload(payload, pick_lang(self.headers.get("Accept-Language")))
         raw = b"" if payload is None else json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
         # Kimlik doğrulama çerezle değil Bearer token ile yapıldığı için her origin'e açık.
