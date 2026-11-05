@@ -952,9 +952,10 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// Dil düğmeleri: geçerli dil dışındakiler kendi adlarıyla sıralanır. Seçim saklanır, panel yeni dille baştan açılır.
+// Dil düğmeleri bağlantıların altında kendi satırındadır; geçerli dil dışındakiler kendi adlarıyla sıralanır.
+// Seçim saklanır, panel yeni dille baştan açılır.
 function renderLangSwitch() {
-  for (const slot of document.querySelectorAll(".lang-switch")) {
+  for (const row of document.querySelectorAll(".lang-switch")) {
     const parts = LANGS.filter((lang) => lang !== LANG).flatMap((lang, index) => {
       const button = el("button", { type: "button", className: "link quiet", lang, textContent: LANG_NAMES[lang] });
       button.onclick = async () => {
@@ -963,7 +964,7 @@ function renderLangSwitch() {
       };
       return index ? [el("span", { ariaHidden: "true", textContent: "·" }), button] : [button];
     });
-    slot.replaceWith(...parts);
+    row.replaceChildren(...parts);
   }
 }
 

@@ -256,6 +256,7 @@ select.small { width: auto; padding-block: 3px; padding-inline: 8px 26px; font-s
 li .you { color: var(--muted); font-size: 12px; }
 #team-leave { margin-top: 10px; }
 #app-links { justify-content: center; margin-top: 18px; }
+.links.lang-switch { justify-content: center; margin-top: 0; }
 button.link.quiet { color: var(--muted); font-weight: 400; }
 #load-error { margin-top: 4px; }
 #load-error button { margin-top: 10px; }

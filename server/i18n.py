@@ -1,7 +1,7 @@
-"""Kullanıcıya giden mesajların İngilizcesi, İspanyolcası ve Arapçası.
+"""Kullanıcıya giden mesajların İngilizcesi, İspanyolcası, Portekizcesi ve Arapçası.
 
 Sunucu mesajları Türkçe yazar ve veritabanına (ban ayrıntıları, sıra kayıtları) Türkçe kaydeder.
-İngilizce, İspanyolca ya da Arapça isteyen panele yanıt giderken metin bu tablolardan çevrilir; tabloda olmayan metin
+İngilizce, İspanyolca, Portekizce ya da Arapça isteyen panele yanıt giderken metin bu tablolardan çevrilir; tabloda olmayan metin
 (ör. Kick'in kendi hata mesajı) olduğu gibi kalır.
 """
 import re
@@ -176,6 +176,91 @@ ES = {
         "Quien subió la lista ya no está en el equipo o no puede banear",
 }
 
+# Türkçe kalıp -> Portekizce (Brezilya) kalıp. Anahtarlar EN ile aynıdır (test_app.py denetler).
+PT = {
+    # yetki
+    "İzleyici rolündesin; bunun için moderatör yetkisi gerekir": "Você é espectador; isso exige permissão de moderador",
+    "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir": "Só o dono da equipe e os admins podem fazer isso",
+    "Bunu yalnızca ekip sahibi yapabilir": "Só o dono da equipe pode fazer isso",
+    # istek
+    "{label} metin olmalı": "{label} precisa ser texto",
+    "Ekip adı": "O nome da equipe",
+    "Davet kodu": "O código de convite",
+    "Ban sebebi": "O motivo do ban",
+    "Geçersiz istek": "Solicitação inválida",
+    "İstek çok büyük": "Solicitação grande demais",
+    "Geçersiz JSON": "JSON inválido",
+    "Bulunamadı": "Não encontrado",
+    "Sunucuda beklenmeyen bir hata oluştu": "Ocorreu um erro inesperado no servidor",
+    # oturum ve giriş
+    "Oturum geçersiz": "Sessão inválida",
+    "Oturumun süresi doldu, yeniden giriş yap": "Sua sessão expirou; entre de novo",
+    "Geçersiz redirect adresi": "Endereço de redirecionamento inválido",
+    "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil": "KICK_CLIENT_ID / KICK_CLIENT_SECRET não estão configurados no servidor",
+    "Giriş isteği geçersiz ya da süresi dolmuş": "A solicitação de login é inválida ou expirou",
+    "Kick girişi onaylanmadı": "O login na Kick não foi aprovado",
+    "Kick girişi tamamlanamadı; biraz sonra tekrar dene": "Não foi possível concluir o login na Kick; tente de novo daqui a pouco",
+    "Kick hesap bilgisi alınamadı; biraz sonra tekrar dene": "Não foi possível obter os dados da sua conta da Kick; tente de novo daqui a pouco",
+    "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene": "Tentativas de login demais; tente de novo em alguns minutos",
+    # hız sınırları
+    "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene": "Você está enviando solicitações rápido demais; tente de novo em um minuto",
+    "Önceki işlemin bitmesini bekle, sonra tekrar dene": "Espere a ação anterior terminar e tente de novo",
+    # Kick
+    "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)": "Usuário inválido (nomes da Kick têm no máximo 25 caracteres)",
+    "Kick oturumun yenilenemedi, yeniden giriş yap": "Não foi possível renovar sua sessão da Kick; entre de novo",
+    "Kick istek sınırına takıldı, biraz sonra tekrar dene": "O limite de solicitações da Kick foi atingido; tente de novo daqui a pouco",
+    "Kick bu kullanıcı adını geçersiz buldu": "A Kick considera este usuário inválido",
+    "Kick kullanıcı sorgusu başarısız ({status})": "A busca do usuário na Kick falhou ({status})",
+    "'{slug}' Kick'te bulunamadı": "'{slug}' não existe na Kick",
+    "Kick'e ulaşılamadı": "Não foi possível acessar a Kick",
+    "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap": "A sessão da Kick é inválida; saia e entre de novo",
+    "bu kanalda ban yetkin yok (moderatör değilsin)": "você não pode banir neste canal (não é moderador)",
+    "kullanıcı ya da kanal Kick'te bulunamadı": "o usuário ou o canal não existe na Kick",
+    "Kick istek sınırı; biraz sonra tekrar dene": "limite de solicitações da Kick; tente de novo daqui a pouco",
+    "Kick istek sınırı": "limite de solicitações da Kick",
+    "Kick oturumu yenilenemedi": "não foi possível renovar a sessão da Kick",
+    "hata": "erro",
+    # ekip ve üyeler
+    "Ekip bulunamadı": "Equipe não encontrada",
+    "Ekip adı gerekli": "O nome da equipe é obrigatório",
+    "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.":
+        "Criar equipes novas está desativado neste servidor. Peça um código de convite à sua equipe para entrar.",
+    "En fazla {n} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene":
+        "Você pode criar no máximo {n} equipes; exclua uma que não usa e tente de novo",
+    "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Novos membros podem começar como moderador ou espectador",
+    "Davet kodu geçersiz": "Código de convite inválido",
+    "En fazla {n} ekibe üye olabilirsin": "Você pode participar de no máximo {n} equipes",
+    "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
+        "O cargo do dono da equipe não pode ser alterado; você pode transferir a posse para outro membro",
+    "Üye bulunamadı": "Membro não encontrado",
+    "Bu üye daha fazla ekibin sahibi olamaz": "Este membro não pode ser dono de mais equipes",
+    "Geçersiz rol": "Cargo inválido",
+    "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil":
+        "O dono da equipe não pode sair; primeiro transfira a posse para outro membro ou exclua a equipe",
+    "Ekip sahibi çıkarılamaz": "O dono da equipe não pode ser removido",
+    "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin": "Você só pode remover membros com cargo abaixo do seu",
+    "Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}":
+        "Primeiro transfira a posse destas equipes ou exclua-as: {names}",
+    "silinmiş kullanıcı": "usuário excluído",
+    "başka bir üye": "outro membro",
+    # banlar
+    "Ban kaydı bulunamadı": "Registro de ban não encontrado",
+    "Süre 1 ile 10080 dakika arasında olmalı": "A duração precisa estar entre 1 e 10080 minutos",
+    "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Membros da equipe e streamers da equipe não podem ser banidos",
+    "Önce ekibe en az bir kanal ekle": "Primeiro adicione pelo menos um canal à equipe",
+    "Bu ban kaldırılmış": "Este ban já foi removido",
+    "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
+        "Você só pode remover os bans que você fez; para os outros é preciso um admin",
+    "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
+        "{slug} foi banido por {creator} na lista; só o dono e os admins podem remover o ban de outra pessoa",
+    # sıra
+    "Kullanıcı listesi boş": "A lista de usuários está vazia",
+    "Tek seferde en fazla {n} kullanıcı sıraya alınabilir": "No máximo {n} usuários podem entrar na fila de uma vez",
+    "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "A fila está cheia; tente de novo quando os pendentes forem processados",
+    "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
+        "Quem enviou a lista não está mais na equipe ou não pode banir",
+}
+
 # Türkçe kalıp -> Arapça kalıp. Anahtarlar EN ile aynıdır (test_app.py denetler).
 AR = {
     # yetki
@@ -261,7 +346,7 @@ AR = {
         "الشخص الذي رفع القائمة لم يعد في الفريق أو لا يملك صلاحية الحظر",
 }
 
-TABLES = {"en": EN, "es": ES, "ar": AR}
+TABLES = {"en": EN, "es": ES, "pt": PT, "ar": AR}
 LANGS = tuple(TABLES)
 FIXED = {lang: {tr: out for tr, out in table.items() if "{" not in tr} for lang, table in TABLES.items()}
 PATTERNS = {
@@ -275,7 +360,7 @@ PART_SPLIT = re.compile(r"; (?=[\w.-]+: )")
 
 
 def pick_lang(header):
-    """Panel dilini Accept-Language'da tek başına ("en", "es", "ar") gönderir.
+    """Panel dilini Accept-Language'da tek başına ("en", "es", "pt", "ar") gönderir.
 
     Eski paneller (0.7.x) dil göndermez; tarayıcının kendi başlığı ("en-US,en;q=0.9") gelir ve
     Türkçe arayüzde başka dilde hata çıkmasın diye bu durumda Türkçe kalınır.
