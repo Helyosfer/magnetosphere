@@ -369,25 +369,49 @@ def pick_lang(header):
     return lang if lang in LANGS else "tr"
 
 
-def localize(text, lang):
-    if lang not in LANGS or not isinstance(text, str) or not text:
-        return text
-    fixed = FIXED[lang]
+# Bundan uzun metin çevrilmeden döner; sınır, beklenmedik uzunlukta bir metnin yanıtı yavaşlatmasını önler.
+# Gerçek mesajlar çok daha kısadır: kanal başına ayrıntı ~240 karakter (Kick mesajı 200 karakterle sınırlı),
+# birleşik ayrıntı en fazla 50 kanal kadar.
+MAX_LOCALIZE = 20000      # "kanal: ...; kanal2: ..." gibi birleşik metnin tamamı
+MAX_LOCALIZE_PART = 1000  # bölündükten sonraki tek parça
+
+
+def _translate(text, fixed, patterns):
+    """Metnin tamamı bilinen bir mesajsa çevirisini, değilse None döndürür."""
     if text in fixed:
         return fixed[text]
-    for pattern, out in PATTERNS[lang]:
+    for pattern, out in patterns:
         match = pattern.fullmatch(text)
         if match:
             return out.format(**{k: fixed.get(v, v) for k, v in match.groupdict().items()})
+    return None
+
+
+def localize(text, lang):
+    if lang not in LANGS or not isinstance(text, str) or not text or len(text) > MAX_LOCALIZE:
+        return text
+    fixed, patterns = FIXED[lang], PATTERNS[lang]
     # Kayıtlı ayrıntılar birleşik gelir: "kanal: 403: ...; kanal2: ..." ya da "ad: Kick oturumu yenilenemedi".
     # Yalnızca "kanal: " ile başlayan parçadan bölünür; mesajın kendi içindeki "; " bölünmez.
-    parts = PART_SPLIT.split(text)
-    if len(parts) > 1:
-        return "; ".join(localize(part, lang) for part in parts)
-    head, sep, rest = text.partition(": ")
-    if sep:
-        return head + sep + localize(rest, lang)
-    return text
+    short = len(text) <= MAX_LOCALIZE_PART
+    if (whole := _translate(text, fixed, patterns) if short else None) is None:
+        parts = PART_SPLIT.split(text)
+        if len(parts) > 1:
+            return "; ".join(localize(part, lang) for part in parts)
+    # Baştaki "ad: " ya da "403: " önekleri tek tek atlanır. Özyineleme yerine döngü: çok sayıda ": " içeren
+    # bir metin yığını taşırıp yanıtı 500'e düşürmesin. Bölünmüş parçalarda bölünecek yer kalmaz,
+    # bu yüzden yukarıdaki özyineleme en fazla bir kat derinleşir.
+    if not short:
+        return text
+    prefix = ""
+    while True:
+        hit = whole if whole is not None else _translate(text, fixed, patterns)
+        if hit is not None:
+            return prefix + hit
+        head, sep, rest = text.partition(": ")
+        if not sep:
+            return prefix + text
+        prefix, text, whole = prefix + head + sep, rest, None
 
 
 def localize_payload(payload, lang):

@@ -778,6 +778,20 @@ class CrossBanTest(unittest.TestCase):
             _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
             self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
 
+    def test_localize_robust(self):
+        L = app.localize
+        # Çok sayıda ": " içeren ya da aşırı uzun metin çeviriyi çökertmez ve yavaşlatmaz; olduğu gibi döner.
+        start = time.perf_counter()
+        for lang in i18n.LANGS:
+            for text in (": " * 10000, " listede " * 1200 + " tarafından banlanmış", "x" * 50000):
+                self.assertEqual(L(text, lang), text)
+        self.assertLess(time.perf_counter() - start, 1)
+        # Önekler döngüyle atlanır: derin önekli kısa mesaj yine çevrilir.
+        self.assertEqual(L("a: " * 300 + "Kick istek sınırı", "es"), "a: " * 300 + "límite de solicitudes de Kick")
+        # 50 kanallı birleşik ayrıntının her parçası çevrilir.
+        detail = "; ".join(f"kanal-{i}: 429: Kick istek sınırı; biraz sonra tekrar dene" for i in range(50))
+        self.assertEqual(L(detail, "pt").count("limite de solicitações da Kick; tente de novo daqui a pouco"), 50)
+
 
 if __name__ == "__main__":
     unittest.main()

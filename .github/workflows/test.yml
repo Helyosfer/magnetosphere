@@ -1,0 +1,48 @@
+# Her push ve PR'da: sunucu testleri, çeviri denetimi ve bağımlılıklarda bilinen açık taraması.
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Sunucu testleri (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 3.12: canlı sunucunun sürümü (Ubuntu 24.04). 3.14: geliştirme ortamı.
+        python: ["3.12", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r server/requirements.txt
+      - run: python -m unittest test_app
+        working-directory: server
+
+  translations:
+    name: Çeviri denetimi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node tools/ceviri_kontrol.js
+
+  audit:
+    name: Bağımlılık taraması
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r server/requirements.txt
