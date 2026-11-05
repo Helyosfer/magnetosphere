@@ -412,8 +412,17 @@ python -m unittest test_app
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
 düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, adıyla ban kaldırma,
-hesap silme, Liste ve Geçmiş ayrımı, İngilizce hata mesajları, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
+hesap silme, Liste ve Geçmiş ayrımı, beş dilde hata mesajları, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
 geçiş ve güvenlik kuralları kapsanır.
+
+Çevirilerin eksiksizliği (her dilde aynı metinler, mağaza kısa açıklamasının uzunluğu) ayrıca denetlenir:
+
+```bash
+node tools/ceviri_kontrol.js
+```
+
+GitHub'da her push ve PR'da sunucu testleri (Python 3.12 ve 3.14), çeviri denetimi ve bağımlılıklarda
+bilinen açık taraması (`pip-audit`) kendiliğinden çalışır (`.github/workflows/test.yml`).
 
 ### Chrome Web Store
 
