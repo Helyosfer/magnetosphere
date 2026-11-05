@@ -19,7 +19,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from i18n import localize, localize_payload, pick_lang
+from i18n import LANGS, localize, localize_payload, pick_lang
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -62,7 +62,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -652,8 +652,8 @@ def auth_login(req):
     throttle_login(req.ip)
     state, verifier = secrets.token_urlsafe(24), secrets.token_urlsafe(48)
     # Giriş penceresi Kick'ten döndüğünde panelin dili bilinmez; dil, state'in sonuna eklenip geri gelir.
-    if req.query.get("lang") == "en":
-        state += ".en"
+    if req.query.get("lang") in LANGS:
+        state += "." + req.query["lang"]
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     req.db.execute("DELETE FROM oauth_states WHERE created_at < ?", (int(time.time()) - 600,))
     req.db.execute("INSERT INTO oauth_states VALUES (?,?,?,?)",
@@ -678,7 +678,8 @@ def auth_callback(req):
 
     def fail(message):
         # Bu noktada pencere Kick'ten dönmüştür; ham JSON yerine extension'a dönülür, mesajı panel gösterir.
-        lang = "en" if row["state"].endswith(".en") else "tr"
+        suffix = row["state"].rpartition(".")[2]
+        lang = suffix if suffix in LANGS else "tr"
         return Redirect(row["redirect"].split("#")[0] + "#error=" + urllib.parse.quote(localize(message, lang)))
 
     if "code" not in req.query:

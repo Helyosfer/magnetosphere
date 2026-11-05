@@ -60,6 +60,27 @@ Magnetosphere bağımsız bir projedir; Kick ile bağlantılı değildir ve Kick
 | Küçük tanıtım kutusu | `tanitim-kucuk-440x280.png` | 440×280 |
 | Büyük tanıtım kutusu (isteğe bağlı) | `tanitim-buyuk-1400x560.png` | 1400×560 |
 
+### Diğer dillerin görselleri (`en/`, `es/`, `pt/`, `ar/`)
+
+Geliştirici panelinde dil seçilip o dilin klasöründeki görseller yüklenir: English → `en/`, Español → `es/`,
+Português (Brasil) → `pt/`, العربية → `ar/`. Panel o dilin arayüzüyle, örnek veriyle çekilir; Arapça
+görsellerde sahne aynalanır (metin sağda, panel solda).
+
+Yeniden üretmek için: `python tools/magaza_gorselleri.py` (Chromium gerekir). Varsayılan olarak dört dili
+birden üretir; tek dil için `python tools/magaza_gorselleri.py es`, Türkçeler için `tr` verilir.
+
+Her klasörde aynı adlı yedi dosya var:
+
+| Alan | Dosya | Boyut |
+| --- | --- | --- |
+| Ekran görüntüsü 1 | `screenshot-1-ban.png` | 1280×800 |
+| Ekran görüntüsü 2 | `screenshot-2-list.png` | 1280×800 |
+| Ekran görüntüsü 3 | `screenshot-3-queue.png` | 1280×800 |
+| Ekran görüntüsü 4 | `screenshot-4-team.png` | 1280×800 |
+| Ekran görüntüsü 5 | `screenshot-5-right-click.png` | 1280×800 |
+| Küçük tanıtım kutusu | `promo-small-440x280.png` | 440×280 |
+| Büyük tanıtım kutusu (isteğe bağlı) | `promo-marquee-1400x560.png` | 1400×560 |
+
 ## Paneldeki diğer alanlar
 
 - Web sitesi: https://github.com/Helyosfer/magnetosphere
