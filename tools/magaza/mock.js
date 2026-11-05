@@ -1,21 +1,34 @@
 // Mağaza görselleri için paneli sunucusuz çalıştırır: chrome.* ve sunucu yanıtları örnek veriyle taklit edilir.
-// tools/magaza_gorselleri.py bu dosyayı panel.html'in en başına ekler. Adres: panel.html?scene=<ad>&lang=<tr|en>
+// tools/magaza_gorselleri.py bu dosyayı panel.html'in en başına ekler. Adres: panel.html?scene=<ad>&lang=<dil>
 (() => {
   const params = new URLSearchParams(location.search);
   const SCENE = params.get("scene") || "ban";
-  const L = params.get("lang") === "tr" ? "tr" : "en";
-  const tr = L === "tr";
 
-  // Örnek adlar: Türkçe görsellerde Türkçe, İngilizcelerde İngilizce.
-  const N = tr
-    ? { team: "Örnek", ch2: "kanal2", mate: "modarkadas", admin: "yardimci_yonetici", viewer: "izleyen_biri",
-        troll: "trolcu_mehmet", toxic: "kufurbaz99", long: "cok_uzun_bir_kullanici_adi_ornegi",
-        spam: "Spam botu", trollR: "Trol",
-        longR: "Taciz; birden fazla kanalda aynı mesajları tekrar tekrar gönderdi" }
-    : { team: "Example", ch2: "channel2", mate: "modbuddy", admin: "co_admin", viewer: "lurker42",
-        troll: "troll_master", toxic: "toxic_guy99", long: "a_really_long_username_example",
-        spam: "Spam bot", trollR: "Troll",
-        longR: "Harassment; sent the same messages over and over in several channels" };
+  // Örnek adlar ve sebepler görselin dilinde. Kick kullanıcı adları Latin harfli olduğu için Arapçada da öyle kalır.
+  const NAMES = {
+    tr: { team: "Örnek", ch2: "kanal2", mate: "modarkadas", admin: "yardimci_yonetici", viewer: "izleyen_biri",
+          troll: "trolcu_mehmet", toxic: "kufurbaz99", long: "cok_uzun_bir_kullanici_adi_ornegi",
+          spam: "Spam botu", trollR: "Trol",
+          longR: "Taciz; birden fazla kanalda aynı mesajları tekrar tekrar gönderdi" },
+    en: { team: "Example", ch2: "channel2", mate: "modbuddy", admin: "co_admin", viewer: "lurker42",
+          troll: "troll_master", toxic: "toxic_guy99", long: "a_really_long_username_example",
+          spam: "Spam bot", trollR: "Troll",
+          longR: "Harassment; sent the same messages over and over in several channels" },
+    es: { team: "Ejemplo", ch2: "canal2", mate: "mod_amigo", admin: "co_admin", viewer: "mirando42",
+          troll: "el_troll_mayor", toxic: "toxico99", long: "un_usuario_muy_largo_de_ejemplo",
+          spam: "Bot de spam", trollR: "Troll",
+          longR: "Acoso; mandó los mismos mensajes una y otra vez en varios canales" },
+    pt: { team: "Exemplo", ch2: "canal2", mate: "parceiro_mod", admin: "co_admin", viewer: "so_olhando",
+          troll: "trollzinho", toxic: "toxico99", long: "um_nome_de_usuario_bem_longo",
+          spam: "Bot de spam", trollR: "Troll",
+          longR: "Assédio; mandou as mesmas mensagens várias vezes em vários canais" },
+    ar: { team: "مثال", ch2: "channel2", mate: "mod_ahmed", admin: "co_admin", viewer: "lurker42",
+          troll: "troll_king", toxic: "toxic99", long: "a_really_long_username_example",
+          spam: "بوت سبام", trollR: "تخريب",
+          longR: "تحرّش؛ أرسل الرسائل نفسها مرارًا في عدة قنوات" },
+  };
+  const L = params.get("lang") in NAMES ? params.get("lang") : "en";
+  const N = NAMES[L];
 
   const now = Math.floor(Date.now() / 1000);
   const me = { id: 1, name: "Helyosfer" };

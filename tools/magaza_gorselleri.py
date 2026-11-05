@@ -1,7 +1,8 @@
-"""Chrome Web Store görsellerini üretir: python tools/magaza_gorselleri.py [en|tr]
+"""Chrome Web Store görsellerini üretir: python tools/magaza_gorselleri.py [dil ...]
 
-Panel, örnek veriyle (tools/magaza/mock.js) yerel bir sunucudan açılır ve Chromium ile çekilir.
-İngilizce görseller store/en/ altına, Türkçeler store/ altına yazılır. Chromium gerekir.
+Diller: tr, en, es, pt, ar (varsayılan: en es pt ar). Panel, örnek veriyle (tools/magaza/mock.js)
+yerel bir sunucudan açılır ve Chromium ile çekilir. Türkçeler store/ altına Türkçe adlarla,
+diğer diller store/<dil>/ altına İngilizce adlarla yazılır. Chromium gerekir.
 """
 import functools
 import http.server
@@ -60,18 +61,23 @@ def chromium():
     sys.exit("Chromium bulunamadı.")
 
 
+LANGS = ("tr", "en", "es", "pt", "ar")
+
+
 def main():
-    lang = sys.argv[1] if len(sys.argv) > 1 else "en"
-    out_dir = ROOT / "store" / ("en" if lang == "en" else "")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    langs = sys.argv[1:] or ["en", "es", "pt", "ar"]
+    if unknown := [lang for lang in langs if lang not in LANGS]:
+        sys.exit(f"Bilinmeyen dil: {', '.join(unknown)} (kullanılabilir: {', '.join(LANGS)})")
 
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Handler, directory=str(EXT)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_address[1]}"
     browser = chromium()
 
-    for shot, tr_name, en_name, width, height in SHOTS:
-        target = out_dir / (en_name if lang == "en" else tr_name)
+    for lang, (shot, tr_name, en_name, width, height) in ((lang, s) for lang in langs for s in SHOTS):
+        out_dir = ROOT / "store" / ("" if lang == "tr" else lang)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        target = out_dir / (tr_name if lang == "tr" else en_name)
         subprocess.run([
             browser, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
             "--no-first-run", "--no-default-browser-check", f"--window-size={width},{height}",

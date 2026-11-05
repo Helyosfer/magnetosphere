@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Mağaza görsellerinin sahnesi. Adres: /magaza/sahne.html?shot=<görsel>&lang=<tr|en> -->
+<!-- Mağaza görsellerinin sahnesi. Adres: /magaza/sahne.html?shot=<görsel>&lang=<tr|en|es|pt|ar> -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -32,13 +32,15 @@
   .chat header .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
   .lines { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 8px 4px; }
   .lines p { margin: 0; padding: 6px 10px; line-height: 1.4; color: #dfe5ee; }
-  .lines b { font-weight: 700; margin-right: 6px; }
+  /* Kullanıcı adı ayrı bir blok: Arapçada Latin harfli mesaj ("gg wp") ada yapışmasın. */
+  .lines b { display: inline-block; font-weight: 700; margin-inline-end: 6px; }
   .lines p.hit { border: 1px solid #2c6b55; background: #12241f; border-radius: 10px; margin: 3px 0; }
   .lines p.hit span { color: #c9d1dc; }
   .chat footer { border-top: 1px solid #1f2735; padding: 14px 18px 14px; }
   .chat footer div { height: 42px; border: 1px solid #263042; border-radius: 10px; background: #151a24;
     color: #6c788a; font-size: 14px; display: flex; align-items: center; padding: 0 12px; }
-  .ucard { position: absolute; left: 540px; top: 210px; width: 268px; height: 198px; border: 1px solid #263042;
+  /* Kart ve menü, en uzun menü metni ("Banear en todos los canales del equipo") tek satıra sığacak genişlikte. */
+  .ucard { position: absolute; left: 492px; top: 210px; width: 330px; height: 198px; border: 1px solid #263042;
     border-radius: 14px; overflow: hidden; background: #171c27; text-align: center; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
   .ucard .cover { height: 64px; background: linear-gradient(180deg, #2b3550, #222a3d); }
   .ucard .x { position: absolute; right: 11px; top: 11px; width: 26px; height: 26px; border-radius: 7px; background: #1a2130;
@@ -47,18 +49,20 @@
     background: radial-gradient(circle at 40% 35%, #a3adbd, #6b7486); }
   .ucard .nick { display: inline-block; margin-top: 10px; font-size: 19px; font-weight: 700; text-decoration: underline;
     text-underline-offset: 4px; text-decoration-thickness: 1px; position: relative; }
-  .ucard .cursor { position: absolute; left: 164px; top: 126px; width: 15px; }
+  .ucard .cursor { position: absolute; left: 195px; top: 126px; width: 15px; }
   .stats { display: flex; justify-content: center; gap: 28px; margin-top: 8px; font-size: 13px; }
   .stats div { display: flex; flex-direction: column; }
   .stats b { font-weight: 700; color: #e6ebf2; }
   .stats span { color: #8491a5; }
-  .menu { position: absolute; left: 540px; top: 423px; width: 268px; border: 1px solid #2b3445; border-radius: 10px;
+  /* Sağ tık sahnesinde metin sütunu karta kadar dar; başlık biraz küçük. */
+  .copy.narrow h1 { font-size: 44px; }
+  .menu { position: absolute; left: 492px; top: 423px; width: 330px; border: 1px solid #2b3445; border-radius: 10px;
     background: #1b2130; padding: 8px 6px; font-size: 14px; color: #dfe5ee; box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
-  .menu div { padding: 7px 38px; line-height: 1.3; }
+  .menu div { padding: 7px 14px 7px 38px; line-height: 1.3; white-space: nowrap; }
   .menu hr { border: 0; border-top: 1px solid #2d3647; margin: 6px 4px; }
   .menu .pick { position: relative; margin: 0; border: 1px solid #2f8064; border-radius: 7px; font-weight: 600; color: #fff;
-    background: linear-gradient(90deg, #1b4239, #1c3446); padding: 8px 37px; }
-  .menu .pick svg { position: absolute; left: 13px; top: 9px; width: 16px; height: 16px; }
+    background: linear-gradient(90deg, #1b4239, #1c3446); padding: 8px 13px 8px 37px; }
+  .menu .pick svg { position: absolute; inset-inline-start: 13px; top: 9px; width: 16px; height: 16px; }
 
   /* Tanıtım kutuları */
   .promo { position: absolute; inset: 0; background: linear-gradient(135deg, #15282a 0%, #0d121a 55%, #11202c 100%); }
@@ -73,6 +77,17 @@
   .big .sub { font-size: 32px; margin-top: 26px; }
   .big .frame { left: 870px; top: 60px; height: 540px; }
   .big .frame iframe { height: 540px; }
+
+  /* Arapça: sahne aynalanır; metin sağda, panel ve sohbet solda. */
+  [dir="rtl"] h1, [dir="rtl"] .brand { letter-spacing: 0; }
+  [dir="rtl"] .copy, [dir="rtl"] .big .copy { left: auto; right: 110px; }
+  [dir="rtl"] .frame { left: 110px; }
+  [dir="rtl"] .big .frame { left: 128px; }
+  [dir="rtl"] .chat { left: 108px; }
+  [dir="rtl"] .ucard, [dir="rtl"] .menu { left: 456px; }
+  [dir="rtl"] .ucard .x { right: auto; left: 11px; }
+  [dir="rtl"] .menu div { padding: 7px 38px 7px 14px; }
+  [dir="rtl"] .menu .pick { padding: 8px 37px 8px 13px; }
 </style>
 </head>
 <body>
@@ -93,7 +108,10 @@
 <script>
 const params = new URLSearchParams(location.search);
 const SHOT = params.get("shot");
-const LANG = params.get("lang") === "tr" ? "tr" : "en";
+const LANGS = ["tr", "en", "es", "pt", "ar"];
+const LANG = LANGS.includes(params.get("lang")) ? params.get("lang") : "en";
+document.documentElement.lang = LANG;
+document.documentElement.dir = LANG === "ar" ? "rtl" : "ltr";
 
 const TEXT = {
   tr: {
@@ -101,7 +119,7 @@ const TEXT = {
     liste: ["Kim, kimi, neden banladı?\nHepsi tek listede", "Aktif banları ve her kanaldaki sonucu tek\nekrandan izle. Uygulanamayanı yeniden dene,\nistediğini tek tıkla kaldır."],
     sira: ["Uzun listeler\nartık dert değil", "Kullanıcı adlarını yapıştır ya da dosyadan yükle.\nGerisini Magnetosphere arka planda halleder;\npaneli kapatsan bile işlem sürer."],
     ekip: ["İster tek başına yönet,\nister ekibinle", "Kanallarını ekle, davet koduyla modlarını çağır.\nHerkes aynı listeyi görür; rolleri sen dağıtırsın."],
-    sagtik: ["Sağ tıkla,\nher kanalda banla", "Sohbette kullanıcının kartını aç,\nadına sağ tıkla. Panel o adla açılır;\ntek düğmeyle listendeki bütün\nkanallarda banlarsın."],
+    sagtik: ["Sağ tıkla,\nher kanalda banla", "Sohbette kullanıcının kartını aç,\nadına sağ tıkla. Panel o adla\naçılır; tek düğmeyle listendeki\nbütün kanallarda banlarsın."],
     tagline: "Kick mod ekipleri için ortak ban listesi",
     channel: "ornek_kanal", live: "Canlı", send: "Mesaj gönder",
     account: "Hesap", accountAge: "2 gün önce", messages: "Mesaj",
@@ -120,7 +138,7 @@ const TEXT = {
     liste: ["Who banned whom?\nIt's all in one list", "See every active ban, who placed it and why,\nand how it went on each channel. Retry what didn't go\nthrough, remove any ban with one click."],
     sira: ["Long lists?\nNo problem", "Paste usernames or load them from a file.\nMagnetosphere handles the rest in the background,\neven if you close the panel."],
     ekip: ["Go solo,\nor bring your team", "Add your channels and invite your mods with a code.\nEveryone sees the same list; you hand out the roles."],
-    sagtik: ["Right-click,\nban everywhere", "Open the user's card in chat and\nright-click their name. The panel opens\nwith that name; one button bans them\non every channel on your list."],
+    sagtik: ["Right-click,\nban everywhere", "Open the user's card in chat and\nright-click their name. The panel\nopens with that name; one button\nbans them on every channel\non your list."],
     tagline: "A shared ban list for Kick mod teams",
     channel: "example_channel", live: "Live", send: "Send a message",
     account: "Account", accountAge: "2 days ago", messages: "Messages",
@@ -132,6 +150,63 @@ const TEXT = {
       ["spam_bot_4821", "FREE FOLLOWERS!!!\nclick now → free-followers.example", true],
       ["stardust", "another bot? 😑"], ["night_owl", "where are the mods"], ["pixel_master", "gg wp"],
       ["coffee_lover", "much better now"], ["blue_cat", "great stream"],
+    ],
+  },
+  es: {
+    banla: ["Banea una vez,\nen todos tus canales", "Escribe el usuario y elige la duración. El baneo\nse aplica a la vez en todos los canales de tu lista."],
+    liste: ["¿Quién baneó a quién?\nTodo en una lista", "Mira cada baneo activo, quién lo hizo y por qué,\ny cómo resultó en cada canal. Reintenta lo que\nfalló y quita cualquier baneo con un clic."],
+    sira: ["¿Listas largas?\nSin problema", "Pega los usuarios o cárgalos desde un archivo.\nMagnetosphere hace el resto en segundo plano,\naunque cierres el panel."],
+    ekip: ["Solo\no con tu equipo", "Agrega tus canales e invita a tus mods con un código.\nTodos ven la misma lista; tú repartes los roles."],
+    sagtik: ["Clic derecho,\nbaneo en todos", "Abre la tarjeta del usuario en el\nchat y haz clic derecho en su\nnombre. El panel se abre con ese\nnombre; un botón lo banea en\ntodos los canales de tu lista."],
+    tagline: "Lista de baneos compartida para mods de Kick",
+    channel: "canal_ejemplo", live: "En vivo", send: "Enviar mensaje",
+    account: "Cuenta", accountAge: "hace 2 días", messages: "Mensajes",
+    menu: ["Abrir enlace en una pestaña nueva", "Copiar dirección del enlace", "Banear en todos los canales del equipo", "Inspeccionar"],
+    chat: [
+      ["amante_del_cafe", "llegué, llegué"], ["buho_nocturno", "¿qué jugamos hoy?"], ["gato_azul", "el stream de ayer estuvo genial"],
+      ["polvo_estelar", "¿ya empezó el stream?"], ["maestro_pixel", "buenas noches a todos"], ["gato_azul", "este episodio fue legendario"],
+      ["buho_nocturno", "hola a todos 👋"], ["maestro_pixel", "¿cuál es el próximo juego?"], ["amante_del_cafe", "el audio está bajito"],
+      ["spam_bot_4821", "¡¡¡SEGUIDORES GRATIS!!!\nhaz clic ya → seguidores-gratis.example", true],
+      ["polvo_estelar", "¿otro bot? 😑"], ["buho_nocturno", "¿dónde están los mods?"], ["maestro_pixel", "gg wp"],
+      ["amante_del_cafe", "ahora mucho mejor"], ["gato_azul", "gran stream"],
+    ],
+  },
+  pt: {
+    banla: ["Bana uma vez,\nvale em todos os canais", "Digite o usuário e escolha a duração. O ban vale\nde uma vez em todos os canais da sua lista."],
+    liste: ["Quem baniu quem?\nTudo em uma lista", "Veja cada ban ativo, quem fez e por quê,\ne como foi em cada canal. Repita o que falhou\ne remova qualquer ban com um clique."],
+    sira: ["Listas longas?\nSem problema", "Cole os usuários ou carregue de um arquivo.\nO Magnetosphere cuida do resto em segundo plano,\nmesmo se você fechar o painel."],
+    ekip: ["Sozinho\nou com a sua equipe", "Adicione seus canais e chame seus mods com um código.\nTodos veem a mesma lista; você distribui os cargos."],
+    sagtik: ["Clique direito,\nban em todos", "Abra o cartão do usuário no chat\ne clique com o botão direito no\nnome. O painel abre com esse\nnome; um botão bane em todos\nos canais da sua lista."],
+    tagline: "Lista de bans compartilhada para mods da Kick",
+    channel: "canal_exemplo", live: "Ao vivo", send: "Enviar mensagem",
+    account: "Conta", accountAge: "há 2 dias", messages: "Mensagens",
+    menu: ["Abrir link em nova guia", "Copiar endereço do link", "Banir em todos os canais da equipe", "Inspecionar"],
+    chat: [
+      ["cafe_viciado", "cheguei, cheguei"], ["coruja_noturna", "o que vamos jogar hoje?"], ["gato_azul", "a live de ontem foi top"],
+      ["poeira_estelar", "a live já começou?"], ["mestre_pixel", "boa noite, galera"], ["gato_azul", "esse episódio foi lendário"],
+      ["coruja_noturna", "oi, pessoal 👋"], ["mestre_pixel", "qual é o próximo jogo?"], ["cafe_viciado", "o som tá meio baixo"],
+      ["spam_bot_4821", "SEGUIDORES GRÁTIS!!!\nclique já → seguidores-gratis.example", true],
+      ["poeira_estelar", "bot de novo? 😑"], ["coruja_noturna", "cadê os mods?"], ["mestre_pixel", "gg wp"],
+      ["cafe_viciado", "agora melhorou"], ["gato_azul", "live incrível"],
+    ],
+  },
+  ar: {
+    banla: ["احظر مرة واحدة،\nفي كل قنواتك", "اكتب اسم المستخدم واختر المدة. يُطبَّق الحظر\nدفعة واحدة على كل القنوات في قائمتك."],
+    liste: ["من حظر من؟\nكل شيء في قائمة واحدة", "شاهد كل حظر نشط، ومن وضعه ولماذا،\nونتيجته في كل قناة. أعد المحاولة لما لم ينجح،\nوارفع أي حظر بنقرة واحدة."],
+    sira: ["قوائم طويلة؟\nلا مشكلة", "الصق أسماء المستخدمين أو حمّلها من ملف.\nيتولى Magnetosphere الباقي في الخلفية،\nحتى لو أغلقت اللوحة."],
+    ekip: ["وحدك\nأو مع فريقك", "أضف قنواتك وادعُ مشرفيك برمز دعوة.\nالجميع يرى القائمة نفسها، وأنت توزّع الأدوار."],
+    sagtik: ["نقرة يمين،\nوحظر في كل مكان", "افتح بطاقة المستخدم في الدردشة\nوانقر بالزر الأيمن على اسمه. تُفتح\nاللوحة بذلك الاسم، وبزر واحد تحظره\nفي كل القنوات في قائمتك."],
+    tagline: "قائمة حظر مشتركة لفرق مشرفي Kick",
+    channel: "example_channel", live: "مباشر", send: "أرسل رسالة",
+    account: "الحساب", accountAge: "منذ يومين", messages: "الرسائل",
+    menu: ["فتح الرابط في علامة تبويب جديدة", "نسخ عنوان الرابط", "حظر في كل قنوات الفريق", "فحص"],
+    chat: [
+      ["coffee_lover", "وصلت، وصلت"], ["night_owl", "ماذا سنلعب اليوم؟"], ["blue_cat", "بث الأمس كان رائعًا"],
+      ["stardust", "هل بدأ البث؟"], ["pixel_master", "مساء الخير للجميع"], ["blue_cat", "هذه الحلقة كانت أسطورية"],
+      ["night_owl", "مرحبًا بالجميع 👋"], ["pixel_master", "ما اللعبة القادمة؟"], ["coffee_lover", "الصوت منخفض قليلًا"],
+      ["spam_bot_4821", "متابعون مجانًا!!!\nاضغط الآن ← free-followers.example", true],
+      ["stardust", "بوت مرة أخرى؟ 😑"], ["night_owl", "أين المشرفون؟"], ["pixel_master", "gg wp"],
+      ["coffee_lover", "الآن أفضل بكثير"], ["blue_cat", "بث رائع"],
     ],
   },
 }[LANG];
@@ -170,6 +245,7 @@ if (SCENE[SHOT]) {
       <div class="pick">${logo}${TEXT.menu[2]}</div><hr>
       <div>${TEXT.menu[3]}</div>
     </div>`;
+  document.querySelector(".copy").classList.add("narrow");
   // Sohbet satırları sığmazsa en eskiler görünmez kalsın (gerçek sohbet gibi alttan dolar).
   document.querySelector(".lines").style.overflow = "hidden";
 } else if (SHOT === "kucuk") {
