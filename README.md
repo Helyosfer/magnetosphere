@@ -67,7 +67,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalındaki ban yetkisini ekibin kullanımına açar; bu kararı yalnızca kendisi verir. |
 | **Yanlış ban koruması** | Ekipte ban yetkisi olan üyeler ve ekipteki yayıncılar banlanamaz. |
 | **Hesap ve ekip yönetimi** | Ekipten ayrılma, sahipliği devretme, ekibi ve hesabı silme; hepsi panelden. |
-| **Türkçe ve İngilizce** | Panel tarayıcının diliyle açılır: Türkçe tarayıcıda Türkçe, diğerlerinde İngilizce. Alttaki dil düğmesiyle değiştirilebilir; sunucunun hata mesajları da seçilen dilde gelir. |
+| **Türkçe, İngilizce, İspanyolca ve Arapça** | Panel tarayıcının diliyle açılır: Türkçe, İspanyolca ya da Arapça tarayıcıda o dilde, diğerlerinde İngilizce. Alttaki dil düğmeleriyle değiştirilebilir; Arapçada panel sağdan sola dizilir. Sunucunun hata mesajları da seçilen dilde gelir. |
 
 ## Başlarken
 
@@ -448,6 +448,7 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Kullanıcı adıyla ban kaldırma; Kick'te elle atılmış banlar dahil
 - [x] Liste ve Geçmiş ayrımı: süresi dolan uzaklaştırmalar ve kaldırılan banlar Geçmiş'e geçer
 - [x] İngilizce arayüz
+- [x] İspanyolca ve Arapça arayüz (Arapçada sağdan sola düzen)
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 
 ### Bilinen kısıtlar

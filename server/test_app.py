@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from cryptography.fernet import Fernet
 
 import app
+import i18n
 
 REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 
@@ -746,6 +747,33 @@ class CrossBanTest(unittest.TestCase):
             _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
             self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
         call(self.base, "DELETE", f"/teams/{team['id']}", user)
+
+    def test_spanish_arabic(self):
+        L = app.localize
+        # Her dil tablosu İngilizceyle aynı Türkçe kalıpları kapsar; eksik kalan mesaj Türkçe çıkmasın.
+        for lang in ("es", "ar"):
+            self.assertEqual(set(i18n.TABLES[lang]), set(i18n.EN), lang)
+        self.assertEqual(L("Ekip bulunamadı", "es"), "Equipo no encontrado")
+        self.assertEqual(L("Ekip bulunamadı", "ar"), "الفريق غير موجود")
+        self.assertEqual(L("'ali' Kick'te bulunamadı", "es"), "'ali' no existe en Kick")
+        self.assertEqual(L("kanal-a: 429: Kick istek sınırı; biraz sonra tekrar dene", "ar"),
+                         "kanal-a: 429: حد طلبات Kick؛ حاول مجددًا بعد قليل")
+        self.assertEqual([app.pick_lang(h) for h in ("es", "AR", "es-ES,es;q=0.9", "ar-SA", "fr")],
+                         ["es", "ar", "tr", "tr", "tr"])
+
+        user = self.login(24)
+        self.assertEqual(call(self.base, "GET", "/teams/999999", user, lang="es")[1], {"error": "Equipo no encontrado"})
+        self.assertEqual(call(self.base, "GET", "/teams/999999", user, lang="ar")[1], {"error": "الفريق غير موجود"})
+
+        # Giriş hatası İspanyolca ve Arapça panele de kendi dilinde döner; tanınmayan dil Türkçe kalır.
+        for lang, text in (("es", "No se aprobó el inicio de sesión en Kick"),
+                           ("ar", "لم تتم الموافقة على تسجيل الدخول عبر Kick"),
+                           ("fr", "Kick girişi onaylanmadı")):
+            path = "/auth/login?redirect=" + urllib.parse.quote(REDIRECT) + f"&lang={lang}"
+            _, _, headers = call(self.base, "GET", path)
+            state = urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)["state"][0]
+            _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
+            self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
 
 
 if __name__ == "__main__":

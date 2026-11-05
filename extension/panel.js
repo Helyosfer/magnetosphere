@@ -952,17 +952,25 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// Dil düğmesi: seçim saklanır, panel yeni dille baştan açılır.
-for (const button of document.querySelectorAll(".lang-switch")) {
-  button.onclick = async () => {
-    await chrome.storage.local.set({ lang: LANG === "tr" ? "en" : "tr" });
-    location.reload();
-  };
+// Dil düğmeleri: geçerli dil dışındakiler kendi adlarıyla sıralanır. Seçim saklanır, panel yeni dille baştan açılır.
+function renderLangSwitch() {
+  for (const slot of document.querySelectorAll(".lang-switch")) {
+    const parts = LANGS.filter((lang) => lang !== LANG).flatMap((lang, index) => {
+      const button = el("button", { type: "button", className: "link quiet", lang, textContent: LANG_NAMES[lang] });
+      button.onclick = async () => {
+        await chrome.storage.local.set({ lang });
+        location.reload();
+      };
+      return index ? [el("span", { ariaHidden: "true", textContent: "·" }), button] : [button];
+    });
+    slot.replaceWith(...parts);
+  }
 }
 
 (async () => {
   await loadLang();
   applyI18n();
+  renderLangSwitch();
   const stored = await chrome.storage.local.get(["server", "token", "teamId"]);
   state.server = stored.server || DEFAULT_SERVER;
   state.token = stored.token || null;
