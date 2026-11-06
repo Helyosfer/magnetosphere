@@ -21,24 +21,29 @@
 <body>
 <main>
   <h1>Magnetosphere Gizlilik Politikası</h1>
-  <p class="muted">Son güncelleme: 1 Kasım 2026 · <a href="#en">English</a></p>
+  <p class="muted">Son güncelleme: 7 Kasım 2026 · <a href="#en">English</a></p>
 
   <p>Magnetosphere, Kick moderatörleri ve moderasyon ekipleri için ortak ban listesi tutan bir tarayıcı uzantısı ve ona bağlı bir sunucudur (magnetosphere.helyosfer.me). Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir. Bu politika, uzantıyı ve sunucuyu kullandığında hangi verilerin işlendiğini anlatır.</p>
+  <p>Magnetosphere açık kaynaklıdır ve herkes kendi sunucusunu kurabilir. Uzantıyı başka bir sunucuya bağlarsan verilerin o sunucuyu işleten kişide tutulur; bu politika yalnızca magnetosphere.helyosfer.me için geçerlidir.</p>
 
   <h2>Topladığımız veriler</h2>
   <ul>
     <li><strong>Kick hesabın:</strong> Kick ile giriş yaptığında Kick kullanıcı kimliğin ve kullanıcı adın.</li>
     <li><strong>Kick erişim tokenları:</strong> senin adına ban atabilmek için Kick'in verdiği erişim ve yenileme tokenları. Sunucuda şifreli saklanır. Kick şifreni hiçbir zaman görmeyiz.</li>
     <li><strong>Oturum:</strong> uzantının sunucuyla konuşması için bir oturum anahtarı. Sunucuda yalnızca özeti (SHA-256) tutulur; 30 gün kullanılmazsa geçersiz olur.</li>
-    <li><strong>Ekip verileri:</strong> oluşturduğun ya da katıldığın ekipler, ekipteki rolün, yayıncı yetkisi paylaşımı tercihin, eklenen kanallar, banlanan ya da banı kaldırılan kullanıcı adları, ban sebebi, banı kimin ne zaman attığı ya da kaldırdığı ve her kanaldaki sonuç.</li>
+    <li><strong>Ekip verileri:</strong> oluşturduğun ya da katıldığın ekipler, ekipteki rolün, yayıncı yetkisi paylaşımı tercihin, eklenen kanallar, banlanan ya da banı kaldırılan kullanıcılar, ban sebebi ve süresi, banı kimin ne zaman attığı ya da kaldırdığı, her kanaldaki sonuç ve toplu yüklediğin listelerin işlenme durumu.</li>
+    <li><strong>Dil tercihi:</strong> sunucunun yanıtları senin dilinde vermesi için uzantı her istekle seçili dili gönderir. Sunucu dili saklamaz; yalnızca giriş sırasında, en fazla 10 dakika, giriş isteğinin yanında tutar.</li>
   </ul>
   <p>Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi isteriz. E-posta adresini, sohbet mesajlarını ya da başka bir Kick verisini almayız.</p>
 
+  <h2>Banlanan kişilerin verileri</h2>
+  <p>Magnetosphere ile banlanan bir kişinin Kick kullanıcı kimliği, kullanıcı adı ve ekibin girdiği ban sebebi ve süresi, banı atan ekibin kaydında tutulur ve yalnızca o ekibin üyelerine görünür. Bu kişiler Magnetosphere kullanıcısı olmasa da aşağıdaki "Hakların" bölümündeki adresten kendileriyle ilgili kayıtlara erişmeyi ya da silinmesini isteyebilir. Kick'teki ban, kanalın kararıdır; onu kaldırmak kanalın ya da moderatörlerinin elindedir.</p>
+
   <h2>Uzantının tarayıcında sakladıkları</h2>
-  <p>Oturum anahtarı, seçili ekip ve sunucu adresi. Uzantı ziyaret ettiğin sayfaları okumaz, tarama geçmişini toplamaz ve hiçbir siteye içerik betiği eklemez. kick.com'daki sağ tık menüsü yalnızca senin seçtiğin metni (kullanıcı adını) panele aktarır.</p>
+  <p>Oturum anahtarı, seçili ekip, sunucu adresi ve dil seçimi. Uzantı ziyaret ettiğin sayfaları okumaz, tarama geçmişini toplamaz ve hiçbir siteye içerik betiği eklemez. kick.com'daki sağ tık menüsü yalnızca senin seçtiğin metni ya da sağ tıkladığın bağlantıdaki kullanıcı adını panele aktarır. Dosyadan liste yüklediğinde dosya tarayıcında okunur; sunucuya yalnızca içindeki kullanıcı adları gönderilir.</p>
 
   <h2>Teknik kayıtlar</h2>
-  <p>Sunucu, sorunları gidermek için her isteğin yalnızca türünü, yolunu ve sonucunu kaydeder (ör. "GET /me → 200"). IP adresin, oturum anahtarın ya da tokenların bu kayıtlara yazılmaz. Giriş denemelerini sınırlamak için IP adresin en fazla 10 dakika yalnızca bellekte tutulur, diske yazılmaz. Analiz ya da izleme aracı kullanmayız.</p>
+  <p>Sunucu, sorunları gidermek için her isteğin türünü, yolunu (sorgu kısmı olmadan) ve sonucunu kaydeder (ör. "GET /me → 200"). Bunun dışında yalnızca iki durumda ayrıntı yazılır: toplu yüklemede Kick istek sınırı yüzünden ertelenen bir kaydın kullanıcı adı ve beklenmeyen bir hatanın teknik dökümü. IP adresin, oturum anahtarın ya da tokenların bu kayıtlara yazılmaz. Giriş denemelerini sınırlamak için IP adresin en fazla 10 dakika yalnızca bellekte tutulur, diske yazılmaz. Analiz ya da izleme aracı kullanmayız.</p>
 
   <h2>Verileri nasıl kullanıyoruz</h2>
   <p>Yalnızca hizmeti sunmak için: giriş yapmak, listendeki kanallarda ban atmak ya da kaldırmak ve ortak listeyi ekip üyelerine göstermek. Ekip verilerini yalnızca o ekibin üyeleri, rollerinin izin verdiği ölçüde görür; davet kodunu yalnızca ekip sahibi ve yöneticiler görür.</p>
@@ -54,7 +59,7 @@
 
   <h2>Saklama ve silme</h2>
   <ul>
-    <li><strong>Hesabını silmek:</strong> uzantının altındaki "Hesabımı sil" bağlantısıyla hesabını kendin silebilirsin. Oturumların, üyeliklerin, tokenların ve yalnızca senin üyesi olduğun ekipler hemen silinir; Kick'e verdiğin erişim geri alınır. Başka ekiplerin ortak listesinde senin attığın banlar, o ekibin kaydı bozulmasın diye adın olmadan kalır. Başkalarının da üyesi olduğu bir ekibin sahibiysen, önce sahipliği devretmen ya da ekibi silmen gerekir.</li>
+    <li><strong>Hesabını silmek:</strong> uzantının altındaki "Hesabımı sil" bağlantısıyla hesabını kendin silebilirsin. Oturumların, üyeliklerin, tokenların, sırada bekleyen yüklemelerin ve yalnızca senin üyesi olduğun ekipler hemen silinir; Kick'e verdiğin erişimin geri alınması da Kick'ten istenir. Başka ekiplerin ortak listesinde senin attığın ya da kaldırdığın banlar, o ekibin kaydı bozulmasın diye kalır; bu kayıtlarda adın yerine "silinmiş kullanıcı" görünür, yalnızca Kick kullanıcı kimlik numaran saklanır. Başkalarının da üyesi olduğu bir ekibin sahibiysen, önce sahipliği devretmen ya da ekibi silmen gerekir.</li>
     <li><strong>Ekip:</strong> ekip sahibi ekibi sildiğinde ekibe ait tüm kayıtlar silinir. Bir ekipten istediğin an ayrılabilirsin.</li>
     <li><strong>Oturum:</strong> çıkış yaptığında oturumların kapanır; kullanılmayan oturumlar 30 gün sonra geçersiz olur.</li>
     <li><strong>Yedekler:</strong> yedekler sunucuda 14 gün, Google Drive'da 90 gün tutulur ve sonra kendiliğinden silinir. Silinen bir hesap ya da ekip, bu süre dolana kadar yalnızca yedeklerde kalır ve yalnızca bir arızadan sonra geri yükleme için kullanılır.</li>
@@ -74,23 +79,28 @@
 
   <div lang="en" id="en">
     <h1>Privacy Policy</h1>
-    <p class="muted">Last updated: 1 November 2026</p>
+    <p class="muted">Last updated: 7 November 2026</p>
     <p>Magnetosphere is a browser extension and companion server (magnetosphere.helyosfer.me) that keeps a shared ban list for Kick moderators and moderation teams. It is not affiliated with or endorsed by Kick. This policy explains what data is processed when you use the extension and the server.</p>
+    <p>Magnetosphere is open source, and anyone can run their own server. If you connect the extension to a different server, your data is held by whoever runs that server; this policy covers magnetosphere.helyosfer.me only.</p>
 
     <h2>Data we collect</h2>
     <ul>
       <li><strong>Your Kick account:</strong> your Kick user ID and username, received when you sign in with Kick.</li>
       <li><strong>Kick access tokens:</strong> OAuth access and refresh tokens, stored encrypted on the server so bans can be issued on your behalf. We never see your Kick password.</li>
       <li><strong>Session:</strong> a session token for the extension; only its SHA-256 hash is stored, and it expires after 30 days without use.</li>
-      <li><strong>Team data:</strong> teams you create or join, your role in each team, your broadcaster authority sharing setting, channels, banned or unbanned usernames, ban reasons, who issued or lifted each ban and when, and the result per channel.</li>
+      <li><strong>Team data:</strong> teams you create or join, your role in each team, your broadcaster authority sharing setting, channels, banned or unbanned users, ban reasons and durations, who issued or lifted each ban and when, the result per channel, and the processing status of lists you bulk-upload.</li>
+      <li><strong>Language preference:</strong> the extension sends your selected language with each request so the server can reply in it. The server does not store it, except alongside a pending sign-in request for at most 10 minutes.</li>
     </ul>
     <p>From Kick we request only user information, channel information and permission to ban. We do not receive your email address, chat messages or any other Kick data.</p>
 
+    <h2>Data about people who are banned</h2>
+    <p>When someone is banned through Magnetosphere, their Kick user ID, username, and the reason and duration entered by the team are kept in that team's records and are visible only to that team's members. Even if they do not use Magnetosphere, they can ask to access or delete records about them using the address in "Your rights" below. The ban on Kick itself is the channel's decision; only the channel or its moderators can lift it.</p>
+
     <h2>What the extension stores in your browser</h2>
-    <p>The session token, the selected team and the server address. The extension does not read the pages you visit, collect browsing history or inject content scripts into any site. The right-click menu on kick.com only passes the text you selected (a username) to the panel.</p>
+    <p>The session token, the selected team, the server address and your language choice. The extension does not read the pages you visit, collect browsing history or inject content scripts into any site. The right-click menu on kick.com only passes the text you selected, or the username in the link you right-clicked, to the panel. When you upload a list from a file, the file is read in your browser and only the usernames in it are sent to the server.</p>
 
     <h2>Technical logs</h2>
-    <p>To troubleshoot problems, the server logs only the method, path and result of each request (e.g. "GET /me → 200"). Your IP address, session token and Kick tokens are not written to these logs. To rate-limit sign-in attempts, your IP address is kept in memory only, for at most 10 minutes, and never written to disk. We use no analytics or tracking tools.</p>
+    <p>To troubleshoot problems, the server logs the method, path (without the query string) and result of each request (e.g. "GET /me → 200"). Beyond that, details are written in only two cases: the username of a bulk-upload entry postponed because of Kick's rate limit, and the technical trace of an unexpected error. Your IP address, session token and Kick tokens are not written to these logs. To rate-limit sign-in attempts, your IP address is kept in memory only, for at most 10 minutes, and never written to disk. We use no analytics or tracking tools.</p>
 
     <h2>How data is used</h2>
     <p>Solely to provide the service: signing in, issuing and revoking bans in the channels on your list, and showing the shared list to team members. Team data is visible only to members of that team, as far as their role allows; only the team owner and admins can see the invite code.</p>
@@ -106,7 +116,7 @@
 
     <h2>Retention and deletion</h2>
     <ul>
-      <li><strong>Deleting your account:</strong> use the "Hesabımı sil" (Delete my account) link at the bottom of the extension. Your sessions, memberships, tokens and any team of which you are the only member are deleted immediately, and the access you granted on Kick is revoked. Bans you issued that appear in other teams' shared lists are kept without your name so those teams' records stay intact. If you own a team that has other members, you need to transfer ownership or delete the team first.</li>
+      <li><strong>Deleting your account:</strong> use the "Delete my account" link at the bottom of the extension. Your sessions, memberships, tokens, pending uploads and any team of which you are the only member are deleted immediately, and Kick is asked to revoke the access you granted. Bans you issued or lifted that appear in other teams' shared lists are kept so those teams' records stay intact; they show "deleted user" instead of your name, and only your numeric Kick user ID is kept. If you own a team that has other members, you need to transfer ownership or delete the team first.</li>
       <li><strong>Teams:</strong> when a team owner deletes a team, all of its records are deleted. You can leave a team at any time.</li>
       <li><strong>Sessions:</strong> signing out ends your sessions; unused sessions expire after 30 days.</li>
       <li><strong>Backups:</strong> backups are kept for 14 days on the server and 90 days on Google Drive, then deleted automatically. A deleted account or team remains only in backups until that period ends, and backups are used only to restore service after a failure.</li>
