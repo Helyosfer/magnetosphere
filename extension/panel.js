@@ -271,6 +271,8 @@ function renderBans() {
   // Bir kanalda kaldırılamamış kayıt silinmez (sunucu da bırakır), silinebilir sayılmaz.
   const deletable = bans.some((ban) => !(ban.results || []).some((r) => r.status === "unban_failed"));
   $("history-clear").hidden = !(history && can("admin") && deletable);
+  // Dışa aktarma aramadan bağımsız olarak ekibin bütün kalıcı banlarını indirir; ekibin her üyesi kullanabilir.
+  $("list-export").hidden = history || !activeTotal;
 
   const searching = $("list-search").value.trim();
   const empty = searching
@@ -555,6 +557,30 @@ $("history-clear").onclick = () => run($("history-clear"), async () => {
   }
   showMessage(t("historyCleared", res.deleted, res.kept), "info");
   await loadBans();
+});
+
+// Dosyadan yükle ile aynı biçim: her satırda bir kullanıcı adı. Liste 200 kayıtla sınırlı, bu yüzden sunucudan ayrı alınır.
+$("list-export").onclick = () => run($("list-export"), async () => {
+  let res;
+  try {
+    res = await api("GET", `/teams/${state.teamId}/bans/export`);
+  } catch (e) {
+    // 0.11.0 öncesi sunucu bu yolu tanımaz.
+    if (e.status === 404 && state.token) throw new Error(t("oldServerExport"));
+    throw e;
+  }
+  if (!res.names.length) return showMessage(t("exportEmpty"), "info");
+  const team = (state.me.teams.find((x) => x.id === state.teamId) || {}).name || "ekip";
+  const slug = team.normalize("NFKD").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "ekip";
+  const now = new Date();
+  const date = [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((n) => String(n).padStart(2, "0")).join("-");
+  const url = URL.createObjectURL(new Blob([res.names.join("\n") + "\n"], { type: "text/plain;charset=utf-8" }));
+  const link = el("a", { href: url, download: `magnetosphere-${slug}-${date}.txt` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showMessage(t("exported", res.names.length), "info");
 });
 
 $("queue-copy").onclick = async () => {

@@ -55,7 +55,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | | |
 |---|---|
 | **Birden çok kanalda tek seferde ban** | Kalıcı ban ya da 10 dakika, 1 saat, 1 gün veya 7 günlük uzaklaştırma; bütün kanallara aynı anda uygulanır. |
-| **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. |
+| **Toplu ban, içe ve dışa aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. **Liste > Dışa aktar**, ekibin bütün kalıcı banlarını her satırda bir kullanıcı adı olan bir `.txt` dosyası olarak indirir; dosya başka bir ekibe olduğu gibi yüklenebilir. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
 | **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir; sahip ve yöneticiler onay vererek geçmişi silebilir. |
@@ -98,7 +98,7 @@ listesini kullanır.
 
 | | İzleyici | Moderatör | Yönetici | Sahip |
 |---|:-:|:-:|:-:|:-:|
-| Ortak listeyi görme | ✓ | ✓ | ✓ | ✓ |
+| Ortak listeyi görme ve dışa aktarma | ✓ | ✓ | ✓ | ✓ |
 | Ban atma, tekrar deneme, liste yükleme | | ✓ | ✓ | ✓ |
 | Kendi attığı banı kaldırma | | ✓ | ✓ | ✓ |
 | Listede olmayan (Kick'te elle atılmış) banı adıyla kaldırma | | ✓ | ✓ | ✓ |
