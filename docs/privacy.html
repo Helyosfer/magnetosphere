@@ -53,6 +53,7 @@
   <p>Verileri satmayız ve reklam ya da analiz amacıyla kimseyle paylaşmayız. Hizmeti sunmak için yalnızca şu taraflar devreye girer:</p>
   <ul>
     <li><strong>Kick:</strong> giriş, kanal sorgusu, ban ve ban kaldırma istekleri Kick'in resmi API'sine gönderilir.</li>
+    <li><strong>Cloudflare:</strong> magnetosphere.helyosfer.me'ye gelen bütün trafik, uzantının sunucuyla konuşması da dahil, saldırılara karşı koruma için Cloudflare üzerinden geçer. Bağlantı hem sana hem sunucumuza giden yolda şifrelidir, ama Cloudflare trafiği iletebilmek için arada çözer ve bu sırada IP adresini ve istek bilgilerini işler. Cloudflare'in işlediği veriler için <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare'in gizlilik politikası</a> geçerlidir.</li>
     <li><strong>Sunucu barındırma:</strong> veriler kiraladığımız bir sanal sunucuda tutulur.</li>
     <li><strong>Google Drive (yedek):</strong> veritabanı yedeklerinin bir kopyası, veri kaybına karşı bize ait bir Google Drive hesabında saklanır. Yedeklerde Kick tokenları şifreli durur; şifreyi çözen anahtar yedeklerle birlikte saklanmaz.</li>
   </ul>
@@ -110,6 +111,7 @@
     <p>We never sell data, and never share it for advertising or analytics. Only the following parties are involved in providing the service:</p>
     <ul>
       <li><strong>Kick:</strong> sign-in, channel lookups, ban and unban requests are sent to Kick's official API.</li>
+      <li><strong>Cloudflare:</strong> all traffic to magnetosphere.helyosfer.me, including the extension's communication with the server, passes through Cloudflare for protection against attacks. The connection is encrypted on both legs, to you and to our server, but Cloudflare decrypts the traffic in between to relay it and processes your IP address and request details while doing so. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a> applies to the data Cloudflare processes.</li>
       <li><strong>Server hosting:</strong> data is kept on a virtual server we rent.</li>
       <li><strong>Google Drive (backups):</strong> a copy of the database backups is kept in a Google Drive account we own, to protect against data loss. Kick tokens remain encrypted in backups; the key that decrypts them is not stored with the backups.</li>
     </ul>
