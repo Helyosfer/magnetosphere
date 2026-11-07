@@ -35,6 +35,7 @@ const AR = {
   minute: ["دقيقة واحدة", "دقيقتين", "دقائق", "دقيقة"],
   error: ["خطأ واحد", "خطأين", "أخطاء", "خطأ"],
   problem: ["مشكلة واحدة", "مشكلتين", "مشكلات", "مشكلة"],
+  record: ["سجل واحد", "سجلين", "سجلات", "سجل"],
 };
 
 const STRINGS = {
@@ -262,6 +263,11 @@ const STRINGS = {
     confirmUnban: (who, count) => `${who} için ban ${count} kanalda kaldırılacak. Onaylıyor musun?`,
     unbanning: (i, n) => `${i} / ${n} kaldırılıyor…`,
     oldServerUnban: "Bağlı sunucu adıyla ban kaldırmayı henüz desteklemiyor; sunucunun 0.6.0'a güncellenmesi gerekiyor.",
+    historyClear: "Geçmişi sil",
+    confirmHistoryClear: "Geçmişi silmek istediğine emin misin? Kaldırılan banlar ve süresi dolan uzaklaştırmalar ekibin bütün üyeleri için kalıcı olarak silinir. Kick'teki banlar etkilenmez.",
+    historyCleared: (deleted, kept) => (deleted ? `${deleted} kayıt silindi.` : "Silinecek kayıt yoktu.")
+      + (kept ? ` Bir kanalda kaldırılamayan ${kept} kayıt, yeniden denenebilsin diye bırakıldı.` : ""),
+    oldServerHistory: "Bağlı sunucu geçmişi silmeyi henüz desteklemiyor; sunucunun 0.10.0'a güncellenmesi gerekiyor.",
     unbanFailedN: (n) => `${n} kullanıcının banı kaldırılamadı; adlar alanda bırakıldı.`,
     needChannel: "Önce Ekip sekmesinden en az bir kanal ekle.",
     banLimit: (max, n) => `Tek seferde en fazla ${max} kullanıcı gönderilebilir (${n} girildi).`,
@@ -498,6 +504,11 @@ const STRINGS = {
     confirmUnban: (who, count) => `The ban on ${who} will be removed on ${plural(count, "channel")}. Continue?`,
     unbanning: (i, n) => `Unbanning ${i} / ${n}…`,
     oldServerUnban: "The connected server doesn't support unbanning by name yet; it needs to be updated to 0.6.0.",
+    historyClear: "Delete history",
+    confirmHistoryClear: "Are you sure you want to delete the history? Removed bans and ended timeouts are permanently deleted for every member of the team. Bans on Kick are not affected.",
+    historyCleared: (deleted, kept) => (deleted ? `${plural(deleted, "record")} deleted.` : "There was nothing to delete.")
+      + (kept ? ` ${plural(kept, "record")} that couldn't be unbanned in a channel ${kept === 1 ? "was" : "were"} kept so you can retry.` : ""),
+    oldServerHistory: "The connected server doesn't support deleting the history yet; it needs to be updated to 0.10.0.",
     unbanFailedN: (n) => `Couldn't unban ${plural(n, "user")}; their names were left in the box.`,
     needChannel: "Add at least one channel in the Team tab first.",
     banLimit: (max, n) => `You can send at most ${max} users at a time (${n} entered).`,
@@ -732,6 +743,11 @@ const STRINGS = {
     confirmUnban: (who, count) => `Se quitará el baneo de ${who} en ${plural(count, "canal", "canales")}. ¿Continuar?`,
     unbanning: (i, n) => `Desbaneando ${i} / ${n}…`,
     oldServerUnban: "El servidor conectado aún no permite desbanear por nombre; hay que actualizarlo a 0.6.0.",
+    historyClear: "Borrar historial",
+    confirmHistoryClear: "¿Seguro que quieres borrar el historial? Los baneos quitados y las suspensiones terminadas se eliminan para siempre para todos los miembros del equipo. Los baneos en Kick no se ven afectados.",
+    historyCleared: (deleted, kept) => (deleted ? `${deleted} ${deleted === 1 ? "registro eliminado" : "registros eliminados"}.` : "No había nada que borrar.")
+      + (kept ? ` Se conservaron los registros que no se pudieron desbanear en algún canal (${kept}), para que puedas reintentarlo.` : ""),
+    oldServerHistory: "El servidor conectado aún no permite borrar el historial; hay que actualizarlo a 0.10.0.",
     unbanFailedN: (n) => `No se pudo desbanear a ${plural(n, "usuario")}; sus nombres quedaron en el campo.`,
     needChannel: "Primero agrega al menos un canal en la pestaña Equipo.",
     banLimit: (max, n) => `Puedes enviar como máximo ${max} usuarios a la vez (escribiste ${n}).`,
@@ -967,6 +983,11 @@ const STRINGS = {
     confirmUnban: (who, count) => `O ban de ${who} será removido em ${plural(count, "canal", "canais")}. Continuar?`,
     unbanning: (i, n) => `Desbanindo ${i} / ${n}…`,
     oldServerUnban: "O servidor conectado ainda não permite desbanir pelo nome; ele precisa ser atualizado para a 0.6.0.",
+    historyClear: "Apagar histórico",
+    confirmHistoryClear: "Tem certeza de que quer apagar o histórico? Bans removidos e timeouts encerrados são apagados de vez para todos os membros da equipe. Os bans na Kick não são afetados.",
+    historyCleared: (deleted, kept) => (deleted ? `${deleted} ${deleted === 1 ? "registro apagado" : "registros apagados"}.` : "Não havia nada para apagar.")
+      + (kept ? ` Os registros que não puderam ser desbanidos em algum canal (${kept}) foram mantidos para você tentar de novo.` : ""),
+    oldServerHistory: "O servidor conectado ainda não permite apagar o histórico; ele precisa ser atualizado para a 0.10.0.",
     unbanFailedN: (n) => `Não foi possível desbanir ${plural(n, "usuário")}; os nomes ficaram no campo.`,
     needChannel: "Primeiro adicione pelo menos um canal na aba Equipe.",
     banLimit: (max, n) => `Você pode enviar no máximo ${max} usuários por vez (${n} digitados).`,
@@ -1202,6 +1223,11 @@ const STRINGS = {
     confirmUnban: (who, count) => `سيُرفع الحظر عن ${who} في ${arCount(count, AR.channel)}. متابعة؟`,
     unbanning: (i, n) => `جارٍ رفع الحظر ${i} / ${n}…`,
     oldServerUnban: "الخادم المتصل لا يدعم رفع الحظر بالاسم بعد؛ يجب تحديثه إلى 0.6.0.",
+    historyClear: "حذف السجل",
+    confirmHistoryClear: "هل أنت متأكد من حذف السجل؟ يُحذف الحظر المرفوع والإيقافات المنتهية نهائيًا لجميع أعضاء الفريق. لا يتأثر الحظر على Kick.",
+    historyCleared: (deleted, kept) => (deleted ? `تم حذف ${arCount(deleted, AR.record)}.` : "لم يكن هناك ما يُحذف.")
+      + (kept ? ` أُبقي على السجلات التي تعذّر رفع الحظر فيها في إحدى القنوات (${kept}) لتتمكن من إعادة المحاولة.` : ""),
+    oldServerHistory: "الخادم المتصل لا يدعم حذف السجل بعد؛ يجب تحديثه إلى 0.10.0.",
     unbanFailedN: (n) => `تعذّر رفع الحظر عن ${arCount(n, AR.user)}؛ بقيت أسماؤهم في الحقل.`,
     needChannel: "أضف قناة واحدة على الأقل من تبويب الفريق أولًا.",
     banLimit: (max, n) => `يمكنك إرسال ${max} مستخدم كحد أقصى في المرة الواحدة (أدخلت ${n}).`,

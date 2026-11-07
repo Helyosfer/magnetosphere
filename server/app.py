@@ -62,7 +62,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -995,6 +995,28 @@ def ban_list(req, team_id):
     }
 
 
+def history_clear(req, team_id):
+    """Geçmişi siler: kaldırılmış banlar ve süresi dolmuş uzaklaştırmalar. Kick'teki banlara dokunmaz.
+
+    Bir kanalda kaldırılamamış (unban_failed) kayıt kalır: kişi o kanalda hâlâ banlı olabilir ve
+    kaldırmayı yeniden denemek için kayda ihtiyaç var.
+    """
+    team = team_for(req, team_id, need="admin")
+    where = (f"team_id = ? AND NOT {active_sql()} AND NOT EXISTS (SELECT 1 FROM ban_results r "
+             "WHERE r.ban_id = bans.id AND r.status = 'unban_failed')")
+    args = (team["id"], int(time.time()))
+    with transaction(req.db):
+        ids = [r["id"] for r in req.db.execute(f"SELECT id FROM bans WHERE {where}", args)]
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            marks = ",".join("?" * len(chunk))
+            req.db.execute(f"DELETE FROM ban_results WHERE ban_id IN ({marks})", chunk)
+            req.db.execute(f"DELETE FROM bans WHERE id IN ({marks})", chunk)
+        kept = req.db.execute(f"SELECT COUNT(*) FROM bans WHERE team_id = ? AND NOT {active_sql()}",
+                              args).fetchone()[0]
+    return {"deleted": len(ids), "kept": kept}
+
+
 def parse_ban_options(body):
     # Sebep isteğe bağlı: hiç gönderilmemesi ya da null olması boş sebep demektir.
     reason = "" if body.get("reason") is None else text_field(body, "reason", "Ban sebebi")[:100]
@@ -1293,6 +1315,7 @@ ROUTES = [
     ("POST", r"/teams/(\d{1,18})/channels", channel_add, True),
     ("DELETE", r"/teams/(\d{1,18})/channels/(\d{1,18})", channel_remove, True),
     ("GET", r"/teams/(\d{1,18})/bans", ban_list, True),
+    ("DELETE", r"/teams/(\d{1,18})/bans/history", history_clear, True),
     ("POST", r"/teams/(\d{1,18})/bans", ban_create, True),
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),

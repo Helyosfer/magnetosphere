@@ -58,7 +58,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Toplu ban ve içe aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
-| **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir. |
+| **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir; sahip ve yöneticiler onay vererek geçmişi silebilir. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
 | **Sağ tık kısayolu** | kick.com'da sohbette kullanıcının kartını aç, kartındaki adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır. |
@@ -104,6 +104,7 @@ listesini kullanır.
 | Listede olmayan (Kick'te elle atılmış) banı adıyla kaldırma | | ✓ | ✓ | ✓ |
 | Başkasının attığı banı kaldırma | | | ✓ | ✓ |
 | Kanal ekleme ve kaldırma | | | ✓ | ✓ |
+| Geçmişi silme | | | ✓ | ✓ |
 | Davet kodunu görme ve yenileme | | | ✓ | ✓ |
 | Kendinden düşük yetkili üyeyi çıkarma | | | ✓ | ✓ |
 | Rol verme, katılanların başlangıç rolü | | | | ✓ |
@@ -114,6 +115,10 @@ Sahip dışındaki herkes ekipten istediği an ayrılabilir.
 
 **Ban kaldır** ile adı yazılan kullanıcının listede başka bir üyenin attığı aktif bir banı varsa, liste
 kuralı geçerlidir: o banı yalnızca sahip ve yöneticiler kaldırabilir.
+
+**Geçmişi sil**, kaldırılan banları ve süresi dolan uzaklaştırmaları ekibin herkesi için kalıcı olarak
+siler; Kick'teki banlara dokunmaz. Bir kanalda kaldırılamamış ban kaydı silinmez, çünkü kişi o kanalda
+hâlâ banlı olabilir ve kaldırmayı yeniden denemek için kayda ihtiyaç vardır.
 
 ### Yayıncı yetkisi paylaşımı
 

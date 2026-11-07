@@ -193,7 +193,10 @@
       </form>
 
       <div id="tab-list" class="panel stack" hidden>
-        <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara" data-i18n-placeholder="searchPlaceholder">
+        <div class="row">
+          <input id="list-search" type="search" placeholder="Kullanıcı adı ya da sebep ara" data-i18n-placeholder="searchPlaceholder">
+          <button type="button" id="history-clear" class="danger-ghost small" hidden data-i18n="historyClear">Geçmişi sil</button>
+        </div>
         <div id="ban-list" class="stack"></div>
       </div>
 

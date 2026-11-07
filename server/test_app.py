@@ -613,6 +613,53 @@ class CrossBanTest(unittest.TestCase):
         # Kullanıcı kartı sayacı kaldırıldı; eski uzantının isteği 404 alır ve kartta satır görünmez.
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/users/trol-iki/bans", sahip)[0], 404)
 
+    def test_history_clear(self):
+        """Geçmişi yalnızca sahip ve yöneticiler siler; aktif banlar ve kaldırılamamış kayıtlar kalır."""
+        sahip, yonetici, mod = (self.login(i) for i in (20, 21, 22))
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Geçmişi sil"})
+        tid = team["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        for token in (yonetici, mod):
+            call(self.base, "POST", "/teams/join", token, {"invite_code": code})
+        call(self.base, "POST", f"/teams/{tid}/members/21/role", sahip, {"role": "admin"})
+        ban = lambda name, **extra: call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": name, **extra})[1]
+        history = lambda: sorted(b["target_name"] for b in
+                                 call(self.base, "GET", f"/teams/{tid}/bans?view=history", sahip)[1]["bans"])
+
+        active = ban("trol")
+        revoked = ban("trol-iki")
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{revoked['id']}", sahip)
+        expired = ban("eski-trol", duration=10)
+        stuck = ban("yeni-n")
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{stuck['id']}", sahip)
+        db = sqlite3.connect(app.CFG["db"])
+        db.execute("UPDATE ban_results SET updated_at = updated_at - 601 WHERE ban_id = ?", (expired["id"],))
+        # Bir kanalda kaldırılamamış ban: kişi orada hâlâ banlı olabilir.
+        db.execute("UPDATE ban_results SET status = 'unban_failed' WHERE ban_id = ?", (stuck["id"],))
+        db.commit()
+        self.assertEqual(history(), ["eski-trol", "trol-iki", "yeni-n"])
+
+        status, res, _ = call(self.base, "DELETE", f"/teams/{tid}/bans/history", mod)
+        self.assertEqual(status, 403)
+        self.assertEqual(history(), ["eski-trol", "trol-iki", "yeni-n"])
+
+        status, res, _ = call(self.base, "DELETE", f"/teams/{tid}/bans/history", yonetici)
+        self.assertEqual((status, res), (200, {"deleted": 2, "kept": 1}))
+        self.assertEqual(history(), ["yeni-n"])
+        listing = call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]
+        self.assertEqual([b["id"] for b in listing["bans"]], [active["id"]])
+        # Kick'teki banlara dokunulmaz; silinen kayıtların kanal sonuçları da gider.
+        self.assertIn((20, 99), BANNED)
+        left = db.execute("SELECT COUNT(*) FROM ban_results WHERE ban_id IN (?, ?)",
+                          (revoked["id"], expired["id"])).fetchone()[0]
+        db.close()
+        self.assertEqual(left, 0)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/history", sahip)[1],
+                         {"deleted": 0, "kept": 1})
+        # Başka ekibin üyesi olmayan biri silemez.
+        outsider = self.login(42)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/history", outsider)[0], 404)
+
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))
         _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Roller"})

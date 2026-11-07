@@ -81,7 +81,7 @@ async function api(method, path, body) {
     state.token = null;
     render();
   }
-  if (!res.ok) throw new Error(data.error || t("serverDown", res.status));
+  if (!res.ok) throw Object.assign(new Error(data.error || t("serverDown", res.status)), { status: res.status });
   return data;
 }
 
@@ -267,6 +267,10 @@ function renderBans() {
   $("list-count").textContent = activeTotal;
   $("list-count").hidden = !activeTotal;
   $("ban-list").classList.toggle("history", history);
+  // Geçmişi ekibin herkesi için siler; yalnızca sahip ve yöneticiler, silinecek bir şey varken görür.
+  // Bir kanalda kaldırılamamış kayıt silinmez (sunucu da bırakır), silinebilir sayılmaz.
+  const deletable = bans.some((ban) => !(ban.results || []).some((r) => r.status === "unban_failed"));
+  $("history-clear").hidden = !(history && can("admin") && deletable);
 
   const searching = $("list-search").value.trim();
   const empty = searching
@@ -537,6 +541,20 @@ $("queue-cancel").onclick = () => run($("queue-cancel"), async () => {
 $("queue-clear").onclick = () => run($("queue-clear"), async () => {
   await api("DELETE", `/teams/${state.teamId}/imports/finished`);
   await pollQueue();
+});
+
+$("history-clear").onclick = () => run($("history-clear"), async () => {
+  if (!(await ask(t("confirmHistoryClear")))) return;
+  let res;
+  try {
+    res = await api("DELETE", `/teams/${state.teamId}/bans/history`);
+  } catch (e) {
+    // 0.10.0 öncesi sunucu bu yolu tanımaz; yalın "Bulunamadı" kullanıcıya bir şey söylemez.
+    if (e.status === 404 && state.token) throw new Error(t("oldServerHistory"));
+    throw e;
+  }
+  showMessage(t("historyCleared", res.deleted, res.kept), "info");
+  await loadBans();
 });
 
 $("queue-copy").onclick = async () => {
