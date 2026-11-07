@@ -118,6 +118,9 @@ input, select, textarea {
 }
 textarea { display: block; resize: vertical; min-height: 76px; font-family: var(--mono); font-size: 12.5px; }
 input::placeholder, textarea::placeholder { color: #5d6a7e; }
+/* Yazılan adlar eşit aralıklı kalır; yönerge metni panelin geri kalanı gibi Inter ile yazılır. */
+textarea::placeholder { font-family: "Inter", "Segoe UI", system-ui, sans-serif; font-size: 13px; line-height: 1.5; }
+[dir="rtl"] textarea::placeholder { font-family: "Inter", "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
 select {
   appearance: none;
   padding-inline-end: 30px;
