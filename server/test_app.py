@@ -690,6 +690,28 @@ class CrossBanTest(unittest.TestCase):
         BANNED.difference_update({b for b in BANNED if b[0] == 60})
         app.LOGIN_HITS.clear()
 
+    def test_join_page(self):
+        """Davet sayfası oturumsuz açılır, izin verilen eklenti kimliklerini taşır ve sıkı CSP ile gelir."""
+        app.CFG["extension_ids"] = ["a" * 32]
+        try:
+            with urllib.request.urlopen(self.base + "/join") as res:
+                page, headers = res.read().decode(), res.headers
+        finally:
+            app.CFG["extension_ids"] = []
+        self.assertIn("text/html", headers["Content-Type"])
+        self.assertIn(f'data-ids="{"a" * 32}"', page)
+        self.assertIn("script-src 'self'", headers["Content-Security-Policy"])
+        self.assertEqual(headers["Referrer-Policy"], "no-referrer")
+        with urllib.request.urlopen(self.base + "/join.js") as res:
+            self.assertIn("javascript", res.headers["Content-Type"])
+            self.assertIn(b"externally_connectable", res.read())
+        # Kimlik tanımlı değilse alan boş kalır; sayfa mağazadaki kimliği dener.
+        with urllib.request.urlopen(self.base + "/join") as res:
+            self.assertIn(b'data-ids=""', res.read())
+        # Yalnızca bu iki yol statik; başka dosya adı istenemez.
+        self.assertEqual(call(self.base, "GET", "/join.html")[0], 404)
+        self.assertEqual(call(self.base, "GET", "/web/join.js")[0], 404)
+
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))
         _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Roller"})

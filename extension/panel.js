@@ -643,7 +643,7 @@ async function render() {
   $("app-view").hidden = !loggedIn;
   $("user").hidden = !loggedIn;
   $("server").value = state.server;
-  if (!loggedIn) return;
+  if (!loggedIn) return handlePendingInvite();
   // Sunucu yanıt verene dek boş panel yerine iskelet görünür.
   showMessage("");
   $("app-view").classList.remove("failed");
@@ -662,6 +662,7 @@ async function render() {
   }
   $("load-error").hidden = !$("app-view").classList.contains("failed");
   $("app-view").classList.remove("loading");
+  if (!$("app-view").classList.contains("failed")) await handlePendingInvite();
 }
 
 $("load-retry").onclick = () => render();
@@ -767,6 +768,28 @@ $("copy-invite").onclick = async () => {
   await navigator.clipboard.writeText($("invite").textContent);
   showMessage(t("inviteCopied"), "info");
 };
+
+// Kod bağlantının # kısmında durur: tarayıcı onu sunucuya göndermez, sayfa kodu eklentiye kendisi verir.
+$("copy-invite-link").onclick = async () => {
+  await navigator.clipboard.writeText(`${state.server}/join#${$("invite").textContent}`);
+  showMessage(t("inviteLinkCopied"), "info");
+};
+
+// Davet sayfasından gelen kod: kullanıcı onaylarsa ekibe katılınır. Bir günden eski davet sorulmadan atılır.
+async function handlePendingInvite() {
+  const { pendingInvite: invite } = await chrome.storage.local.get("pendingInvite");
+  if (!invite) return;
+  if (!state.token) return showMessage(t("inviteLoginFirst"), "info");
+  await chrome.storage.local.remove("pendingInvite");
+  if (Date.now() - invite.at > 24 * 3600 * 1000) return;
+  if (invite.server !== state.server) return showMessage(t("inviteOtherServer", invite.server));
+  if (!(await ask(t("confirmInviteJoin")))) return;
+  await run(null, async () => {
+    const { id, name } = await api("POST", "/teams/join", { invite_code: invite.code });
+    await loadMe(id);
+    showMessage(name ? t("joined", name) : t("joinedPlain"), "info");
+  });
+}
 
 $("rotate-invite").onclick = () => run($("rotate-invite"), async () => {
   if (!(await ask(t("confirmRotate")))) return;

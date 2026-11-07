@@ -5,6 +5,7 @@
 import base64
 import contextlib
 import hashlib
+import html
 import json
 import os
 import re
@@ -62,7 +63,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.11.0"
+VERSION = "0.12.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -1340,6 +1341,13 @@ ROUTES = [
 ]
 
 
+# Davet sayfası: kod adresin # kısmında taşınır, sunucuya hiç gelmez.
+WEB_PAGES = {
+    "/join": ("join.html", "text/html; charset=utf-8"),
+    "/join.js": ("join.js", "text/javascript; charset=utf-8"),
+}
+
+
 def log_path(path):
     """Günlüğe yazılacak yol: sorgu dizgesi (OAuth kodu) ve kullanıcı kartından sorulan ad çıkarılır."""
     return re.sub(r"/users/[^/]+/", "/users/*/", path.split("?")[0])
@@ -1384,8 +1392,27 @@ class Handler(BaseHTTPRequestHandler):
             return forwarded.split(",")[-1].strip()
         return self.client_address[0]
 
+    def send_page(self, name, content_type):
+        """web/ altındaki statik sayfayı gönderir; HTML'e izin verilen eklenti kimlikleri yazılır."""
+        with open(os.path.join(HERE, "web", name), "rb") as f:
+            raw = f.read()
+        if name.endswith(".html"):
+            raw = raw.replace(b"__EXTENSION_IDS__", html.escape(",".join(CFG["extension_ids"])).encode())
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; "
+                         "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+        self.end_headers()
+        self.wfile.write(raw)
+
     def dispatch(self):
         url = urllib.parse.urlsplit(self.path)
+        if self.command == "GET" and url.path in WEB_PAGES:
+            return self.send_page(*WEB_PAGES[url.path])
         query = dict(urllib.parse.parse_qsl(url.query))
         db = connect()
         try:

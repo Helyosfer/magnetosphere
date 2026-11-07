@@ -62,7 +62,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
 | **Sağ tık kısayolu** | kick.com'da sohbette kullanıcının kartını aç, kartındaki adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır. |
-| **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet koduyla başkalarını da ekibe alır. |
+| **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet bağlantısı ya da koduyla başkalarını da ekibe alır. Bağlantıyı açan kişi eklentiyi kurup tek tıkla katılır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
 | **Yayıncı yetkisi paylaşımı** | Ekipteki bir yayıncı isterse kendi kanalındaki ban yetkisini ekibin kullanımına açar; bu kararı yalnızca kendisi verir. |
 | **Yanlış ban koruması** | Ekipte ban yetkisi olan üyeler ve ekipteki yayıncılar banlanamaz. |
@@ -89,8 +89,13 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 7. **Eski banları kaldır.** Listede olmayan bir ban (Kick'te elle ya da Magnetosphere'den önce atılmış) için
    **Banla** sekmesinde **Ban kaldır**'ı seç ve kullanıcı adını yaz; ban ekibin bütün kanallarından kalkar.
 
-Ekip kurmak istersen **Ekip** sekmesindeki davet kodunu paylaş; katılanlar aynı kanal listesini ve ban
-listesini kullanır.
+Ekip kurmak istersen **Ekip** sekmesinde **Davet bağlantısını kopyala**'ya bas ve bağlantıyı modlarına
+gönder. Açan kişi eklentiyi kurar, sayfadaki **Ekibe katıl**'a basar ve panelde onay verir. Bağlantı yerine
+kodu da paylaşabilirsin. Katılanlar aynı kanal listesini ve ban listesini kullanır.
+
+Davet kodu bağlantının `#` işaretinden sonraki kısmındadır; tarayıcı bu kısmı sunucuya göndermez, kod
+sunucu ya da Cloudflare günlüklerine düşmez. Sayfa kodu eklentiye Chrome'un `externally_connectable`
+özelliğiyle verir; bu özellik yeni bir izin istemez.
 
 <br clear="right">
 
@@ -205,7 +210,9 @@ Sunucu `http://localhost:8787` adresinde dinler. Eksik bir güvenlik ayarı vars
    (yerel deneme için `http://localhost:8787`) ve **Kick ile giriş yap**'a bas.
 
 Ekibindeki herkesin adresi elle girmesini istemiyorsan `extension/server-url.js` içindeki `DEFAULT_SERVER`
-değerini kendi adresinle değiştirip klasörü öyle dağıt.
+değerini kendi adresinle değiştirip klasörü öyle dağıt. Davet bağlantılarının eklentiye ulaşması için
+aynı adresi `manifest.json` içindeki `externally_connectable.matches` listesine ve `background.js` içindeki
+`INVITE_ORIGINS` listesine de ekle; eklemezsen bağlantı yine açılır ama kod elle yapıştırılır.
 
 Elle yüklenen uzantının kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
 (`flmfmniipeobbaoahmbdkjnblbegalob`); her bilgisayarda aynı çıkar. Sunucu yalnızca

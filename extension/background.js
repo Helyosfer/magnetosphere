@@ -26,6 +26,27 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return true;
 });
 
+// Davet sayfası (sunucunun /join adresi) kodu buraya verir. Katılma kendiliğinden olmaz: panel açılınca
+// kullanıcıya sorulur. Hangi sitelerin mesaj atabileceğini manifest'teki externally_connectable belirler.
+const INVITE_ORIGINS = ["https://magnetosphere.helyosfer.me"];
+
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (!INVITE_ORIGINS.includes(sender.origin)) return;
+  if (msg?.type === "ping") return sendResponse({ ok: true });
+  if (msg?.type !== "invite" || !/^[A-Za-z0-9_-]{6,64}$/.test(msg.code || "")) return sendResponse({ ok: false });
+  (async () => {
+    await chrome.storage.local.set({ pendingInvite: { code: msg.code, server: sender.origin, at: Date.now() } });
+    // Panel kendiliğinden açılamazsa (eski Chrome, odakta olmayan pencere) sayfa simgeye tıklamayı söyler.
+    let opened = false;
+    try {
+      await chrome.action.openPopup();
+      opened = true;
+    } catch {}
+    return { ok: true, opened };
+  })().then(sendResponse, () => sendResponse({ ok: false }));
+  return true;
+});
+
 chrome.runtime.onInstalled.addListener(async () => {
   await loadLang();
   chrome.contextMenus.create({
