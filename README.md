@@ -227,6 +227,22 @@ Ekibin kullanacağı kurulumda sunucu sürekli çalışmalı ve HTTPS arkasında
    başlığı varsayılan ayarla doğru yazar. nginx yazmaz ve istemcinin gönderdiği başlığı olduğu gibi
    iletir; nginx kullanıyorsan `proxy_set_header X-Forwarded-For $remote_addr;` satırını ekle. Başlık
    hiç gelmezse bütün istemciler tek bir adres sayılır ve giriş sınırı herkes için ortak olur.
+
+   Sunucu Cloudflare arkasındaysa ters vekil ziyaretçiyi değil Cloudflare'in adresini görür ve giriş
+   sınırı aynı Cloudflare sunucusundan gelen herkes için ortak olur. Gerçek adres `CF-Connecting-IP`
+   başlığındadır; başlığa yalnızca Cloudflare'den gelen istekte güvenilmelidir:
+
+   ```
+   @cloudflare remote_ip <https://www.cloudflare.com/ips/ adresindeki aralıklar>
+   handle @cloudflare {
+   	reverse_proxy 127.0.0.1:8787 {
+   		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+   	}
+   }
+   handle {
+   	reverse_proxy 127.0.0.1:8787
+   }
+   ```
 3. **Servis.** Sunucuyu yetkisiz bir sistem kullanıcısıyla, systemd servisi olarak çalıştır:
 
    ```ini
