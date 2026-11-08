@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="__PREVIEW_LANG__">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>__PREVIEW_TITLE__</title>
+  <!-- Discord, WhatsApp gibi uygulamalardaki bağlantı kartı; metni sunucu yazar. -->
+  <meta name="description" content="__PREVIEW_DESCRIPTION__">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Magnetosphere">
+  <meta property="og:title" content="__PREVIEW_TITLE__">
+  <meta property="og:description" content="__PREVIEW_DESCRIPTION__">
+  <meta property="og:image" content="__PREVIEW_IMAGE__">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#5eead4">
+  <style>
+    :root { color-scheme: dark; --bg: #0b0f16; --card: #121826; --line: #232c3d; --text: #e6edf6; --muted: #8b97ab; --accent: #5eead4; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
+           background: var(--bg); color: var(--text); font: 15px/1.55 "Inter", "Segoe UI", system-ui, sans-serif; }
+    [dir="rtl"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
+    main { width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 28px 24px; }
+    h1 { font-size: 20px; margin: 0 0 6px; }
+    p { margin: 0 0 14px; color: var(--muted); }
+    ol { margin: 0 0 18px; padding-inline-start: 20px; color: var(--muted); }
+    li { margin-bottom: 6px; }
+    .code { display: flex; gap: 8px; align-items: center; margin-bottom: 18px; }
+    code { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #0e1420;
+           font: 15px/1.2 ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere; }
+    a.button, button { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; cursor: pointer;
+                       background: transparent; color: var(--text); font: inherit; font-weight: 600; text-decoration: none; text-align: center; }
+    a.primary, button.primary { width: 100%; background: var(--accent); border-color: var(--accent); color: #062521; }
+    .notice { padding: 12px 14px; border: 1px solid #5b4a1f; border-radius: 8px; background: #1f1a0e; color: #f5d58a; }
+    .reload { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 12px 0 0; }
+    .status { margin: 14px 0 0; color: var(--text); }
+    .error { color: #fca5a5; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main data-ids="__EXTENSION_IDS__">
+    <h1 id="title"></h1>
+    <p id="lead"></p>
+    <div id="invite" hidden>
+      <ol>
+        <li id="step-install"></li>
+        <li id="step-join"></li>
+      </ol>
+      <div class="code">
+        <code id="code"></code>
+        <button type="button" id="copy"></button>
+      </div>
+      <p id="notice" class="notice" hidden></p>
+      <a id="install" class="button primary" href="https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh" target="_blank" rel="noopener"></a>
+      <button type="button" id="join" class="primary" hidden></button>
+      <button type="button" id="copy-link" class="primary" hidden></button>
+      <p id="reload-row" class="reload" hidden>
+        <span id="reload-hint"></span>
+        <button type="button" id="reload"></button>
+      </p>
+      <p id="status" class="status" role="status"></p>
+    </div>
+  </main>
+  <script src="/join.js"></script>
+</body>
+</html>

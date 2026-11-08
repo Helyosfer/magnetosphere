@@ -15,6 +15,9 @@ async function login(server) {
   const token = params.get("token");
   if (!token) throw new Error(t("noSession"));
   await chrome.storage.local.set({ token });
+  // Kick penceresi açılınca panel kapanır. Davet bekliyorsa panel yeniden açılır ki kişi onayı görsün.
+  const { pendingInvite } = await chrome.storage.local.get("pendingInvite");
+  if (pendingInvite) chrome.action.openPopup?.().catch(() => {});
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -23,6 +26,27 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     () => sendResponse({ ok: true }),
     (e) => sendResponse({ ok: false, error: String(e.message || e), friendly: Boolean(e.friendly) })
   );
+  return true;
+});
+
+// Davet sayfası (sunucunun /join adresi) kodu buraya verir. Katılma kendiliğinden olmaz: panel açılınca
+// kullanıcıya sorulur. Hangi sitelerin mesaj atabileceğini manifest'teki externally_connectable belirler.
+const INVITE_ORIGINS = ["https://magnetosphere.helyosfer.me"];
+
+chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  if (!INVITE_ORIGINS.includes(sender.origin)) return;
+  if (msg?.type === "ping") return sendResponse({ ok: true });
+  if (msg?.type !== "invite" || !/^[A-Za-z0-9_-]{6,64}$/.test(msg.code || "")) return sendResponse({ ok: false });
+  (async () => {
+    await chrome.storage.local.set({ pendingInvite: { code: msg.code, server: sender.origin, at: Date.now() } });
+    // Panel kendiliğinden açılamazsa (eski Chrome, odakta olmayan pencere) sayfa simgeye tıklamayı söyler.
+    let opened = false;
+    try {
+      await chrome.action.openPopup();
+      opened = true;
+    } catch {}
+    return { ok: true, opened };
+  })().then(sendResponse, () => sendResponse({ ok: false }));
   return true;
 });
 
@@ -36,8 +60,21 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 });
 
-// Panelden dil değişince sağ tık menüsü de o dile geçer.
+// Bekleyen davet simgede işaretlenir: panel kendiliğinden açılamadıysa kişi nereye tıklayacağını görür.
+function inviteBadge(waiting) {
+  chrome.action.setBadgeText({ text: waiting ? "1" : "" });
+  if (waiting) chrome.action.setBadgeBackgroundColor({ color: "#5eead4" });
+}
+
+// Tarayıcı yeniden açılınca işaret kaybolur; panelin hâlâ kabul edeceği (bir günden yeni) davet için geri konur.
+chrome.runtime.onStartup.addListener(async () => {
+  const { pendingInvite } = await chrome.storage.local.get("pendingInvite");
+  inviteBadge(Boolean(pendingInvite && Date.now() - pendingInvite.at < 24 * 3600 * 1000));
+});
+
 chrome.storage.onChanged.addListener(async (changes) => {
+  if ("pendingInvite" in changes) inviteBadge(Boolean(changes.pendingInvite.newValue));
+  // Panelden dil değişince sağ tık menüsü de o dile geçer.
   if (!("lang" in changes)) return;
   await loadLang();
   chrome.contextMenus.update("crossban", { title: t("contextMenu") });

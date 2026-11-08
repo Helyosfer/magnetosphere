@@ -106,11 +106,14 @@ async function run(button, fn) {
 }
 
 // Tarayıcının onay kutusu "bir daha gösterme" ile kalıcı olarak kapatılabildiği için sayfa içi onay.
-function ask(text) {
+// Onay düğmesi varsayılan olarak kırmızıdır; geri alınabilir işlemlerde (safe) normal renkte olur.
+function ask(text, { yes = t("confirm"), safe = false } = {}) {
   return new Promise((resolve) => {
     const dialog = $("confirm");
     const done = (answer) => { dialog.close(); resolve(answer); };
     $("confirm-text").textContent = text;
+    $("confirm-yes").textContent = yes;
+    $("confirm-yes").className = safe ? "primary" : "danger";
     $("confirm-yes").onclick = () => done(true);
     $("confirm-no").onclick = () => done(false);
     dialog.oncancel = () => resolve(false);
@@ -362,6 +365,7 @@ function renderTeam() {
 
   $("invite-card").hidden = !admin;
   $("invite").textContent = team.invite_code;
+  $("copy-invite-link").hidden = !(state.inviteLinks?.server === state.server && state.inviteLinks.ok);
   $("invite-text").textContent = team.join_role === "viewer"
     ? t("inviteViewerText")
     : t("inviteModText");
@@ -643,7 +647,7 @@ async function render() {
   $("app-view").hidden = !loggedIn;
   $("user").hidden = !loggedIn;
   $("server").value = state.server;
-  if (!loggedIn) return;
+  if (!loggedIn) return handlePendingInvite();
   // Sunucu yanıt verene dek boş panel yerine iskelet görünür.
   showMessage("");
   $("app-view").classList.remove("failed");
@@ -662,6 +666,9 @@ async function render() {
   }
   $("load-error").hidden = !$("app-view").classList.contains("failed");
   $("app-view").classList.remove("loading");
+  if ($("app-view").classList.contains("failed")) return;
+  if (state.inviteLinks?.server !== state.server) checkInviteLinks();
+  await handlePendingInvite();
 }
 
 $("load-retry").onclick = () => render();
@@ -767,6 +774,73 @@ $("copy-invite").onclick = async () => {
   await navigator.clipboard.writeText($("invite").textContent);
   showMessage(t("inviteCopied"), "info");
 };
+
+// Kod bağlantının # kısmında durur: tarayıcı onu sunucuya göndermez, sayfa kodu eklentiye kendisi verir.
+$("copy-invite-link").onclick = async () => {
+  await navigator.clipboard.writeText(`${state.server}/join#${$("invite").textContent}`);
+  showMessage(t("inviteLinkCopied"), "info");
+};
+
+// Davet bağlantısı yalnızca davet sayfası olan (0.12.0+) ve eklentinin mesajını kabul ettiği sunucuda çalışır.
+// Kendi sunucusunu kuranlar alan adını manifest'e eklemediyse düğme görünmez, kod yine kopyalanabilir.
+async function checkInviteLinks() {
+  const server = state.server;
+  const matches = chrome.runtime.getManifest().externally_connectable?.matches || [];
+  let ok = false;
+  if (matches.some((m) => m.replace(/\/\*$/, "") === server)) {
+    try {
+      const { version = "0" } = await api("GET", "/health");
+      const [major, minor] = version.split(".").map(Number);
+      ok = major > 0 || minor >= 12;
+    } catch {}
+  }
+  if (server !== state.server) return;
+  state.inviteLinks = { server, ok };
+  $("copy-invite-link").hidden = !ok;
+}
+
+// Davet sayfasından gelen kod: kişi ekibin adını ve sahibini görüp onaylarsa katılır.
+// Kayıt ancak bir cevap alınınca silinir; onay açıkken panel kapanırsa davet bir sonraki açılışta yeniden sorulur.
+const INVITE_TTL = 24 * 3600 * 1000;
+let inviteBusy = false;
+
+async function handlePendingInvite() {
+  if (inviteBusy) return;
+  inviteBusy = true;
+  try {
+    const { pendingInvite: invite } = await chrome.storage.local.get("pendingInvite");
+    if (!invite) return;
+    const drop = () => chrome.storage.local.remove("pendingInvite");
+    if (Date.now() - invite.at > INVITE_TTL) return await drop();
+    if (!state.token) return showMessage(t("inviteLoginFirst"), "info");
+    // Davet saklı kalır: kişi sunucu adresini değiştirip giriş yapınca yeniden sorulur.
+    if (invite.server !== state.server) return showMessage(t("inviteOtherServer", invite.server));
+    await run(null, async () => {
+      let team;
+      try {
+        team = await api("POST", "/teams/join/preview", { invite_code: invite.code });
+      } catch (e) {
+        // Geçersiz ya da yenilenmiş kod atılır; ağ hatasında davet sonraki açılışa kalır.
+        if (e.status === 400 || e.status === 404) await drop();
+        throw e;
+      }
+      if (team.member) {
+        await drop();
+        await loadMe(team.id);
+        return showMessage(t("inviteAlreadyMember", team.name), "info");
+      }
+      const yes = await ask(t("confirmInviteJoin", team.name, team.owner || "?", roleLabel(team.join_role).toLocaleLowerCase(localeTag())),
+                            { yes: t("join"), safe: true });
+      await drop();
+      if (!yes) return;
+      const { id, name, already } = await api("POST", "/teams/join", { invite_code: invite.code });
+      await loadMe(id);
+      showMessage(already ? t("inviteAlreadyMember", name) : t("joined", name), "info");
+    });
+  } finally {
+    inviteBusy = false;
+  }
+}
 
 $("rotate-invite").onclick = () => run($("rotate-invite"), async () => {
   if (!(await ask(t("confirmRotate")))) return;
@@ -993,6 +1067,9 @@ chrome.storage.onChanged.addListener((changes) => {
   if ("token" in changes) {
     state.token = changes.token.newValue || null;
     render();
+  } else if (changes.pendingInvite?.newValue && !$("app-view").classList.contains("loading")) {
+    // Panel açıkken davet sayfasında Ekibe katıl'a basıldı.
+    handlePendingInvite();
   }
 });
 
