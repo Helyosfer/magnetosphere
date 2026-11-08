@@ -62,7 +62,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.10.0"
+VERSION = "0.11.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -1017,6 +1017,19 @@ def history_clear(req, team_id):
     return {"deleted": len(ids), "kept": kept}
 
 
+def ban_export(req, team_id):
+    """Ekibin kalıcı banlarının kullanıcı adlarını, en eski ban önce olmak üzere döndürür.
+
+    Listedeki 200 kayıt sınırı burada yok; ekibin her üyesi alabilir. Aynı kişi birden çok kez
+    banlandıysa bir kez, en son banlandığı adla yazılır.
+    """
+    team = team_for(req, team_id)
+    rows = req.db.execute(
+        "SELECT target_name, MAX(id) FROM bans WHERE team_id = ? AND revoked_at IS NULL AND duration IS NULL "
+        "GROUP BY target_id ORDER BY MIN(id)", (team["id"],)).fetchall()
+    return {"names": [r["target_name"] for r in rows]}
+
+
 def parse_ban_options(body):
     # Sebep isteğe bağlı: hiç gönderilmemesi ya da null olması boş sebep demektir.
     reason = "" if body.get("reason") is None else text_field(body, "reason", "Ban sebebi")[:100]
@@ -1316,6 +1329,7 @@ ROUTES = [
     ("DELETE", r"/teams/(\d{1,18})/channels/(\d{1,18})", channel_remove, True),
     ("GET", r"/teams/(\d{1,18})/bans", ban_list, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/history", history_clear, True),
+    ("GET", r"/teams/(\d{1,18})/bans/export", ban_export, True),
     ("POST", r"/teams/(\d{1,18})/bans", ban_create, True),
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),

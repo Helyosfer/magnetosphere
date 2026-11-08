@@ -23,7 +23,7 @@ REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod-veli",
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
-         40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip"}
+         40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -659,6 +659,36 @@ class CrossBanTest(unittest.TestCase):
         # Başka ekibin üyesi olmayan biri silemez.
         outsider = self.login(42)
         self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/bans/history", outsider)[0], 404)
+
+    def test_list_export(self):
+        """Dışa aktarma yalnızca süren kalıcı banları verir; 200 kayıt sınırı yoktur, her üye alabilir."""
+        # Testler aynı veritabanını ve giriş sayacını paylaşır; başka testin kullanıcılarına dokunulmaz.
+        app.LOGIN_HITS.clear()
+        sahip, mod, outsider = (self.login(i) for i in (60, 61, 62))
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Dışa aktar"})
+        tid = team["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        call(self.base, "POST", "/teams/join", mod, {"invite_code": code})
+        ban = lambda name, **extra: call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": name, **extra})[1]
+        ban("trol")
+        ban("eski-trol", duration=10)
+        revoked = ban("trol-iki")
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{revoked['id']}", sahip)
+        db = sqlite3.connect(app.CFG["db"])
+        # Listenin sınırını aşan bir ekip: doğrudan veritabanına 250 kalıcı ban.
+        db.executemany("INSERT INTO bans (team_id, target_id, target_name, reason, created_by, created_at) "
+                       "VALUES (?, ?, ?, '', 60, ?)",
+                       [(tid, 5000 + i, f"bot{i}", int(time.time())) for i in range(250)])
+        db.commit()
+        db.close()
+
+        status, res, _ = call(self.base, "GET", f"/teams/{tid}/bans/export", mod)
+        self.assertEqual(status, 200)
+        self.assertEqual(res["names"], ["trol"] + [f"bot{i}" for i in range(250)])
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans/export", outsider)[0], 404)
+        # Sahibin kendi kanalındaki banlar sahte Kick'te kalır; sonraki testler boş küme bekler.
+        BANNED.difference_update({b for b in BANNED if b[0] == 60})
+        app.LOGIN_HITS.clear()
 
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))
