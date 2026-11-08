@@ -23,7 +23,8 @@ REDIRECT = "https://" + "a" * 32 + ".chromiumapp.org/"
 USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod-veli",
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
-         40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d"}
+         40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
+         63: "sahip-o", 64: "yeni-o"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -708,9 +709,40 @@ class CrossBanTest(unittest.TestCase):
         # Kimlik tanımlı değilse alan boş kalır; sayfa mağazadaki kimliği dener.
         with urllib.request.urlopen(self.base + "/join") as res:
             self.assertIn(b'data-ids=""', res.read())
-        # Yalnızca bu iki yol statik; başka dosya adı istenemez.
+        # Bağlantı önizlemesi: dil başlığın ilk etiketinden, tanınmazsa İngilizce; resim adresi tam yol.
+        self.assertIn('property="og:title" content="You&#x27;re invited to a Magnetosphere team"', page)
+        self.assertIn(f'property="og:image" content="{app.CFG["public_url"]}/icon.png"', page)
+        self.assertNotIn("__PREVIEW", page)
+        for header, title in (("tr-TR,tr;q=0.9,en;q=0.8", "Magnetosphere ekibine davet edildin"),
+                              ("fr-FR", "You&#x27;re invited"), ("es", "Te invitaron")):
+            request = urllib.request.Request(self.base + "/join", headers={"Accept-Language": header})
+            with urllib.request.urlopen(request) as res:
+                self.assertIn(f'<title>{title}', res.read().decode())
+        with urllib.request.urlopen(self.base + "/icon.png") as res:
+            self.assertEqual((res.headers["Content-Type"], res.read()[:4]), ("image/png", b"\x89PNG"))
+        # Yalnızca bu yollar statik; başka dosya adı istenemez.
         self.assertEqual(call(self.base, "GET", "/join.html")[0], 404)
         self.assertEqual(call(self.base, "GET", "/web/join.js")[0], 404)
+
+    def test_invite_preview(self):
+        """Bağlantıyla katılmadan önce ekip adı ve sahibi görünür; zaten üye olana 'already' döner."""
+        app.LOGIN_HITS.clear()
+        sahip, yeni = self.login(63), self.login(64)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Önizleme"})[1]["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        preview = lambda token, c: call(self.base, "POST", "/teams/join/preview", token, {"invite_code": c})
+        self.assertEqual(preview(yeni, code)[1], {"id": tid, "name": "Önizleme", "owner": "sahip-o",
+                                                  "join_role": "mod", "member": False})
+        # Önizleme üye yapmaz.
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", yeni)[0], 404)
+        self.assertEqual(preview(yeni, "yok-boyle-kod")[0], 404)
+        self.assertEqual(call(self.base, "POST", "/teams/join/preview", None, {"invite_code": code})[0], 401)
+        join = lambda: call(self.base, "POST", "/teams/join", yeni, {"invite_code": code})[1]
+        self.assertEqual(join(), {"id": tid, "name": "Önizleme", "already": False})
+        self.assertEqual(join(), {"id": tid, "name": "Önizleme", "already": True})
+        self.assertTrue(preview(yeni, code)[1]["member"])
+        BANNED.difference_update({b for b in BANNED if b[0] == 63})
+        app.LOGIN_HITS.clear()
 
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))

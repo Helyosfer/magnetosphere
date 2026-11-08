@@ -47,7 +47,7 @@
 
   <h2>Verileri nasıl kullanıyoruz</h2>
   <p>Yalnızca hizmeti sunmak için: giriş yapmak, listendeki kanallarda ban atmak ya da kaldırmak ve ortak listeyi ekip üyelerine göstermek. Ekip verilerini yalnızca o ekibin üyeleri, rollerinin izin verdiği ölçüde görür; davet kodunu yalnızca ekip sahibi ve yöneticiler görür.</p>
-  <p><strong>Davet bağlantısı:</strong> davet bağlantısında kod adresin <code>#</code> işaretinden sonraki kısmında durur. Tarayıcı bu kısmı sunucuya göndermez; davet sayfası kodu yalnızca bilgisayarındaki Magnetosphere eklentisine verir ve eklenti ekibe katılmadan önce sana sorar. Davet sayfası çerez kullanmaz, bir şey kaydetmez.</p>
+  <p><strong>Davet bağlantısı:</strong> davet bağlantısında kod adresin <code>#</code> işaretinden sonraki kısmında durur. Tarayıcı bu kısmı sunucuya göndermez; davet sayfası kodu yalnızca bilgisayarındaki Magnetosphere eklentisine verir. Eklenti, giriş yaptığın sunucuya kodu gönderip ekibin adını ve sahibini öğrenir, bunları gösterip katılmadan önce sana sorar; bu sorgu seni ekibe eklemez. Davet sayfası çerez kullanmaz, bir şey kaydetmez.</p>
   <p><strong>Yayıncı yetkisi paylaşımı:</strong> token'ın normalde yalnızca senin başlattığın işlemler için kullanılır. Bir ekipte, kendi kanalın için "yayıncı yetkisi paylaşımı"nı açarsan, o ekibin moderatörlerinin attığı banlar kanalında senin yetkinle de uygulanır. Bu ayar ekibi sen kurduysan açık, bir ekibe davetle katıldıysan kapalı başlar; yalnızca sen değiştirebilirsin ve istediğin an kapatabilirsin.</p>
 
   <h2>Paylaşım ve hizmet sağlayıcılar</h2>
@@ -106,7 +106,7 @@
 
     <h2>How data is used</h2>
     <p>Solely to provide the service: signing in, issuing and revoking bans in the channels on your list, and showing the shared list to team members. Team data is visible only to members of that team, as far as their role allows; only the team owner and admins can see the invite code.</p>
-    <p><strong>Invite link:</strong> in an invite link, the code sits after the <code>#</code> in the address. Browsers don't send that part to the server; the invite page hands the code only to the Magnetosphere extension on your computer, and the extension asks you before joining. The invite page uses no cookies and stores nothing.</p>
+    <p><strong>Invite link:</strong> in an invite link, the code sits after the <code>#</code> in the address. Browsers don't send that part to the server; the invite page hands the code only to the Magnetosphere extension on your computer. The extension sends the code to the server you're signed in to, learns the team's name and owner, and shows them to you before asking whether to join; that lookup doesn't add you to the team. The invite page uses no cookies and stores nothing.</p>
     <p><strong>Broadcaster authority sharing:</strong> your token is normally used only for actions you start yourself. If you turn on "broadcaster authority sharing" for your own channel in a team, bans issued by that team's moderators are also applied in your channel using your authority. The setting starts on for teams you create and off for teams you join by invite; only you can change it, at any time.</p>
 
     <h2>Sharing and service providers</h2>

@@ -1,10 +1,19 @@
 <!doctype html>
-<html lang="tr">
+<html lang="__PREVIEW_LANG__">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Magnetosphere daveti</title>
+  <title>__PREVIEW_TITLE__</title>
+  <!-- Discord, WhatsApp gibi uygulamalardaki bağlantı kartı; metni sunucu yazar. -->
+  <meta name="description" content="__PREVIEW_DESCRIPTION__">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Magnetosphere">
+  <meta property="og:title" content="__PREVIEW_TITLE__">
+  <meta property="og:description" content="__PREVIEW_DESCRIPTION__">
+  <meta property="og:image" content="__PREVIEW_IMAGE__">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#5eead4">
   <style>
     :root { color-scheme: dark; --bg: #0b0f16; --card: #121826; --line: #232c3d; --text: #e6edf6; --muted: #8b97ab; --accent: #5eead4; }
     * { box-sizing: border-box; }
@@ -22,6 +31,8 @@
     a.button, button { display: inline-block; border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; cursor: pointer;
                        background: transparent; color: var(--text); font: inherit; font-weight: 600; text-decoration: none; text-align: center; }
     a.primary, button.primary { width: 100%; background: var(--accent); border-color: var(--accent); color: #062521; }
+    .notice { padding: 12px 14px; border: 1px solid #5b4a1f; border-radius: 8px; background: #1f1a0e; color: #f5d58a; }
+    .reload { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 12px 0 0; }
     .status { margin: 14px 0 0; color: var(--text); }
     .error { color: #fca5a5; }
     [hidden] { display: none !important; }
@@ -40,8 +51,14 @@
         <code id="code"></code>
         <button type="button" id="copy"></button>
       </div>
+      <p id="notice" class="notice" hidden></p>
       <a id="install" class="button primary" href="https://chromewebstore.google.com/detail/magnetosphere/kjbbjooackbcfeeoolkfpmdbkomjiflh" target="_blank" rel="noopener"></a>
       <button type="button" id="join" class="primary" hidden></button>
+      <button type="button" id="copy-link" class="primary" hidden></button>
+      <p id="reload-row" class="reload" hidden>
+        <span id="reload-hint"></span>
+        <button type="button" id="reload"></button>
+      </p>
       <p id="status" class="status" role="status"></p>
     </div>
   </main>

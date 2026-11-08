@@ -835,7 +835,21 @@ def team_join(req):
         # Yayıncı yetkisi paylaşımı kapalı başlar: katılan kişi isterse Ekip sekmesinden kendisi açar.
         req.db.execute("INSERT INTO members (team_id, user_id, role, lend) VALUES (?,?,?,0)",
                        (team["id"], req.user["id"], team["join_role"]))
-    return {"id": team["id"], "name": team["name"]}
+        return {"id": team["id"], "name": team["name"], "already": False}
+    return {"id": team["id"], "name": team["name"], "already": True}
+
+
+def invite_preview(req):
+    """Davet bağlantısıyla katılmadan önce panelde gösterilir: kişi kimin, hangi ekibine katıldığını görür."""
+    team = req.db.execute(
+        "SELECT t.id, t.name, t.join_role, u.name AS owner FROM teams t LEFT JOIN users u ON u.id = t.owner_id "
+        "WHERE t.invite_code = ?", (text_field(req.body, "invite_code", "Davet kodu"),)).fetchone()
+    if not team:
+        raise ApiError(404, "Davet kodu geçersiz")
+    member = req.db.execute("SELECT 1 FROM members WHERE team_id = ? AND user_id = ?",
+                            (team["id"], req.user["id"])).fetchone()
+    return {"id": team["id"], "name": team["name"], "owner": team["owner"] or "",
+            "join_role": team["join_role"], "member": bool(member)}
 
 
 def team_get(req, team_id):
@@ -1318,6 +1332,7 @@ ROUTES = [
     ("DELETE", r"/me", account_delete, True),
     ("POST", r"/teams", team_create, True),
     ("POST", r"/teams/join", team_join, True),
+    ("POST", r"/teams/join/preview", invite_preview, True),
     ("POST", r"/teams/(\d{1,18})/invite", invite_rotate, True),
     ("POST", r"/teams/(\d{1,18})/settings", team_update, True),
     ("POST", r"/teams/(\d{1,18})/leave", team_leave, True),
@@ -1345,7 +1360,28 @@ ROUTES = [
 WEB_PAGES = {
     "/join": ("join.html", "text/html; charset=utf-8"),
     "/join.js": ("join.js", "text/javascript; charset=utf-8"),
+    "/icon.png": ("icon.png", "image/png"),
 }
+
+# Discord, WhatsApp gibi uygulamaların bağlantı önizlemesi. Bu uygulamalar sayfadaki betiği çalıştırmaz,
+# metin sunucuda yazılır; dil Accept-Language'ın ilk etiketinden seçilir, tanınmazsa İngilizce.
+JOIN_PREVIEW = {
+    "tr": ("Magnetosphere ekibine davet edildin",
+           "Ekibe katıl: bir kanalda atılan ban ekibin bütün Kick kanallarında uygulanır."),
+    "en": ("You're invited to a Magnetosphere team",
+           "Join the team: a ban on one channel is applied on all of the team's Kick channels."),
+    "es": ("Te invitaron a un equipo de Magnetosphere",
+           "Únete al equipo: un baneo en un canal se aplica en todos los canales de Kick del equipo."),
+    "pt": ("Você foi convidado para uma equipe do Magnetosphere",
+           "Entre na equipe: um ban em um canal é aplicado em todos os canais da Kick da equipe."),
+    "ar": ("تمت دعوتك إلى فريق في Magnetosphere",
+           "انضم إلى الفريق: يُطبَّق الحظر في قناة واحدة على جميع قنوات Kick الخاصة بالفريق."),
+}
+
+
+def preview_lang(header):
+    first = (header or "").split(",")[0].strip()[:2].lower()
+    return first if first in JOIN_PREVIEW else "en"
 
 
 def log_path(path):
@@ -1393,11 +1429,16 @@ class Handler(BaseHTTPRequestHandler):
         return self.client_address[0]
 
     def send_page(self, name, content_type):
-        """web/ altındaki statik sayfayı gönderir; HTML'e izin verilen eklenti kimlikleri yazılır."""
+        """web/ altındaki statik sayfayı gönderir; HTML'e eklenti kimlikleri ve önizleme metni yazılır."""
         with open(os.path.join(HERE, "web", name), "rb") as f:
             raw = f.read()
         if name.endswith(".html"):
-            raw = raw.replace(b"__EXTENSION_IDS__", html.escape(",".join(CFG["extension_ids"])).encode())
+            lang = preview_lang(self.headers.get("Accept-Language"))
+            title, description = JOIN_PREVIEW[lang]
+            for key, value in (("EXTENSION_IDS", ",".join(CFG["extension_ids"])), ("PREVIEW_LANG", lang),
+                               ("PREVIEW_TITLE", title), ("PREVIEW_DESCRIPTION", description),
+                               ("PREVIEW_IMAGE", CFG["public_url"] + "/icon.png")):
+                raw = raw.replace(f"__{key}__".encode(), html.escape(value).encode())
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(raw)))

@@ -90,8 +90,9 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
    **Banla** sekmesinde **Ban kaldır**'ı seç ve kullanıcı adını yaz; ban ekibin bütün kanallarından kalkar.
 
 Ekip kurmak istersen **Ekip** sekmesinde **Davet bağlantısını kopyala**'ya bas ve bağlantıyı modlarına
-gönder. Açan kişi eklentiyi kurar, sayfadaki **Ekibe katıl**'a basar ve panelde onay verir. Bağlantı yerine
-kodu da paylaşabilirsin. Katılanlar aynı kanal listesini ve ban listesini kullanır.
+gönder. Açan kişi eklentiyi kurar, sayfadaki **Ekibe katıl**'a basar ve panelde ekibin adını ve sahibini görüp
+onay verir. Bağlantı telefonda ya da Chrome dışı bir tarayıcıda açılırsa sayfa onu bilgisayardaki Chrome'da
+açmayı söyler. Bağlantı yerine kodu da paylaşabilirsin. Katılanlar aynı kanal listesini ve ban listesini kullanır.
 
 Davet kodu bağlantının `#` işaretinden sonraki kısmındadır; tarayıcı bu kısmı sunucuya göndermez, kod
 sunucu ya da Cloudflare günlüklerine düşmez. Sayfa kodu eklentiye Chrome'un `externally_connectable`
@@ -212,7 +213,8 @@ Sunucu `http://localhost:8787` adresinde dinler. Eksik bir güvenlik ayarı vars
 Ekibindeki herkesin adresi elle girmesini istemiyorsan `extension/server-url.js` içindeki `DEFAULT_SERVER`
 değerini kendi adresinle değiştirip klasörü öyle dağıt. Davet bağlantılarının eklentiye ulaşması için
 aynı adresi `manifest.json` içindeki `externally_connectable.matches` listesine ve `background.js` içindeki
-`INVITE_ORIGINS` listesine de ekle; eklemezsen bağlantı yine açılır ama kod elle yapıştırılır.
+`INVITE_ORIGINS` listesine de ekle. Eklemezsen panelde **Davet bağlantısını kopyala** düğmesi görünmez; kod
+yine kopyalanıp paylaşılabilir. Düğme sunucu 0.12.0 ya da daha yeniyse görünür.
 
 Elle yüklenen uzantının kimliği `manifest.json` içindeki anahtarla sabitlenmiştir
 (`flmfmniipeobbaoahmbdkjnblbegalob`); her bilgisayarda aynı çıkar. Sunucu yalnızca

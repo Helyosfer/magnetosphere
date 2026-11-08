@@ -15,6 +15,9 @@ async function login(server) {
   const token = params.get("token");
   if (!token) throw new Error(t("noSession"));
   await chrome.storage.local.set({ token });
+  // Kick penceresi açılınca panel kapanır. Davet bekliyorsa panel yeniden açılır ki kişi onayı görsün.
+  const { pendingInvite } = await chrome.storage.local.get("pendingInvite");
+  if (pendingInvite) chrome.action.openPopup?.().catch(() => {});
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
@@ -57,8 +60,21 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 });
 
-// Panelden dil değişince sağ tık menüsü de o dile geçer.
+// Bekleyen davet simgede işaretlenir: panel kendiliğinden açılamadıysa kişi nereye tıklayacağını görür.
+function inviteBadge(waiting) {
+  chrome.action.setBadgeText({ text: waiting ? "1" : "" });
+  if (waiting) chrome.action.setBadgeBackgroundColor({ color: "#5eead4" });
+}
+
+// Tarayıcı yeniden açılınca işaret kaybolur; panelin hâlâ kabul edeceği (bir günden yeni) davet için geri konur.
+chrome.runtime.onStartup.addListener(async () => {
+  const { pendingInvite } = await chrome.storage.local.get("pendingInvite");
+  inviteBadge(Boolean(pendingInvite && Date.now() - pendingInvite.at < 24 * 3600 * 1000));
+});
+
 chrome.storage.onChanged.addListener(async (changes) => {
+  if ("pendingInvite" in changes) inviteBadge(Boolean(changes.pendingInvite.newValue));
+  // Panelden dil değişince sağ tık menüsü de o dile geçer.
   if (!("lang" in changes)) return;
   await loadLang();
   chrome.contextMenus.update("crossban", { title: t("contextMenu") });
