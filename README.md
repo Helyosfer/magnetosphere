@@ -59,6 +59,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
 | **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir; sahip ve yöneticiler onay vererek geçmişi silebilir. |
+| **Discord bildirimleri** | Ekip sahibi **Ekip > Discord bildirimleri** bölümüne bir Discord webhook adresi yapıştırır (örneğin `#mod-log` kanalının); atılan ve kaldırılan banlar o kanala düşer: kim, kimi, neden, hangi kanallarda. Toplu içe aktarma tek tek değil, bitince tek özet mesajıyla bildirilir. Varsayılan olarak kapalıdır. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
 | **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
 | **Sağ tık kısayolu** | kick.com'da sohbette kullanıcının kartını aç, kartındaki adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır. |
@@ -360,6 +361,12 @@ veritabanıyla çalışır. Yedeği yalnızca veri bozulduysa, servis durdurulmu
   geçersiz olur.
 - **Yayıncı yetkisi rızayla kullanılır.** Bir yayıncının token'ı, başkasının attığı ban için ancak o
   yayıncı paylaşımı kendisi açtıysa kullanılır.
+- **Discord webhook'u.** Adres yalnızca ekip sahibince bağlanır ve kaldırılır, veritabanında tokenlar gibi
+  şifreli durur ve hiçbir API yanıtında geri dönmez. Yapıştırılan adresten yalnızca webhook kimliği ve
+  token'ı alınır; sunucu `discord.com` dışında bir adrese istek atmaz. Bildirimler kimseyi etiketleyemez
+  (`@everyone` yazılmış bir ban sebebi bildirim göndermez), ban işlemini bekletmez ve Discord'a
+  ulaşılamaması banı etkilemez. Bildirimler açıkken bunu ekibin bütün üyeleri panelde görür: mesajlarda
+  işlemi yapan üyenin adı ve ban sebebi yer alır. Webhook Discord'da silinirse ayar kendiliğinden kapanır.
 - **Hesap silme.** Kullanıcı hesabını sildiğinde oturumları, üyelikleri ve tokenları silinir, Kick'teki
   erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Uzantı
@@ -442,6 +449,7 @@ python -m unittest test_app
 
 Testler sahte bir Kick API'sine karşı uçtan uca çalışır; gerçek Kick'e istek atmaz. Giriş, yetki
 düşüşü, sıra ve eşzamanlı işçiler, ekipler arası adil sıra, roller, yetki paylaşımı, adıyla ban kaldırma,
+Discord bildirimleri (sahte bir Discord'a karşı),
 hesap silme, Liste ve Geçmiş ayrımı, beş dilde hata mesajları, süresi dolan uzaklaştırmadan sonra yeniden ban, eski veritabanından
 geçiş ve güvenlik kuralları kapsanır.
 
@@ -488,6 +496,7 @@ ban kaldırma ve iki kanalda binlerce hesaplık toplu içe aktarma.
 - [x] Liste ve Geçmiş ayrımı: süresi dolan uzaklaştırmalar ve kaldırılan banlar Geçmiş'e geçer
 - [x] İngilizce arayüz
 - [x] İspanyolca, Portekizce (Brezilya) ve Arapça arayüz (Arapçada sağdan sola düzen)
+- [x] Discord bildirimleri: ban, ban kaldırma ve toplu içe aktarma özeti ekibin webhook'una gider
 - [ ] Sohbeti dinleyip spam botlarını şüpheli kuyruğuna alan otomatik yakalama
 
 ### Bilinen kısıtlar
