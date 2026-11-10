@@ -373,6 +373,26 @@ veritabanıyla çalışır. Yedeği yalnızca veri bozulduysa, servis durdurulmu
   zaman aşımı); beklenmeyen hatalar istemciye ayrıntı sızdırmadan 500 olarak döner.
 - **Adil sıra.** Sıra ekipler arasında dönüşümlü işlenir; bir ekibin uzun listesi diğerlerini bekletmez.
 
+### Şifrelemeyi doğrulamak
+
+Sunucuyu işleten kişi, tokenların şifreli saklandığını anahtarı ya da hiçbir token'ı göstermeden
+gösterebilir. [`tools/sifreleme_dogrula.py`](tools/sifreleme_dogrula.py) canlı veritabanına ve yedeklere
+salt okunur bakar ve yalnızca sayılardan oluşan bir rapor yazar:
+
+- anahtar tanımlı ve geçerli bir Fernet anahtarı mı,
+- kaç token şifreli, kaç token düz metin, şifrelilerin kaçı anahtarla çözülebiliyor,
+- sunucu son açılışında "anahtar tanımlı değil" uyarısı bastı mı,
+- her veritabanı yedeğinde düz metin token var mı, yedek klasörlerinde anahtarın kopyası duruyor mu.
+
+```bash
+sudo /opt/magnetosphere/venv/bin/python /opt/magnetosphere/app/tools/sifreleme_dogrula.py \
+    --sunucu /opt/magnetosphere/app/server --yedek /opt/backups
+```
+
+Düz metin token bulunursa ya da anahtar geçersizse çıkış kodu 1 olur. Raporun başındaki SHA-256 özeti,
+çalışan betiğin depodaki sürümle aynı olduğunu kontrol etmek içindir. Rapor sunucuyu işletenin beyanıdır;
+dışarıdan bağımsız bir kanıt değildir, ama neyin ölçüldüğü bu dosyada herkese açıktır.
+
 ### Sunucuyu işleten kişinin sorumlulukları
 
 - `server/.env` (Client Secret, şifreleme anahtarı) ve `server/crossban.db` gizlidir; `.gitignore`
