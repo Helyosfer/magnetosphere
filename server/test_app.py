@@ -924,5 +924,106 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(L(detail, "pt").count("limite de solicitações da Kick; tente de novo daqui a pouco"), 50)
 
 
+class VerifyToolTest(unittest.TestCase):
+    """tools/sifreleme_dogrula.py: düz metin tokenı, yedekteki kopyayı ve anahtarın sızmasını yakalar."""
+
+    def run_tool(self, server, *extra):
+        import contextlib
+        import importlib.util
+        import io
+        spec = importlib.util.spec_from_file_location(
+            "sifreleme_dogrula", os.path.join(os.path.dirname(__file__), "..", "tools", "sifreleme_dogrula.py"))
+        tool = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(tool)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = tool.main(["--sunucu", server, "--servis", "", *extra])
+        return code, out.getvalue()
+
+    def test_verify_tool(self):
+        import gzip
+        key = Fernet.generate_key().decode()
+        seal = lambda value: "enc:" + Fernet(key.encode()).encrypt(value.encode()).decode()
+        with tempfile.TemporaryDirectory() as tmp:
+            server, backups = os.path.join(tmp, "server"), os.path.join(tmp, "backups")
+            os.makedirs(server)
+            os.makedirs(backups)
+            with open(os.path.join(server, ".env"), "w", encoding="utf-8") as f:
+                f.write(f"# yorum\nTOKEN_ENCRYPTION_KEY={key}\n")
+            with open(os.path.join(server, "app.py"), "w", encoding="utf-8") as f:
+                f.write('VERSION = "9.9.9"\n')
+
+            def make_db(path, rows):
+                db = sqlite3.connect(path)
+                db.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, access_token TEXT, "
+                           "refresh_token TEXT, expires_at INTEGER)")
+                db.executemany("INSERT INTO users (access_token, refresh_token) VALUES (?, ?)", rows)
+                db.commit()
+                db.close()
+
+            make_db(os.path.join(server, "crossban.db"), [(seal("gizli-a"), seal("gizli-r")), ("", "")])
+            old = os.path.join(backups, "crossban-eski.db")
+            make_db(old, [(seal("x"), seal("y"))])
+            with open(old, "rb") as src, gzip.open(old + ".gz", "wb") as dst:
+                dst.write(src.read())
+            os.remove(old)
+
+            # Her şey şifreli: başarılı, çıktıda hiçbir gizli değer yok.
+            env = {k: os.environ.pop(k) for k in ("TOKEN_ENCRYPTION_KEY", "DB_PATH") if k in os.environ}
+            try:
+                code, out = self.run_tool(server, "--yedek", backups)
+                self.assertEqual(code, 0, out)
+                self.assertIn("Anahtarla çözülebilen:         1/1", out)
+                self.assertIn("1 şifreli, 0 düz metin", out)
+                for secret in (key, "gizli-a", "gizli-r"):
+                    self.assertNotIn(secret, out)
+                _, raw = self.run_tool(server, "--yedek", backups, "--json")
+                report = json.loads(raw)
+                self.assertEqual(report["sunucu_surumu"], "9.9.9")
+                columns = report["canli_veritabani"].pop("sutunlar")
+                self.assertEqual(report["canli_veritabani"],
+                                 {"kullanici": 2, "sifreli": 1, "duz_metin": 0, "bos": 1, "cozulebilen": 1})
+                # access_token ve refresh_token ayrı ayrı sayılır ve ayrı ayrı çözülür.
+                self.assertEqual(columns, {c: {"sifreli": 1, "duz_metin": 0, "bos": 1, "cozulebilen": 1}
+                                           for c in ("access_token", "refresh_token")})
+
+                # Yedekte düz metin token ve anahtarın kopyası yakalanır.
+                make_db(os.path.join(backups, "crossban-duz.db"), [("duz-access", "duz-refresh")])
+                with open(os.path.join(backups, "env-yedegi.gz"), "wb") as f:
+                    f.write(gzip.compress(f"TOKEN_ENCRYPTION_KEY={key}".encode()))
+                code, out = self.run_tool(server, "--yedek", backups, "--json")
+                report = json.loads(out)
+                self.assertEqual(code, 1)
+                self.assertEqual({y["dosya"]: y["duz_metin"] for y in report["yedekler"]},
+                                 {"crossban-eski.db.gz": 0, "crossban-duz.db": 1})
+                self.assertEqual(report["yedeklerde_anahtar_kopyasi"], 1)
+                self.assertNotIn("duz-access", out)
+
+                # Yalnızca refresh_token düz metin kalmışsa da yakalanır.
+                make_db(os.path.join(server, "crossban.db.yeni"), [(seal("a"), "duz-refresh")])
+                os.replace(os.path.join(server, "crossban.db.yeni"), os.path.join(server, "crossban.db"))
+                code, out = self.run_tool(server, "--json")
+                columns = json.loads(out)["canli_veritabani"]["sutunlar"]
+                self.assertEqual(code, 1)
+                self.assertEqual((columns["access_token"]["duz_metin"], columns["refresh_token"]["duz_metin"]), (0, 1))
+                make_db(os.path.join(server, "crossban.db.yeni"), [(seal("gizli-a"), seal("gizli-r"))])
+                os.replace(os.path.join(server, "crossban.db.yeni"), os.path.join(server, "crossban.db"))
+
+                # Başka anahtarla şifrelenmiş token çözülemez; anahtarsız sunucu başarısız sayılır.
+                with open(os.path.join(server, ".env"), "w", encoding="utf-8") as f:
+                    f.write(f"TOKEN_ENCRYPTION_KEY={Fernet.generate_key().decode()}\n")
+                code, out = self.run_tool(server)
+                self.assertEqual(code, 1)
+                self.assertIn("Anahtarla çözülebilen:         0/1", out)
+                self.assertRegex(out, r"access_token:\s+1 / 0 / 0 / 0")
+                with open(os.path.join(server, ".env"), "w", encoding="utf-8") as f:
+                    f.write("TOKEN_ENCRYPTION_KEY=\n")
+                code, out = self.run_tool(server)
+                self.assertEqual(code, 1)
+                self.assertIn("Geçerli Fernet anahtarı:         HAYIR", out)
+            finally:
+                os.environ.update(env)
+
+
 if __name__ == "__main__":
     unittest.main()
