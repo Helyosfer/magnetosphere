@@ -8,6 +8,7 @@ import hashlib
 import html
 import json
 import os
+import queue
 import re
 import secrets
 import sqlite3
@@ -20,7 +21,7 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from i18n import LANGS, localize, localize_payload, pick_lang
+from i18n import DISCORD, LANGS, localize, localize_payload, pick_lang
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -61,9 +62,12 @@ CFG = {
     # Kick 429 dönerse hız kendiliğinden düşer, sorun çıkmadıkça yavaşça yükselir.
     "kick_rps": float(os.environ.get("KICK_REQUESTS_PER_SECOND", "1")),
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
+    # Ekiplerin Discord webhook'larına gidilen adres. Webhook'un yalnızca kimliği ve token'ı saklanır;
+    # alan adı hep buradan gelir, kullanıcının yazdığı adrese istek atılmaz.
+    "discord": os.environ.get("DISCORD_BASE", "https://discord.com").rstrip("/"),
 }
 
-VERSION = "0.12.0"
+VERSION = "0.13.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -122,7 +126,9 @@ CREATE TABLE IF NOT EXISTS teams (
     name TEXT NOT NULL,
     invite_code TEXT NOT NULL UNIQUE,
     owner_id INTEGER NOT NULL REFERENCES users(id),
-    join_role TEXT NOT NULL DEFAULT 'mod'      -- davet koduyla katılanın rolü: mod | viewer
+    join_role TEXT NOT NULL DEFAULT 'mod',     -- davet koduyla katılanın rolü: mod | viewer
+    discord_webhook TEXT NOT NULL DEFAULT '',  -- "kimlik/token" (tokenlar gibi şifreli); boşsa bildirim kapalı
+    webhook_lang TEXT NOT NULL DEFAULT 'tr'    -- bildirimlerin dili: webhook'u bağlayan panelin dili
 );
 CREATE TABLE IF NOT EXISTS members (
     team_id INTEGER NOT NULL REFERENCES teams(id),
@@ -170,7 +176,8 @@ CREATE TABLE IF NOT EXISTS queue (
     detail TEXT NOT NULL DEFAULT '',
     attempts INTEGER NOT NULL DEFAULT 0,
     retry_at INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    notified INTEGER NOT NULL DEFAULT 0      -- 1: kayıt bir Discord özetine girdi, sonraki özette sayılmaz
 );
 CREATE INDEX IF NOT EXISTS queue_pending ON queue (status, id);
 """
@@ -201,12 +208,22 @@ def init_db():
         db.execute("ALTER TABLE teams ADD COLUMN join_role TEXT NOT NULL DEFAULT 'mod'")
     if "external" not in [c["name"] for c in db.execute("PRAGMA table_info(bans)")]:
         db.execute("ALTER TABLE bans ADD COLUMN external INTEGER NOT NULL DEFAULT 0")
+    # Discord bildirimleri öncesi veritabanları.
+    if "discord_webhook" not in [c["name"] for c in db.execute("PRAGMA table_info(teams)")]:
+        db.execute("ALTER TABLE teams ADD COLUMN discord_webhook TEXT NOT NULL DEFAULT ''")
+        db.execute("ALTER TABLE teams ADD COLUMN webhook_lang TEXT NOT NULL DEFAULT 'tr'")
+    if "notified" not in [c["name"] for c in db.execute("PRAGMA table_info(queue)")]:
+        db.execute("ALTER TABLE queue ADD COLUMN notified INTEGER NOT NULL DEFAULT 0")
     # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
     if fernet():
         for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
             if not user["access_token"].startswith(SEALED) or not user["refresh_token"].startswith(SEALED):
                 db.execute("UPDATE users SET access_token = ?, refresh_token = ? WHERE id = ?",
                            (seal(unseal(user["access_token"])), seal(unseal(user["refresh_token"])), user["id"]))
+        for team in db.execute("SELECT id, discord_webhook FROM teams WHERE discord_webhook != ''").fetchall():
+            if not team["discord_webhook"].startswith(SEALED):
+                db.execute("UPDATE teams SET discord_webhook = ? WHERE id = ?",
+                           (seal(team["discord_webhook"]), team["id"]))
     db.close()
 
 
@@ -353,7 +370,7 @@ def http(method, url, token=None, form=None, body=None):
             status, raw = res.status, res.read()
     except urllib.error.HTTPError as e:
         status, raw = e.code, e.read()
-        if status == 429:
+        if status == 429 and limited:
             hints = {k: v for k, v in e.headers.items() if "rate" in k.lower() or "retry" in k.lower()}
             if hints:
                 print(f"Kick 429 başlıkları: {hints}")
@@ -549,6 +566,173 @@ def ban_json(db, ban):
             "via": results[c["broadcaster_id"]]["via"] if c["broadcaster_id"] in results else "",
         } for c in channels],
     }
+
+# ---------------------------------------------------------------- Discord bildirimleri
+
+# Kullanıcının yapıştırdığı adresten yalnızca kimlik ve token alınır; başka alan adı kabul edilmez.
+WEBHOOK_RE = re.compile(r"https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api(?:/v\d{1,2})?/webhooks/"
+                        r"(\d{5,25})/([A-Za-z0-9_-]{20,200})/?(?:\?.*)?")
+OUTBOX = queue.Queue(maxsize=500)   # (ekip, şifreli webhook, mesaj); dolarsa yeni bildirim atılır
+COLORS = {"ban": 0xE5484D, "unban": 0x5CF2A5, "warn": 0xFFB454, "info": 0x5B8DEF}
+
+
+def md(text, limit=200):
+    """Kullanıcıdan gelen metni Discord'a yazmadan önce: biçim işaretleri ve @ etkisizleşir, uzun metin kısalır."""
+    text = str(text)
+    if len(text) > limit:
+        text = text[:limit - 1] + "…"
+    return re.sub(r"([\\*_~`|>\[\]()#])", r"\\\1", text).replace("@", "@​")
+
+
+def clip(text, limit=1024):
+    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+
+def discord_texts(team):
+    return DISCORD.get(team["webhook_lang"]) or DISCORD["tr"]
+
+
+def discord_message(team, kind, title, fields=(), description=""):
+    """Tek gömülü mesaj. Mesaj kimseyi etiketleyemez: sebep alanına @everyone yazılsa da bildirim gitmez."""
+    embed = {
+        "title": clip(title, 256),
+        "color": COLORS[kind],
+        "fields": [{"name": name, "value": clip(value), "inline": inline} for name, value, inline in fields if value],
+        "footer": {"text": clip(f"Magnetosphere · {team['name']}", 200)},
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if description:
+        embed["description"] = clip(description, 2000)
+    return {"embeds": [embed], "allowed_mentions": {"parse": []}}
+
+
+def send_webhook(stored, payload, patient=True):
+    """Mesajı Discord'a gönderir, HTTP durumunu döndürür (ağ hatasında 0).
+
+    patient: Discord 429 dönerse söylediği süre kadar (en çok 10 sn) bekleyip bir kez daha dener.
+    """
+    url = f"{CFG['discord']}/api/webhooks/{unseal(stored)}"
+    status, reply = http("POST", url, body=payload)
+    if status == 429 and patient:
+        try:
+            wait = float(reply.get("retry_after") or 1)
+        except (TypeError, ValueError):
+            wait = 1
+        time.sleep(max(0, min(wait, 10)))
+        status, reply = http("POST", url, body=payload)
+    return status
+
+
+def notify(team, payload):
+    """Bildirimi gönderim sırasına koyar; işlemi yapan iş parçacığı Discord'u beklemez."""
+    if not team["discord_webhook"]:
+        return
+    try:
+        OUTBOX.put_nowait((team["id"], team["discord_webhook"], payload))
+    except queue.Full:
+        print("Discord bildirimi atıldı: gönderim sırası dolu")
+
+
+def deliver_next(wait=0):
+    """Sıradaki bildirimi gönderir; sıra boşsa False döner. Gönderilemeyen bildirim yeniden denenmez."""
+    try:
+        team_id, stored, payload = OUTBOX.get(timeout=wait) if wait else OUTBOX.get_nowait()
+    except queue.Empty:
+        return False
+    status = send_webhook(stored, payload)
+    if status in (401, 404):
+        # Webhook Discord'da silinmiş. Ayar kapatılır: panel "bağlı değil" gösterir, boşa istek atılmaz.
+        db = connect()
+        try:
+            db.execute("UPDATE teams SET discord_webhook = '' WHERE id = ? AND discord_webhook = ?",
+                       (team_id, stored))
+        finally:
+            db.close()
+        print(f"Discord webhook {status} döndü; ekip {team_id} bildirimleri durduruldu")
+    elif not 200 <= status < 300:
+        print(f"Discord bildirimi gönderilemedi ({status})")
+    return True
+
+
+def notify_worker():
+    while True:
+        try:
+            deliver_next(wait=3600)
+        except Exception as e:  # işçi hiçbir koşulda durmamalı
+            print(f"Discord işçisi hatası: {e!r}")
+
+
+def duration_text(minutes, units):
+    for size, unit in ((1440, units[2]), (60, units[1])):
+        if minutes % size == 0:
+            return f"{minutes // size} {unit}"
+    return f"{minutes} {units[0]}"
+
+
+def notify_ban(db, team, ban, actor, unban=False):
+    """Ban ya da ban kaldırma bildirimi: kim, kimi, hangi kanallarda; tutmayan kanallar ayrıca yazılır."""
+    if not team["discord_webhook"]:
+        return
+    T = discord_texts(team)
+    results = ban_json(db, ban)["results"]
+    good, bad = ("unbanned", "unban_failed") if unban else ("ok", "failed")
+    applied = ", ".join(md(r["slug"]) for r in results if r["status"] == good)
+    failed = "\n".join(f"{md(r['slug'])}: {md(localize(r['detail'], team['webhook_lang']))}"
+                       for r in results if r["status"] == bad)
+    if unban:
+        title, kind = (T["unbanned"], "unban") if applied else (T["unban_none"], "warn")
+    elif applied:
+        title, kind = T["timed_out" if ban["duration"] else "banned"], "ban"
+    else:
+        title, kind = T["ban_none"], "warn"
+    fields = [(T["by"], md(actor["name"]), True)]
+    if not unban:
+        if ban["duration"]:
+            fields.append((T["duration"], duration_text(ban["duration"], T["units"]), True))
+        fields.append((T["reason"], md(ban["reason"]), False))
+    fields += [(T["channels"], applied, False), (T["unban_failed" if unban else "failed"], failed, False)]
+    notify(team, discord_message(team, kind, title.format(name=ban["target_name"]), fields))
+
+
+QUEUE_RESULTS = ("done", "partial", "notfound", "rejected", "error")
+
+
+def notify_queue_done(db, team_id):
+    """Ekibin sırası boşaldıysa toplu içe aktarmanın özetini bildirir.
+
+    Binlerce ban tek tek değil, tek mesajla duyurulur. Her kayıt yalnızca bir özete girer: sıra aynı anda
+    iki işçide boşalırsa kayıtları ilk işaretleyen bildirir, diğeri boş döner.
+    """
+    team = db.execute("SELECT * FROM teams WHERE id = ?", (team_id,)).fetchone()
+    if not team or not team["discord_webhook"]:
+        return
+    if db.execute("SELECT 1 FROM queue WHERE team_id = ? AND status IN ('pending', 'working') LIMIT 1",
+                  (team_id,)).fetchone():
+        return
+    rows = db.execute("UPDATE queue SET notified = 1 WHERE team_id = ? AND notified = 0 "
+                      "AND status NOT IN ('pending', 'working') RETURNING status", (team_id,)).fetchall()
+    if not rows:
+        return
+    T = discord_texts(team)
+    counts = {}
+    for row in rows:
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    lines = [f"{T[status]}: **{counts[status]}**" for status in QUEUE_RESULTS if counts.get(status)]
+    notify(team, discord_message(team, "info" if set(counts) <= {"done"} else "warn", T["import_done"],
+                                 description="\n".join(lines)))
+
+
+def webhook_say(team, key, actor):
+    """Bağlantı ve deneme mesajını beklemeden gönderir; Discord kabul etmezse hatayı panele bildirir."""
+    T = discord_texts(team)
+    status = send_webhook(team["discord_webhook"], discord_message(
+        team, "info", T[key], [(T["by"], md(actor["name"]), True)], T[key + "_text"]), patient=False)
+    if status == 0:
+        raise ApiError(502, "Discord'a ulaşılamadı; biraz sonra tekrar dene")
+    if status == 429:
+        raise ApiError(429, "Discord istek sınırı; biraz sonra tekrar dene")
+    if not 200 <= status < 300:
+        raise ApiError(400, "Discord bu webhook adresini kabul etmedi; adresi kontrol et")
 
 
 # ---------------------------------------------------------------- handlers
@@ -820,6 +1004,40 @@ def team_update(req, team_id):
     return {}
 
 
+def webhook_set(req, team_id):
+    """Ekibin Discord webhook'unu kaydeder. Kaydetmeden önce kanala bir bağlantı mesajı gönderilir:
+    adres çalışmıyorsa kaydedilmez, çalışıyorsa kanaldakiler bildirimlerin açıldığını görür."""
+    team = team_for(req, team_id, need="owner")
+    match = WEBHOOK_RE.fullmatch(text_field(req.body, "url", "Webhook adresi"))
+    if not match:
+        raise ApiError(400, "Geçersiz Discord webhook adresi; https://discord.com/api/webhooks/ ile başlamalı")
+    lang = req.body.get("lang")
+    team = {**dict(team), "discord_webhook": seal("/".join(match.groups())),
+            "webhook_lang": lang if isinstance(lang, str) and lang in DISCORD else "tr"}
+    webhook_say(team, "connected", req.user)
+    with transaction(req.db):
+        req.db.execute("UPDATE teams SET discord_webhook = ?, webhook_lang = ? WHERE id = ?",
+                       (team["discord_webhook"], team["webhook_lang"], team["id"]))
+        # Bağlanmadan önce bitmiş sıra kayıtları ilk özete karışmaz.
+        req.db.execute("UPDATE queue SET notified = 1 WHERE team_id = ? AND status NOT IN ('pending', 'working')",
+                       (team["id"],))
+    return {"webhook": True}
+
+
+def webhook_test(req, team_id):
+    team = team_for(req, team_id, need="owner")
+    if not team["discord_webhook"]:
+        raise ApiError(400, "Önce bir Discord webhook adresi kaydet")
+    webhook_say(team, "test", req.user)
+    return {}
+
+
+def webhook_remove(req, team_id):
+    team = team_for(req, team_id, need="owner")
+    req.db.execute("UPDATE teams SET discord_webhook = '' WHERE id = ?", (team["id"],))
+    return {"webhook": False}
+
+
 def team_join(req):
     team = req.db.execute("SELECT * FROM teams WHERE invite_code = ?",
                           (text_field(req.body, "invite_code", "Davet kodu"),)).fetchone()
@@ -868,6 +1086,8 @@ def team_get(req, team_id):
         "role": req.role,
         "lend": bool(team["lend"]),
         "join_role": team["join_role"],
+        # Adres hiçbir üyeye geri verilmez; yalnızca bildirimlerin açık olduğu görünür.
+        "webhook": bool(team["discord_webhook"]),
         # Davet kodu ban yetkisi dağıtır; yalnızca onu yönetebilenler görür.
         "invite_code": team["invite_code"] if ROLES[req.role] >= ROLES["admin"] else "",
         "members": [{"id": m["id"], "name": m["name"], "owner": m["id"] == team["owner_id"],
@@ -1058,6 +1278,7 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
     """Kullanıcıyı ekibin tüm kanallarında banlar; aktif kaydı varsa eksik kanalları tamamlar.
 
     resolved: (user_id, slug) önceden sorgulandıysa Kick'e yeniden sorulmaz.
+    (kayıt, yeni mi) döner; "yeni" değilse kişi zaten listedeydi.
     """
     target_id, slug = resolved or lookup_channel(db, actor, username)
     # Sızan bir davet koduyla izleyici olarak katılan biri kendini bandan korumasın diye
@@ -1075,21 +1296,25 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
     ban = db.execute(
         f"SELECT * FROM bans WHERE team_id = ? AND target_id = ? AND {active_sql()} ORDER BY id DESC",
         (team["id"], target_id, int(time.time()))).fetchone()
-    if not ban:
+    created = not ban
+    if created:
         cur = db.execute(
             "INSERT INTO bans (team_id, target_id, target_name, reason, duration, created_by, created_at) "
             "VALUES (?,?,?,?,?,?,?)",
             (team["id"], target_id, slug, reason, duration, actor["id"], int(time.time())))
         ban = db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
     apply_ban(db, ban, actor, only_unfinished=True)
-    return ban
+    return ban, created
 
 
 def ban_create(req, team_id):
     team = team_for(req, team_id, need="mod")
     reason, duration = parse_ban_options(req.body)
     with kick_slot(req.user["id"]):
-        ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
+        ban, created = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
+    # Zaten listedeki kişiyi yeniden banlamak yalnızca eksik kanalları tamamlar; ikinci kez duyurulmaz.
+    if created:
+        notify_ban(req.db, team, ban, req.user)
     return ban_json(req.db, ban)
 
 
@@ -1113,6 +1338,7 @@ def ban_revoke(req, team_id, ban_id):
         apply_ban(req.db, ban, req.user, unban=True)
     req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?",
                    (req.user["id"], int(time.time()), ban["id"]))
+    notify_ban(req.db, team, ban, req.user, unban=True)
     return ban_json(req.db, ban_for(req, team, ban_id))
 
 
@@ -1144,6 +1370,7 @@ def unban_create(req, team_id):
             ban = req.db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
         apply_ban(req.db, ban, req.user, unban=True, everywhere=True)
     req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?", (req.user["id"], now, ban["id"]))
+    notify_ban(req.db, team, ban, req.user, unban=True)
     return ban_json(req.db, ban_for(req, team, ban["id"]))
 
 
@@ -1203,6 +1430,8 @@ def import_clear(req, team_id, which):
     # İşlenmekte olan kayıtlara dokunulmaz; onlar birkaç saniyede biter.
     where = "status = 'pending'" if which == "pending" else "status NOT IN ('pending', 'working')"
     cur = req.db.execute(f"DELETE FROM queue WHERE team_id = ? AND {where}", (team["id"],))
+    if which == "pending":
+        notify_queue_done(req.db, team["id"])   # bekleyenler iptal edildiyse sıra bununla boşalmış olabilir
     return {"removed": cur.rowcount}
 
 
@@ -1264,6 +1493,7 @@ def process_next():
 
         def finish(status, detail=""):
             db.execute("UPDATE queue SET status = ?, detail = ? WHERE id = ?", (status, detail, row["id"]))
+            notify_queue_done(db, row["team_id"])
 
         def retry_later(message):
             # Kick yavaşlattıysa kaydı sıraya geri koy ve tüm işçileri giderek artan süreyle beklet.
@@ -1285,7 +1515,7 @@ def process_next():
             return True
         try:
             resolved = resolve_queued(db, row, actor)
-            ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
+            ban, _ = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
         except ApiError as e:
             if e.status == 404:
                 finish("notfound")
@@ -1335,6 +1565,9 @@ ROUTES = [
     ("POST", r"/teams/join/preview", invite_preview, True),
     ("POST", r"/teams/(\d{1,18})/invite", invite_rotate, True),
     ("POST", r"/teams/(\d{1,18})/settings", team_update, True),
+    ("POST", r"/teams/(\d{1,18})/webhook", webhook_set, True),
+    ("POST", r"/teams/(\d{1,18})/webhook/test", webhook_test, True),
+    ("DELETE", r"/teams/(\d{1,18})/webhook", webhook_remove, True),
     ("POST", r"/teams/(\d{1,18})/leave", team_leave, True),
     ("POST", r"/teams/(\d{1,18})/lend", member_lend, True),
     ("POST", r"/teams/(\d{1,18})/members/(\d{1,18})/role", member_role, True),
@@ -1522,6 +1755,7 @@ def main():
     db.close()
     for _ in range(CFG["queue_workers"]):
         threading.Thread(target=queue_worker, daemon=True).start()
+    threading.Thread(target=notify_worker, daemon=True).start()
     server = ThreadingHTTPServer((CFG["host"], CFG["port"]), Handler)
     print(f"Dinleniyor: http://{CFG['host']}:{CFG['port']}  (callback: {CFG['public_url']}/auth/callback)")
     server.serve_forever()

@@ -21,7 +21,7 @@
 <body>
 <main>
   <h1>Magnetosphere Gizlilik Politikası</h1>
-  <p class="muted">Son güncelleme: 8 Kasım 2026 · <a href="#en">English</a></p>
+  <p class="muted">Son güncelleme: 10 Kasım 2026 · <a href="#en">English</a></p>
 
   <p>Magnetosphere, Kick moderatörleri ve moderasyon ekipleri için ortak ban listesi tutan bir tarayıcı uzantısı ve ona bağlı bir sunucudur (magnetosphere.helyosfer.me). Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir. Bu politika, uzantıyı ve sunucuyu kullandığında hangi verilerin işlendiğini anlatır.</p>
   <p>Magnetosphere açık kaynaklıdır ve herkes kendi sunucusunu kurabilir. Uzantıyı başka bir sunucuya bağlarsan verilerin o sunucuyu işleten kişide tutulur; bu politika yalnızca magnetosphere.helyosfer.me için geçerlidir.</p>
@@ -55,6 +55,7 @@
   <ul>
     <li><strong>Kick:</strong> giriş, kanal sorgusu, ban ve ban kaldırma istekleri Kick'in resmi API'sine gönderilir.</li>
     <li><strong>Cloudflare:</strong> magnetosphere.helyosfer.me'ye gelen bütün trafik, uzantının sunucuyla konuşması da dahil, saldırılara karşı koruma için Cloudflare üzerinden geçer. Bağlantı hem sana hem sunucumuza giden yolda şifrelidir, ama Cloudflare trafiği iletebilmek için arada çözer ve bu sırada IP adresini ve istek bilgilerini işler. Cloudflare'in işlediği veriler için <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare'in gizlilik politikası</a> geçerlidir.</li>
+    <li><strong>Discord (yalnızca ekip sahibi açarsa):</strong> ekip sahibi ekibine bir Discord webhook adresi bağlarsa, o ekipte atılan ve kaldırılan banların bildirimi sahibin seçtiği Discord kanalına gönderilir. Bildirimde banlanan kullanıcının adı, ban sebebi ve süresi, işlemi yapan üyenin Kick kullanıcı adı, ekibin adı ve kanalların adları yer alır. Özellik varsayılan olarak kapalıdır; açıkken ekibin bütün üyeleri bunu panelde görür. Discord'a gönderilen mesajlar için <a href="https://discord.com/privacy">Discord'un gizlilik politikası</a> geçerlidir.</li>
     <li><strong>Sunucu barındırma:</strong> veriler kiraladığımız bir sanal sunucuda tutulur.</li>
     <li><strong>Google Drive (yedek):</strong> veritabanı yedeklerinin bir kopyası, veri kaybına karşı bize ait bir Google Drive hesabında saklanır. Yedeklerde Kick tokenları şifreli durur; şifreyi çözen anahtar yedeklerle birlikte saklanmaz.</li>
   </ul>
@@ -81,7 +82,7 @@
 
   <div lang="en" id="en">
     <h1>Privacy Policy</h1>
-    <p class="muted">Last updated: 8 November 2026</p>
+    <p class="muted">Last updated: 10 November 2026</p>
     <p>Magnetosphere is a browser extension and companion server (magnetosphere.helyosfer.me) that keeps a shared ban list for Kick moderators and moderation teams. It is not affiliated with or endorsed by Kick. This policy explains what data is processed when you use the extension and the server.</p>
     <p>Magnetosphere is open source, and anyone can run their own server. If you connect the extension to a different server, your data is held by whoever runs that server; this policy covers magnetosphere.helyosfer.me only.</p>
 
@@ -114,6 +115,7 @@
     <ul>
       <li><strong>Kick:</strong> sign-in, channel lookups, ban and unban requests are sent to Kick's official API.</li>
       <li><strong>Cloudflare:</strong> all traffic to magnetosphere.helyosfer.me, including the extension's communication with the server, passes through Cloudflare for protection against attacks. The connection is encrypted on both legs, to you and to our server, but Cloudflare decrypts the traffic in between to relay it and processes your IP address and request details while doing so. <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a> applies to the data Cloudflare processes.</li>
+      <li><strong>Discord (only if the team owner turns it on):</strong> if a team owner connects a Discord webhook to their team, notifications of bans placed and removed on that team are sent to the Discord channel the owner chose. A notification contains the banned user's name, the ban reason and duration, the Kick username of the member who acted, the team's name and the channel names. The feature is off by default; while it is on, every member of the team can see that in the panel. <a href="https://discord.com/privacy">Discord's privacy policy</a> applies to messages sent to Discord.</li>
       <li><strong>Server hosting:</strong> data is kept on a virtual server we rent.</li>
       <li><strong>Google Drive (backups):</strong> a copy of the database backups is kept in a Google Drive account we own, to protect against data loss. Kick tokens remain encrypted in backups; the key that decrypts them is not stored with the backups.</li>
     </ul>

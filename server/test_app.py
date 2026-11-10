@@ -24,12 +24,14 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o"}
+         63: "sahip-o", 64: "yeni-o", 70: "sahip-w", 71: "mod-w", 72: "yayinci-w", 96: "trol-uc"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
-MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
+MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set(), 70: set(), 72: {71}}
 BANNED = set()               # (broadcaster_id, user_id)
 LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
 REVOKED = set()              # hesap silinince geri alınan tokenlar
+DISCORD_POSTS = []           # sahte Discord'a gelen (yol, gövde) kayıtları
+DISCORD_REPLIES = []         # sıradaki isteklere verilecek durum kodları; boşsa 204
 
 
 class FakeKick(BaseHTTPRequestHandler):
@@ -85,6 +87,21 @@ class FakeKick(BaseHTTPRequestHandler):
         self.reply(200, {"data": {}})
 
 
+class FakeDiscord(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+        DISCORD_POSTS.append((self.path, body))
+        status = DISCORD_REPLIES.pop(0) if DISCORD_REPLIES else 204
+        raw = json.dumps({"retry_after": 0.01}).encode() if status == 429 else b""
+        self.send_response(status)
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+
 def serve(handler):
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -118,8 +135,10 @@ class CrossBanTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.kick, kick_url = serve(FakeKick)
+        cls.discord, discord_url = serve(FakeDiscord)
         cls.tmp = tempfile.TemporaryDirectory()
         app.CFG.update(client_id="id", client_secret="secret", kick_id=kick_url, kick_api=kick_url,
+                       discord=discord_url,
                        db=os.path.join(cls.tmp.name, "test.db"),
                        token_key=Fernet.generate_key().decode(),
                        extension_ids=[])   # yerel .env'deki kimlik kısıtı testi etkilemesin
@@ -132,8 +151,10 @@ class CrossBanTest(unittest.TestCase):
     def tearDownClass(cls):
         cls.server.shutdown()
         cls.kick.shutdown()
+        cls.discord.shutdown()
         cls.server.server_close()
         cls.kick.server_close()
+        cls.discord.server_close()
         cls.tmp.cleanup()
 
     def login(self, uid):
@@ -392,6 +413,7 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(db.execute("SELECT user_id, role, lend FROM members ORDER BY user_id").fetchall(),
                          [(1, "mod", 1), (2, "mod", 1)])
         self.assertEqual(db.execute("SELECT join_role FROM teams").fetchone(), ("mod",))
+        self.assertEqual(db.execute("SELECT discord_webhook, webhook_lang FROM teams").fetchone(), ("", "tr"))
         self.assertEqual(db.execute("SELECT external FROM bans").fetchone(), (0,))
         db.close()
 
@@ -841,6 +863,134 @@ class CrossBanTest(unittest.TestCase):
         db.close()
         # Yeniden giriş yapınca boş bir hesapla başlar.
         self.assertEqual(call(self.base, "GET", "/me", self.login(22))[1]["teams"], [])
+
+    def test_discord(self):
+        # Her dilde aynı bildirim metinleri var; panelin gönderebileceği her dil karşılanır.
+        self.assertEqual(set(i18n.DISCORD), {"tr", *i18n.LANGS})
+        for lang, texts in i18n.DISCORD.items():
+            self.assertEqual(set(texts), set(i18n.DISCORD["tr"]), lang)
+
+        sahip, mod = self.login(70), self.login(71)
+        _, team, _ = call(self.base, "POST", "/teams", sahip, {"name": "Bildirim *ekibi*"})
+        tid = team["id"]
+        info = lambda: call(self.base, "GET", f"/teams/{tid}", sahip)[1]
+        call(self.base, "POST", "/teams/join", mod, {"invite_code": info()["invite_code"]})
+        # sahip-w kendi kanalında yayıncı; yayinci-w'de yetkisi yok, oradaki ban tutmaz.
+        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-w"})
+        hook = lambda token, url, **extra: call(self.base, "POST", f"/teams/{tid}/webhook", token,
+                                                {"url": url, **extra})
+        ban = lambda **body: call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol-uc", **body})
+
+        def delivered():
+            while app.deliver_next():
+                pass
+            sent = [body["embeds"][0] for _, body in DISCORD_POSTS]
+            DISCORD_POSTS.clear()
+            return sent
+
+        secret = "t" * 60
+        good = "https://discord.com/api/webhooks/123456789012345678/" + secret
+        self.assertIs(info()["webhook"], False)
+
+        # Adresi yalnızca sahip bağlar. Discord dışındaki adresler reddedilir ve hiçbirine istek atılmaz.
+        self.assertEqual(hook(mod, good)[0], 403)
+        for bad in (good.replace("https://", "http://"), good.replace("discord.com", "evil.example"),
+                    good.replace("discord.com", "discord.com.evil.example"),
+                    good.replace("discord.com", "discord.com@evil.example"),
+                    "https://discord.com/api/webhooks/123456789012345678/../../" + secret,
+                    "https://discord.com/api/webhooks/123456789012345678/" + secret + "/slack", "", None, 5):
+            self.assertEqual(hook(sahip, bad)[0], 400, bad)
+        self.assertEqual(DISCORD_POSTS, [])
+
+        # Discord adresi kabul etmezse kaydedilmez.
+        DISCORD_REPLIES.append(404)
+        self.assertEqual(hook(sahip, good)[0], 400)
+        self.assertIs(info()["webhook"], False)
+        DISCORD_POSTS.clear()
+
+        # Bağlanınca kanala bir mesaj düşer; bildirimler bağlayan panelin dilinde yazılır.
+        self.assertEqual(hook(sahip, good + "?wait=true", lang="en")[0], 200)
+        (path, body), = DISCORD_POSTS
+        self.assertEqual(path, "/api/webhooks/123456789012345678/" + secret)
+        self.assertEqual(body["embeds"][0]["title"], "Discord notifications connected")
+        self.assertEqual(body["allowed_mentions"], {"parse": []})
+        # Adres hiçbir yanıtta geri dönmez ve veritabanında şifreli durur.
+        self.assertIs(info()["webhook"], True)
+        self.assertNotIn(secret, json.dumps(info()))
+        db = sqlite3.connect(app.CFG["db"])
+        stored = db.execute("SELECT discord_webhook FROM teams WHERE id = ?", (tid,)).fetchone()[0]
+        db.close()
+        self.assertTrue(stored.startswith("enc:"))
+        self.assertNotIn(secret, stored)
+
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/webhook/test", mod)[0], 403)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/webhook/test", sahip)[0], 200)
+        self.assertEqual(DISCORD_POSTS[-1][1]["embeds"][0]["title"], "Test notification")
+        DISCORD_POSTS.clear()
+
+        # Ban bildirimi istek sırasında değil, arka plandaki gönderim sırasından gider.
+        _, banned, _ = ban(reason="@everyone **spam**", duration=120)
+        self.assertEqual(DISCORD_POSTS, [])
+        embed, = delivered()
+        fields = {f["name"]: f["value"] for f in embed["fields"]}
+        self.assertEqual(embed["title"], "trol-uc was timed out")
+        self.assertEqual(embed["footer"]["text"], "Magnetosphere · Bildirim *ekibi*")
+        self.assertEqual((fields["By"], fields["Duration"], fields["Channels"]), ("sahip-w", "2 h", "sahip-w"))
+        # Sebep kimseyi etiketleyemez, biçim işaretleri etkisizdir.
+        self.assertEqual(fields["Reason"], "@\u200beveryone \\*\\*spam\\*\\*")
+        self.assertEqual(fields["Not applied"], "yayinci-w: 403: you can't ban on this channel \\(you're not a moderator\\)")
+        # Zaten listedeki kişiyi yeniden banlamak ikinci kez duyurulmaz.
+        ban()
+        self.assertEqual(delivered(), [])
+
+        call(self.base, "DELETE", f"/teams/{tid}/bans/{banned['id']}", sahip)
+        embed, = delivered()
+        self.assertEqual(embed["title"], "trol-uc was unbanned")
+        self.assertEqual({f["name"]: f["value"] for f in embed["fields"]}, {"By": "sahip-w", "Channels": "sahip-w"})
+
+        # Toplu içe aktarma tek tek değil, sıra boşalınca tek özetle bildirilir.
+        call(self.base, "POST", f"/teams/{tid}/imports", sahip, {"usernames": ["trol-uc", "yok-boyle-biri"]})
+        while app.process_next():
+            pass
+        embed, = delivered()
+        self.assertEqual(embed["title"], "Bulk import finished")
+        self.assertEqual(embed["description"], "Not applied on some channels: **1**\nNot found on Kick: **1**")
+        # Bir özete giren kayıt sonrakinde yeniden sayılmaz.
+        call(self.base, "POST", f"/teams/{tid}/imports", sahip, {"usernames": ["yok-boyle-biri"]})
+        while app.process_next():
+            pass
+        embed, = delivered()
+        self.assertEqual(embed["description"], "Not found on Kick: **1**")
+        call(self.base, "POST", f"/teams/{tid}/unbans", sahip, {"username": "trol-uc"})
+        delivered()
+
+        # Discord yavaşlatırsa söylediği süre beklenip bir kez daha denenir.
+        DISCORD_REPLIES.append(429)
+        ban()
+        while app.deliver_next():
+            pass
+        self.assertEqual(len(DISCORD_POSTS), 2)
+        self.assertEqual(DISCORD_POSTS[0], DISCORD_POSTS[1])
+        DISCORD_POSTS.clear()
+
+        # Webhook Discord'da silinmişse bildirimler kendiliğinden kapanır.
+        DISCORD_REPLIES.append(404)
+        call(self.base, "POST", f"/teams/{tid}/unbans", sahip, {"username": "trol-uc"})
+        delivered()
+        self.assertIs(info()["webhook"], False)
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/webhook/test", sahip)[0], 400)
+
+        # Dil gönderilmezse bildirimler Türkçedir; kaldırınca bildirim gitmez.
+        self.assertEqual(hook(sahip, good)[0], 200)
+        DISCORD_POSTS.clear()
+        ban()
+        self.assertEqual(delivered()[0]["title"], "trol-uc banlandı")
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/webhook", mod)[0], 403)
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/webhook", sahip)[0], 200)
+        self.assertIs(info()["webhook"], False)
+        call(self.base, "POST", f"/teams/{tid}/unbans", sahip, {"username": "trol-uc"})
+        self.assertEqual(delivered(), [])
+        call(self.base, "DELETE", f"/teams/{tid}", sahip)
 
     def test_english(self):
         L = app.localize

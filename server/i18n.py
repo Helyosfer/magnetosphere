@@ -89,6 +89,19 @@ EN = {
     "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "The queue is full; try again once pending entries are done",
     "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
         "The person who uploaded the list is no longer on the team or can't ban",
+    # Discord bildirimleri
+    "Webhook adresi":
+        "Webhook URL",
+    "Geçersiz Discord webhook adresi; https://discord.com/api/webhooks/ ile başlamalı":
+        "Invalid Discord webhook URL; it must start with https://discord.com/api/webhooks/",
+    "Discord'a ulaşılamadı; biraz sonra tekrar dene":
+        "Couldn't reach Discord; try again in a moment",
+    "Discord istek sınırı; biraz sonra tekrar dene":
+        "Discord rate limit; try again in a moment",
+    "Discord bu webhook adresini kabul etmedi; adresi kontrol et":
+        "Discord didn't accept this webhook URL; check the address",
+    "Önce bir Discord webhook adresi kaydet":
+        "Save a Discord webhook URL first",
 }
 
 # Türkçe kalıp -> İspanyolca kalıp. Anahtarlar EN ile aynıdır (test_app.py denetler).
@@ -174,6 +187,19 @@ ES = {
     "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "La cola está llena; vuelve a intentarlo cuando se procesen los pendientes",
     "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
         "Quien subió la lista ya no está en el equipo o no puede banear",
+    # Discord bildirimleri
+    "Webhook adresi":
+        "La URL del webhook",
+    "Geçersiz Discord webhook adresi; https://discord.com/api/webhooks/ ile başlamalı":
+        "URL de webhook de Discord no válida; debe empezar con https://discord.com/api/webhooks/",
+    "Discord'a ulaşılamadı; biraz sonra tekrar dene":
+        "No se pudo contactar con Discord; inténtalo de nuevo en un rato",
+    "Discord istek sınırı; biraz sonra tekrar dene":
+        "Límite de solicitudes de Discord; inténtalo de nuevo en un rato",
+    "Discord bu webhook adresini kabul etmedi; adresi kontrol et":
+        "Discord no aceptó esta URL de webhook; revisa la dirección",
+    "Önce bir Discord webhook adresi kaydet":
+        "Primero guarda una URL de webhook de Discord",
 }
 
 # Türkçe kalıp -> Portekizce (Brezilya) kalıp. Anahtarlar EN ile aynıdır (test_app.py denetler).
@@ -259,6 +285,19 @@ PT = {
     "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "A fila está cheia; tente de novo quando os pendentes forem processados",
     "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
         "Quem enviou a lista não está mais na equipe ou não pode banir",
+    # Discord bildirimleri
+    "Webhook adresi":
+        "A URL do webhook",
+    "Geçersiz Discord webhook adresi; https://discord.com/api/webhooks/ ile başlamalı":
+        "URL de webhook do Discord inválida; ela precisa começar com https://discord.com/api/webhooks/",
+    "Discord'a ulaşılamadı; biraz sonra tekrar dene":
+        "Não foi possível acessar o Discord; tente de novo daqui a pouco",
+    "Discord istek sınırı; biraz sonra tekrar dene":
+        "Limite de solicitações do Discord; tente de novo daqui a pouco",
+    "Discord bu webhook adresini kabul etmedi; adresi kontrol et":
+        "O Discord não aceitou esta URL de webhook; confira o endereço",
+    "Önce bir Discord webhook adresi kaydet":
+        "Primeiro salve uma URL de webhook do Discord",
 }
 
 # Türkçe kalıp -> Arapça kalıp. Anahtarlar EN ile aynıdır (test_app.py denetler).
@@ -344,9 +383,147 @@ AR = {
     "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "الطابور ممتلئ؛ حاول مجددًا بعد معالجة الإدخالات المنتظرة",
     "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
         "الشخص الذي رفع القائمة لم يعد في الفريق أو لا يملك صلاحية الحظر",
+    # Discord bildirimleri
+    "Webhook adresi":
+        "رابط Webhook",
+    "Geçersiz Discord webhook adresi; https://discord.com/api/webhooks/ ile başlamalı":
+        "رابط Webhook غير صالح؛ يجب أن يبدأ بـ https://discord.com/api/webhooks/",
+    "Discord'a ulaşılamadı; biraz sonra tekrar dene":
+        "تعذّر الوصول إلى Discord؛ حاول مجددًا بعد قليل",
+    "Discord istek sınırı; biraz sonra tekrar dene":
+        "حد طلبات Discord؛ حاول مجددًا بعد قليل",
+    "Discord bu webhook adresini kabul etmedi; adresi kontrol et":
+        "لم يقبل Discord رابط Webhook هذا؛ تحقق من الرابط",
+    "Önce bir Discord webhook adresi kaydet":
+        "احفظ رابط Webhook من Discord أولًا",
 }
 
 TABLES = {"en": EN, "es": ES, "pt": PT, "ar": AR}
+
+# Discord'a giden bildirimlerin metinleri. Bildirim, webhook'u bağlayan panelin dilinde yazılır.
+# {name}: banlanan kullanıcının adı. units: süre birimleri (dakika, saat, gün).
+DISCORD = {
+    "tr": {
+        "banned": "{name} banlandı",
+        "timed_out": "{name} uzaklaştırıldı",
+        "ban_none": "{name} banlanamadı",
+        "unbanned": "{name} için ban kaldırıldı",
+        "unban_none": "{name} için ban kaldırılamadı",
+        "by": "Yapan",
+        "reason": "Sebep",
+        "duration": "Süre",
+        "units": ("dk", "sa", "gün"),
+        "channels": "Kanallar",
+        "failed": "Uygulanamadı",
+        "unban_failed": "Kaldırılamadı",
+        "import_done": "Toplu içe aktarma tamamlandı",
+        "done": "Banlandı",
+        "partial": "Bazı kanallarda uygulanamadı",
+        "notfound": "Kick'te bulunamadı",
+        "rejected": "Reddedildi",
+        "error": "Hata",
+        "connected": "Discord bildirimleri bağlandı",
+        "connected_text": "Bu ekipte atılan ve kaldırılan banlar ile toplu içe aktarma özetleri bu kanala gelecek.",
+        "test": "Deneme bildirimi",
+        "test_text": "Bağlantı çalışıyor.",
+    },
+    "en": {
+        "banned": "{name} was banned",
+        "timed_out": "{name} was timed out",
+        "ban_none": "{name} couldn't be banned",
+        "unbanned": "{name} was unbanned",
+        "unban_none": "{name} couldn't be unbanned",
+        "by": "By",
+        "reason": "Reason",
+        "duration": "Duration",
+        "units": ("min", "h", "d"),
+        "channels": "Channels",
+        "failed": "Not applied",
+        "unban_failed": "Not removed",
+        "import_done": "Bulk import finished",
+        "done": "Banned",
+        "partial": "Not applied on some channels",
+        "notfound": "Not found on Kick",
+        "rejected": "Rejected",
+        "error": "Error",
+        "connected": "Discord notifications connected",
+        "connected_text": "Bans placed and removed on this team, and bulk import summaries, will be posted in this channel.",
+        "test": "Test notification",
+        "test_text": "The connection works.",
+    },
+    "es": {
+        "banned": "{name} fue baneado",
+        "timed_out": "{name} fue suspendido",
+        "ban_none": "No se pudo banear a {name}",
+        "unbanned": "Se quitó el baneo de {name}",
+        "unban_none": "No se pudo quitar el baneo de {name}",
+        "by": "Por",
+        "reason": "Motivo",
+        "duration": "Duración",
+        "units": ("min", "h", "d"),
+        "channels": "Canales",
+        "failed": "No aplicado",
+        "unban_failed": "No quitado",
+        "import_done": "Importación masiva terminada",
+        "done": "Baneados",
+        "partial": "No aplicado en algunos canales",
+        "notfound": "No existen en Kick",
+        "rejected": "Rechazados",
+        "error": "Error",
+        "connected": "Notificaciones de Discord conectadas",
+        "connected_text": "Los baneos hechos y quitados en este equipo y los resúmenes de importación masiva se publicarán en este canal.",
+        "test": "Notificación de prueba",
+        "test_text": "La conexión funciona.",
+    },
+    "pt": {
+        "banned": "{name} foi banido",
+        "timed_out": "{name} recebeu um timeout",
+        "ban_none": "Não foi possível banir {name}",
+        "unbanned": "O ban de {name} foi removido",
+        "unban_none": "Não foi possível remover o ban de {name}",
+        "by": "Por",
+        "reason": "Motivo",
+        "duration": "Duração",
+        "units": ("min", "h", "d"),
+        "channels": "Canais",
+        "failed": "Não aplicado",
+        "unban_failed": "Não removido",
+        "import_done": "Importação em massa concluída",
+        "done": "Banidos",
+        "partial": "Não aplicado em alguns canais",
+        "notfound": "Não existem na Kick",
+        "rejected": "Rejeitados",
+        "error": "Erro",
+        "connected": "Notificações do Discord conectadas",
+        "connected_text": "Os bans feitos e removidos nesta equipe e os resumos de importação em massa serão publicados neste canal.",
+        "test": "Notificação de teste",
+        "test_text": "A conexão funciona.",
+    },
+    "ar": {
+        "banned": "تم حظر {name}",
+        "timed_out": "تم إيقاف {name} مؤقتًا",
+        "ban_none": "تعذّر حظر {name}",
+        "unbanned": "تم رفع الحظر عن {name}",
+        "unban_none": "تعذّر رفع الحظر عن {name}",
+        "by": "بواسطة",
+        "reason": "السبب",
+        "duration": "المدة",
+        "units": ("د", "س", "ي"),
+        "channels": "القنوات",
+        "failed": "لم يُطبَّق",
+        "unban_failed": "لم يُرفع",
+        "import_done": "اكتمل الاستيراد الجماعي",
+        "done": "تم الحظر",
+        "partial": "لم يُطبَّق في بعض القنوات",
+        "notfound": "غير موجود على Kick",
+        "rejected": "مرفوض",
+        "error": "خطأ",
+        "connected": "تم ربط إشعارات Discord",
+        "connected_text": "سيُنشر في هذه القناة الحظر الذي يوضع ويُرفع في هذا الفريق وملخصات الاستيراد الجماعي.",
+        "test": "إشعار تجريبي",
+        "test_text": "الاتصال يعمل.",
+    },
+}
 LANGS = tuple(TABLES)
 FIXED = {lang: {tr: out for tr, out in table.items() if "{" not in tr} for lang, table in TABLES.items()}
 PATTERNS = {

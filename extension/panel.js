@@ -371,6 +371,13 @@ function renderTeam() {
     : t("inviteModText");
   $("join-role-row").hidden = !owner || team.join_role === undefined;
   $("join-role").value = team.join_role || "mod";
+  // Discord bildirimleri (sunucu 0.13.0+): adresi yalnızca sahip yönetir. Açıksa kart bütün üyelere görünür;
+  // mesajlarda adlarının paylaşıldığını bilsinler.
+  const hooked = Boolean(team.webhook);
+  $("webhook-card").hidden = team.webhook === undefined || !(owner || hooked);
+  $("webhook-form").hidden = !owner || hooked;
+  $("webhook-on").hidden = !owner || !hooked;
+  $("webhook-note").textContent = hooked ? t("webhookOnNote") : t("webhookNote");
   $("team-leave-card").hidden = owner || team.role === undefined;
   $("team-danger").hidden = !owner;
 
@@ -751,6 +758,30 @@ $("join-role").onchange = () => run(null, async () => {
   } finally {
     await loadTeam();
   }
+});
+
+// Adres sunucuda saklanır ve panele geri gelmez; değiştirmek için kaldırılıp yeniden bağlanır.
+$("webhook-form").onsubmit = (event) => {
+  event.preventDefault();
+  const form = event.target;
+  run(form.querySelector("button"), async () => {
+    await api("POST", `/teams/${state.teamId}/webhook`, { url: form.url.value.trim(), lang: LANG });
+    form.reset();
+    await loadTeam();
+    showMessage(t("webhookSaved"), "info");
+  });
+};
+
+$("webhook-test").onclick = () => run($("webhook-test"), async () => {
+  await api("POST", `/teams/${state.teamId}/webhook/test`);
+  showMessage(t("webhookTestSent"), "info");
+});
+
+$("webhook-remove").onclick = () => run($("webhook-remove"), async () => {
+  if (!(await ask(t("confirmWebhookRemove")))) return;
+  await api("DELETE", `/teams/${state.teamId}/webhook`);
+  await loadTeam();
+  showMessage(t("webhookRemoved"), "info");
 });
 
 $("channel-add").onsubmit = (event) => {
