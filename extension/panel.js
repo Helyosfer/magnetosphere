@@ -696,6 +696,7 @@ $("login").onclick = () => run($("login"), async () => {
 $("logout").onclick = () => run($("logout"), async () => {
   await api("POST", "/auth/logout").catch(() => {});
   await chrome.storage.local.remove(["token", "teamId"]);
+  await clearDraft();
 });
 
 $("team").onchange = () => run(null, () => selectTeam(Number($("team").value)));
@@ -881,6 +882,7 @@ $("account-delete").onclick = () => run($("account-delete"), async () => {
   state.token = null;
   state.teamId = null;
   await chrome.storage.local.remove(["token", "teamId"]);
+  await clearDraft();
   await render();
   showMessage(t("accountDeleted"), "info");
 });
@@ -902,13 +904,57 @@ function parseUsernames(text) {
   });
 }
 
+// Panel, Chrome'da başka bir yere tıklanınca kapanır ve içindeki her şey silinir. Ban formu bu yüzden her
+// değişiklikte saklanır, açılışta geri yüklenir. Ban atılıp alan boşalınca taslak da boşalır.
+const DRAFT_KEY = "banDraft";
+let draftReady = false;
+
+function saveDraft() {
+  if (!draftReady) return;
+  const form = $("tab-ban");
+  const draft = { username: form.username.value, reason: form.reason.value,
+                  duration: form.duration.value, mode: form.mode.value };
+  if (!draft.username.trim() && !draft.reason.trim() && !draft.duration && draft.mode === "ban") {
+    chrome.storage.local.remove(DRAFT_KEY);
+  } else {
+    chrome.storage.local.set({ [DRAFT_KEY]: draft });
+  }
+}
+
+// Sağ tık menüsünden gelen ad taslaktaki adların sonuna eklenir; önceki yazılanlar kaybolmaz.
+async function restoreDraft(extraName) {
+  const { [DRAFT_KEY]: draft } = await chrome.storage.local.get(DRAFT_KEY);
+  const form = $("tab-ban");
+  if (draft) {
+    form.username.value = draft.username || "";
+    form.reason.value = draft.reason || "";
+    for (const radio of form.duration) radio.checked = radio.value === (draft.duration || "");
+    for (const radio of form.mode) radio.checked = radio.value === (draft.mode || "ban");
+  }
+  if (extraName) form.username.value = parseUsernames(`${form.username.value}\n${extraName}`).join("\n");
+  draftReady = true;
+  updateNameCount();
+  syncPresets();
+  syncMode();
+}
+
+// Çıkışta yarım kalan form da silinir; aynı bilgisayarda başka hesapla giren görmesin.
+async function clearDraft() {
+  draftReady = false;
+  $("tab-ban").reset();
+  await chrome.storage.local.remove(DRAFT_KEY);
+  await restoreDraft("");
+}
+
 function updateNameCount() {
   const count = parseUsernames($("username").value).length;
   $("name-count").textContent = t("userCount", count);
   $("name-count").hidden = count < 2;
+  saveDraft();
 }
 
 $("username").oninput = updateNameCount;
+for (const radio of $("tab-ban").elements.duration) radio.onchange = saveDraft;
 
 // Sebep alanı bir hazır sebeple aynıysa o etiket seçili görünür.
 function syncPresets() {
@@ -918,6 +964,7 @@ function syncPresets() {
     preset.classList.toggle("active", active);
     preset.setAttribute("aria-pressed", String(active));
   }
+  saveDraft();
 }
 
 for (const preset of $("reason-presets").children) {
@@ -947,6 +994,7 @@ function syncMode() {
 for (const radio of $("tab-ban").elements.mode) {
   radio.onchange = () => {
     syncMode();
+    saveDraft();
     $("ban-result").replaceChildren();
   };
 }
@@ -1100,8 +1148,8 @@ function renderLangSwitch() {
   // Eski sürümlerin kaydettiği şifresiz adresle oturum açılmaz; kullanıcı adresi düzeltip yeniden giriş yapar.
   const serverProblem = serverUrlProblem(state.server);
   if (serverProblem) state.token = null;
-  // Sağ tık menüsünden açıldıysa kullanıcı adı hazır gelir.
-  $("username").value = new URLSearchParams(location.search).get("user") || "";
+  // Yarım kalan form geri gelir; sağ tık menüsünden açıldıysa seçilen ad da eklenir.
+  await restoreDraft(new URLSearchParams(location.search).get("user") || "");
   await render();
   if (serverProblem) {
     $("server").closest("details").open = true;
