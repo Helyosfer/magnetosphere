@@ -197,14 +197,27 @@ const STATUS_KEY = {
   unban_failed: "statusUnbanFailed",
 };
 
+// Ban Kick'e birkaç saniyede uygulanır; kanal sonucu ancak o bitince yazılır. Bu arada alınan liste
+// (art arda atılan banlarda, başka bir pencereden ya da başka bir moddan) banı "henüz uygulanmadı" gösterir.
+// Yeni atılmış böyle bir ban "uygulanıyor" sayılır: Tekrar dene düğmesi çıkmaz, liste kendini yeniler.
+const APPLYING_SECONDS = 90;
+
+function applying(ban) {
+  if (ban.revoked_at || !ban.results.some((r) => r.status === "pending")) return false;
+  const now = Date.now() / 1000 + (state.list.clockSkew || 0);
+  return now - ban.created_at < APPLYING_SECONDS;
+}
+
 function banCard(ban) {
   const applied = ban.results.filter((r) => r.status === "ok").length;
   const complete = applied === ban.results.length;
+  const inFlight = applying(ban);
   const chips = ban.results.map((r) => {
     const via = r.via === "broadcaster" && r.status === "ok" ? t("viaBroadcaster") : "";
+    const status = inFlight && r.status === "pending" ? t("statusApplying") : t(STATUS_KEY[r.status]);
     return el("span", {
-      className: `chip ${r.status}`,
-      title: `${t(STATUS_KEY[r.status])}${via}${r.detail ? ` — ${r.detail}` : ""}`,
+      className: `chip ${r.status}${inFlight && r.status === "pending" ? " applying" : ""}`,
+      title: `${status}${via}${r.detail ? ` — ${r.detail}` : ""}`,
       textContent: r.slug,
     });
   });
@@ -218,7 +231,7 @@ function banCard(ban) {
 
   // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
   const reason = ban.external ? t("externalReason") : ban.reason || t("noReason");
-  const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete ? "" : " partial"}` },
+  const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete || inFlight ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
     el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: reason }),
     el("div", { className: "meta" },
@@ -232,7 +245,7 @@ function banCard(ban) {
   const mine = ban.created_by_id === undefined || ban.created_by_id === state.me.user.id;
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
-    if (!complete) {
+    if (!complete && !inFlight) {
       const retry = el("button", { className: "ghost small retry", textContent: t("retry") });
       retry.onclick = () => run(retry, async () => {
         await api("POST", `/teams/${state.teamId}/bans/${ban.id}/retry`);
@@ -314,10 +327,20 @@ async function loadBans() {
     throw e;
   }
   if (teamId !== state.teamId || view !== state.view) return;
+  // Eski sunucu saatini göndermez; o zaman panelin saati kullanılır.
+  list.clockSkew = typeof list.now === "number" ? list.now - Date.now() / 1000 : 0;
   state.list = list;
   state.listLoaded = true;
   renderBans();
+  // Kick'e gitmekte olan ban varken liste birkaç saniyede bir yenilenir; bitince durur.
+  clearTimeout(applyingTimer);
+  if (list.bans.some(applying)) {
+    applyingTimer = setTimeout(() => loadBans().catch(() => {}), APPLYING_REFRESH_MS);
+  }
 }
+
+const APPLYING_REFRESH_MS = 2500;
+let applyingTimer = null;
 
 function skeletonCard() {
   const line = (width) => {

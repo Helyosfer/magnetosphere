@@ -1007,6 +1007,8 @@ def ban_list(req, team_id):
         "matched": req.db.execute(f"SELECT COUNT(*) FROM bans WHERE {where}", args).fetchone()[0],
         "active_total": req.db.execute(
             f"SELECT COUNT(*) FROM bans WHERE team_id = ? AND {active_sql()}", (team["id"], now)).fetchone()[0],
+        # Panel, yeni atılmış ve Kick'e gitmekte olan banları ayırt ederken saat farkını buna göre düzeltir.
+        "now": now,
     }
 
 

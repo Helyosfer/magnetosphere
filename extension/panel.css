@@ -364,6 +364,7 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .chip.failed, .chip.unban_failed { color: #ff9aa4; }
 .chip.failed::before, .chip.unban_failed::before { background: var(--danger); }
 .chip.pending::before { background: var(--warn); }
+.chip.applying::before { background: var(--accent-2); animation: blink 1.2s ease-in-out infinite; }
 .chip.unbanned { color: var(--muted); }
 
 .empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 24px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: var(--radius); }
@@ -413,6 +414,7 @@ dialog p { margin-bottom: 14px; font-size: 14px; overflow-wrap: anywhere; }
 @keyframes drop { from { opacity: 0; transform: translateY(-4px); } }
 @keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: .25; } }
 @keyframes sweep { to { transform: translateX(100%); } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 

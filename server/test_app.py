@@ -648,6 +648,7 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual((status, res), (200, {"deleted": 2, "kept": 1}))
         self.assertEqual(history(), ["yeni-n"])
         listing = call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]
+        self.assertAlmostEqual(listing["now"], time.time(), delta=5)
         self.assertEqual([b["id"] for b in listing["bans"]], [active["id"]])
         # Kick'teki banlara dokunulmaz; silinen kayıtların kanal sonuçları da gider.
         self.assertIn((20, 99), BANNED)
