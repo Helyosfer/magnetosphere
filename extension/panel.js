@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const MAX_IMPORT = 5000;
+const MAX_IMPORT = 6000;
 // Bundan uzun listeler sunucudaki sıraya gider; panel kapansa da işlenmeye devam eder.
 const QUEUE_THRESHOLD = 10;
 
@@ -197,14 +197,27 @@ const STATUS_KEY = {
   unban_failed: "statusUnbanFailed",
 };
 
+// Ban Kick'e birkaç saniyede uygulanır; kanal sonucu ancak o bitince yazılır. Bu arada alınan liste
+// (art arda atılan banlarda, başka bir pencereden ya da başka bir moddan) banı "henüz uygulanmadı" gösterir.
+// Yeni atılmış böyle bir ban "uygulanıyor" sayılır: Tekrar dene düğmesi çıkmaz, liste kendini yeniler.
+const APPLYING_SECONDS = 90;
+
+function applying(ban) {
+  if (ban.revoked_at || !ban.results.some((r) => r.status === "pending")) return false;
+  const now = Date.now() / 1000 + (state.list.clockSkew || 0);
+  return now - ban.created_at < APPLYING_SECONDS;
+}
+
 function banCard(ban) {
   const applied = ban.results.filter((r) => r.status === "ok").length;
   const complete = applied === ban.results.length;
+  const inFlight = applying(ban);
   const chips = ban.results.map((r) => {
     const via = r.via === "broadcaster" && r.status === "ok" ? t("viaBroadcaster") : "";
+    const status = inFlight && r.status === "pending" ? t("statusApplying") : t(STATUS_KEY[r.status]);
     return el("span", {
-      className: `chip ${r.status}`,
-      title: `${t(STATUS_KEY[r.status])}${via}${r.detail ? ` — ${r.detail}` : ""}`,
+      className: `chip ${r.status}${inFlight && r.status === "pending" ? " applying" : ""}`,
+      title: `${status}${via}${r.detail ? ` — ${r.detail}` : ""}`,
       textContent: r.slug,
     });
   });
@@ -218,7 +231,7 @@ function banCard(ban) {
 
   // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
   const reason = ban.external ? t("externalReason") : ban.reason || t("noReason");
-  const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete ? "" : " partial"}` },
+  const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete || inFlight ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
     el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: reason }),
     el("div", { className: "meta" },
@@ -232,7 +245,7 @@ function banCard(ban) {
   const mine = ban.created_by_id === undefined || ban.created_by_id === state.me.user.id;
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
-    if (!complete) {
+    if (!complete && !inFlight) {
       const retry = el("button", { className: "ghost small retry", textContent: t("retry") });
       retry.onclick = () => run(retry, async () => {
         await api("POST", `/teams/${state.teamId}/bans/${ban.id}/retry`);
@@ -314,10 +327,20 @@ async function loadBans() {
     throw e;
   }
   if (teamId !== state.teamId || view !== state.view) return;
+  // Eski sunucu saatini göndermez; o zaman panelin saati kullanılır.
+  list.clockSkew = typeof list.now === "number" ? list.now - Date.now() / 1000 : 0;
   state.list = list;
   state.listLoaded = true;
   renderBans();
+  // Kick'e gitmekte olan ban varken liste birkaç saniyede bir yenilenir; bitince durur.
+  clearTimeout(applyingTimer);
+  if (list.bans.some(applying)) {
+    applyingTimer = setTimeout(() => loadBans().catch(() => {}), APPLYING_REFRESH_MS);
+  }
 }
+
+const APPLYING_REFRESH_MS = 2500;
+let applyingTimer = null;
 
 function skeletonCard() {
   const line = (width) => {
@@ -490,6 +513,7 @@ const PROBLEM_KEY = {
   notfound: "problemNotfound",
   rejected: "problemRejected",
   partial: "problemPartial",
+  unban_partial: "problemPartial",
   error: "problemError",
 };
 
@@ -507,7 +531,10 @@ function renderQueue(status) {
 
   $("queue-progress").textContent = `${processed} / ${status.total}`;
   $("queue-bar").style.width = `${Math.round((processed / status.total) * 100)}%`;
-  const parts = [t("queueBanned", (counts.done || 0) + (counts.partial || 0))];
+  const banned = (counts.done || 0) + (counts.partial || 0);
+  const unbanned = (counts.unbanned || 0) + (counts.unban_partial || 0);
+  const parts = banned || !unbanned ? [t("queueBanned", banned)] : [];
+  if (unbanned) parts.push(t("queueUnbanned", unbanned));
   if (counts.notfound) parts.push(t("queueNotfound", counts.notfound));
   if (counts.rejected) parts.push(t("queueRejected", counts.rejected));
   if (counts.error) parts.push(t("queueErrors", counts.error));
@@ -696,6 +723,7 @@ $("login").onclick = () => run($("login"), async () => {
 $("logout").onclick = () => run($("logout"), async () => {
   await api("POST", "/auth/logout").catch(() => {});
   await chrome.storage.local.remove(["token", "teamId"]);
+  await clearDraft();
 });
 
 $("team").onchange = () => run(null, () => selectTeam(Number($("team").value)));
@@ -881,6 +909,7 @@ $("account-delete").onclick = () => run($("account-delete"), async () => {
   state.token = null;
   state.teamId = null;
   await chrome.storage.local.remove(["token", "teamId"]);
+  await clearDraft();
   await render();
   showMessage(t("accountDeleted"), "info");
 });
@@ -902,13 +931,57 @@ function parseUsernames(text) {
   });
 }
 
+// Panel, Chrome'da başka bir yere tıklanınca kapanır ve içindeki her şey silinir. Ban formu bu yüzden her
+// değişiklikte saklanır, açılışta geri yüklenir. Ban atılıp alan boşalınca taslak da boşalır.
+const DRAFT_KEY = "banDraft";
+let draftReady = false;
+
+function saveDraft() {
+  if (!draftReady) return;
+  const form = $("tab-ban");
+  const draft = { username: form.username.value, reason: form.reason.value,
+                  duration: form.duration.value, mode: form.mode.value };
+  if (!draft.username.trim() && !draft.reason.trim() && !draft.duration && draft.mode === "ban") {
+    chrome.storage.local.remove(DRAFT_KEY);
+  } else {
+    chrome.storage.local.set({ [DRAFT_KEY]: draft });
+  }
+}
+
+// Sağ tık menüsünden gelen ad taslaktaki adların sonuna eklenir; önceki yazılanlar kaybolmaz.
+async function restoreDraft(extraName) {
+  const { [DRAFT_KEY]: draft } = await chrome.storage.local.get(DRAFT_KEY);
+  const form = $("tab-ban");
+  if (draft) {
+    form.username.value = draft.username || "";
+    form.reason.value = draft.reason || "";
+    for (const radio of form.duration) radio.checked = radio.value === (draft.duration || "");
+    for (const radio of form.mode) radio.checked = radio.value === (draft.mode || "ban");
+  }
+  if (extraName) form.username.value = parseUsernames(`${form.username.value}\n${extraName}`).join("\n");
+  draftReady = true;
+  updateNameCount();
+  syncPresets();
+  syncMode();
+}
+
+// Çıkışta yarım kalan form da silinir; aynı bilgisayarda başka hesapla giren görmesin.
+async function clearDraft() {
+  draftReady = false;
+  $("tab-ban").reset();
+  await chrome.storage.local.remove(DRAFT_KEY);
+  await restoreDraft("");
+}
+
 function updateNameCount() {
   const count = parseUsernames($("username").value).length;
   $("name-count").textContent = t("userCount", count);
   $("name-count").hidden = count < 2;
+  saveDraft();
 }
 
 $("username").oninput = updateNameCount;
+for (const radio of $("tab-ban").elements.duration) radio.onchange = saveDraft;
 
 // Sebep alanı bir hazır sebeple aynıysa o etiket seçili görünür.
 function syncPresets() {
@@ -918,6 +991,7 @@ function syncPresets() {
     preset.classList.toggle("active", active);
     preset.setAttribute("aria-pressed", String(active));
   }
+  saveDraft();
 }
 
 for (const preset of $("reason-presets").children) {
@@ -947,19 +1021,44 @@ function syncMode() {
 for (const radio of $("tab-ban").elements.mode) {
   radio.onchange = () => {
     syncMode();
+    saveDraft();
     $("ban-result").replaceChildren();
   };
 }
 
 // Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
+// Sunucunun sürümü en az istenen kadar mı (/health). Yanıt yoksa eski sunucu sayılır.
+async function serverAtLeast(...want) {
+  const version = await api("GET", "/health").then((r) => r.version || "0", () => "0");
+  const have = version.split(".").map(Number);
+  for (const [i, part] of want.entries()) {
+    if ((have[i] || 0) !== part) return (have[i] || 0) > part;
+  }
+  return true;
+}
+
+// Uzun kaldırma listesi, toplu ban gibi sunucudaki sıraya gider; panel kapansa da işlenir.
+// Kısa listeler eskisi gibi tek tek kaldırılır ve sonuçları hemen görünür.
 function submitUnban(form, button, usernames, count) {
-  if (usernames.length > QUEUE_THRESHOLD) {
-    showMessage(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
+  if (usernames.length > MAX_IMPORT) {
+    showMessage(t("banLimit", MAX_IMPORT, usernames.length));
     return;
   }
   const label = button.textContent;
   run(button, async () => {
     const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
+    if (usernames.length > QUEUE_THRESHOLD) {
+      // 0.12.1 öncesi sunucu sıradaki işlemin türünü tanımaz ve listeyi banlar; orada eski sınır geçerli.
+      if (!(await serverAtLeast(0, 12, 1))) throw new Error(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
+      if (!(await ask(t("confirmUnbanQueue", who, count)))) return;
+      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, action: "unban" });
+      form.username.value = "";
+      updateNameCount();
+      $("ban-result").replaceChildren();
+      showMessage(t("queued", added, skipped), "info");
+      await pollQueue();
+      return;
+    }
     if (!(await ask(t("confirmUnban", who, count)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
@@ -1100,8 +1199,8 @@ function renderLangSwitch() {
   // Eski sürümlerin kaydettiği şifresiz adresle oturum açılmaz; kullanıcı adresi düzeltip yeniden giriş yapar.
   const serverProblem = serverUrlProblem(state.server);
   if (serverProblem) state.token = null;
-  // Sağ tık menüsünden açıldıysa kullanıcı adı hazır gelir.
-  $("username").value = new URLSearchParams(location.search).get("user") || "";
+  // Yarım kalan form geri gelir; sağ tık menüsünden açıldıysa seçilen ad da eklenir.
+  await restoreDraft(new URLSearchParams(location.search).get("user") || "");
   await render();
   if (serverProblem) {
     $("server").closest("details").open = true;

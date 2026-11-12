@@ -21,7 +21,7 @@
 <body>
 <main>
   <h1>Magnetosphere Gizlilik Politikası</h1>
-  <p class="muted">Son güncelleme: 10 Kasım 2026 · <a href="#en">English</a></p>
+  <p class="muted">Son güncelleme: 11 Kasım 2026 · <a href="#en">English</a></p>
 
   <p>Magnetosphere, Kick moderatörleri ve moderasyon ekipleri için ortak ban listesi tutan bir tarayıcı uzantısı ve ona bağlı bir sunucudur (magnetosphere.helyosfer.me). Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir. Bu politika, uzantıyı ve sunucuyu kullandığında hangi verilerin işlendiğini anlatır.</p>
   <p>Magnetosphere açık kaynaklıdır ve herkes kendi sunucusunu kurabilir. Uzantıyı başka bir sunucuya bağlarsan verilerin o sunucuyu işleten kişide tutulur; bu politika yalnızca magnetosphere.helyosfer.me için geçerlidir.</p>
@@ -40,7 +40,7 @@
   <p>Magnetosphere ile banlanan bir kişinin Kick kullanıcı kimliği, kullanıcı adı ve ekibin girdiği ban sebebi ve süresi, banı atan ekibin kaydında tutulur ve yalnızca o ekibin üyelerine görünür. Bu kişiler Magnetosphere kullanıcısı olmasa da aşağıdaki "Hakların" bölümündeki adresten kendileriyle ilgili kayıtlara erişmeyi ya da silinmesini isteyebilir. Kick'teki ban, kanalın kararıdır; onu kaldırmak kanalın ya da moderatörlerinin elindedir.</p>
 
   <h2>Uzantının tarayıcında sakladıkları</h2>
-  <p>Oturum anahtarı, seçili ekip, sunucu adresi ve dil seçimi. Uzantı ziyaret ettiğin sayfaları okumaz, tarama geçmişini toplamaz ve hiçbir siteye içerik betiği eklemez. kick.com'daki sağ tık menüsü yalnızca senin seçtiğin metni ya da sağ tıkladığın bağlantıdaki kullanıcı adını panele aktarır. Dosyadan liste yüklediğinde dosya tarayıcında okunur; sunucuya yalnızca içindeki kullanıcı adları gönderilir.</p>
+  <p>Oturum anahtarı, seçili ekip, sunucu adresi ve dil seçimi. Ban formuna yazıp henüz göndermediğin kullanıcı adları, sebep ve süre de panel kapanınca kaybolmasın diye tarayıcında saklanır. Ban atılınca adlar ve sebep, çıkış yapınca hepsi silinir; bunlar sunucuya gönderilmez. Uzantı ziyaret ettiğin sayfaları okumaz, tarama geçmişini toplamaz ve hiçbir siteye içerik betiği eklemez. kick.com'daki sağ tık menüsü yalnızca senin seçtiğin metni ya da sağ tıkladığın bağlantıdaki kullanıcı adını panele aktarır. Dosyadan liste yüklediğinde dosya tarayıcında okunur; sunucuya yalnızca içindeki kullanıcı adları gönderilir.</p>
 
   <h2>Teknik kayıtlar</h2>
   <p>Sunucu, sorunları gidermek için her isteğin türünü, yolunu (sorgu kısmı olmadan) ve sonucunu kaydeder (ör. "GET /me → 200"). Bunun dışında yalnızca iki durumda ayrıntı yazılır: toplu yüklemede Kick istek sınırı yüzünden ertelenen bir kaydın kullanıcı adı ve beklenmeyen bir hatanın teknik dökümü. IP adresin, oturum anahtarın ya da tokenların bu kayıtlara yazılmaz. Giriş denemelerini sınırlamak için IP adresin en fazla 10 dakika yalnızca bellekte tutulur, diske yazılmaz. Analiz ya da izleme aracı kullanmayız.</p>
@@ -81,7 +81,7 @@
 
   <div lang="en" id="en">
     <h1>Privacy Policy</h1>
-    <p class="muted">Last updated: 10 November 2026</p>
+    <p class="muted">Last updated: 11 November 2026</p>
     <p>Magnetosphere is a browser extension and companion server (magnetosphere.helyosfer.me) that keeps a shared ban list for Kick moderators and moderation teams. It is not affiliated with or endorsed by Kick. This policy explains what data is processed when you use the extension and the server.</p>
     <p>Magnetosphere is open source, and anyone can run their own server. If you connect the extension to a different server, your data is held by whoever runs that server; this policy covers magnetosphere.helyosfer.me only.</p>
 
@@ -99,7 +99,7 @@
     <p>When someone is banned through Magnetosphere, their Kick user ID, username, and the reason and duration entered by the team are kept in that team's records and are visible only to that team's members. Even if they do not use Magnetosphere, they can ask to access or delete records about them using the address in "Your rights" below. The ban on Kick itself is the channel's decision; only the channel or its moderators can lift it.</p>
 
     <h2>What the extension stores in your browser</h2>
-    <p>The session token, the selected team, the server address and your language choice. The extension does not read the pages you visit, collect browsing history or inject content scripts into any site. The right-click menu on kick.com only passes the text you selected, or the username in the link you right-clicked, to the panel. When you upload a list from a file, the file is read in your browser and only the usernames in it are sent to the server.</p>
+    <p>The session token, the selected team, the server address and your language choice. Usernames, reason and duration you've typed into the ban form but not yet sent are also kept in your browser so they survive the panel closing. The names and reason are cleared when the ban goes through, and everything is cleared when you sign out; none of this is sent to the server. The extension does not read the pages you visit, collect browsing history or inject content scripts into any site. The right-click menu on kick.com only passes the text you selected, or the username in the link you right-clicked, to the panel. When you upload a list from a file, the file is read in your browser and only the usernames in it are sent to the server.</p>
 
     <h2>Technical logs</h2>
     <p>To troubleshoot problems, the server logs the method, path (without the query string) and result of each request (e.g. "GET /me → 200"). Beyond that, details are written in only two cases: the username of a bulk-upload entry postponed because of Kick's rate limit, and the technical trace of an unexpected error. Your IP address, session token and Kick tokens are not written to these logs. To rate-limit sign-in attempts, your IP address is kept in memory only, for at most 10 minutes, and never written to disk. We use no analytics or tracking tools.</p>

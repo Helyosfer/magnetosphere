@@ -20,7 +20,7 @@ Magnetosphere'i tek başına kullanabilir, kimseyi davet etmeden kendi ban liste
 
 ÖZELLİKLER
 • Çoklu kanalda ban: Tek işlemle bütün kanallarda kalıcı ban at ya da kullanıcıyı 10 dakika, 1 saat, 1 gün veya 7 gün uzaklaştır.
-• Toplu ban: Kullanıcı adlarını yapıştır ya da .txt, .csv veya .json dosyasından yükle (tek seferde 5.000 ada kadar).
+• Toplu ban: Kullanıcı adlarını yapıştır ya da .txt, .csv veya .json dosyasından yükle (tek seferde 6.000 ada kadar).
 • Arka planda işlem: Uzun listeler sunucuda işlenmeye devam eder; paneli, hatta tarayıcıyı kapatsan bile.
 • Liste ve geçmiş: Liste'de kalıcı banları ve süren uzaklaştırmaları, Geçmiş'te kaldırılan banları ve süresi dolan uzaklaştırmaları gör. Her banı kimin, ne zaman ve neden attığı, hangi kanallarda uygulandığı kayıtlıdır.
 • Yeniden deneme: Bir kanalda uygulanamayan banı tek tıkla tekrar dene.
