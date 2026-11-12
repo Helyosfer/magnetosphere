@@ -166,11 +166,13 @@ CREATE TABLE IF NOT EXISTS queue (
     reason TEXT NOT NULL,
     duration INTEGER,
     created_by INTEGER NOT NULL REFERENCES users(id),
-    status TEXT NOT NULL DEFAULT 'pending',  -- pending | done | partial | notfound | rejected | error
+    -- pending | done | partial | unbanned | unban_partial | notfound | rejected | error
+    status TEXT NOT NULL DEFAULT 'pending',
     detail TEXT NOT NULL DEFAULT '',
     attempts INTEGER NOT NULL DEFAULT 0,
     retry_at INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
+    created_at INTEGER NOT NULL,
+    action TEXT NOT NULL DEFAULT 'ban'  -- ban | unban
 );
 CREATE INDEX IF NOT EXISTS queue_pending ON queue (status, id);
 """
@@ -201,6 +203,9 @@ def init_db():
         db.execute("ALTER TABLE teams ADD COLUMN join_role TEXT NOT NULL DEFAULT 'mod'")
     if "external" not in [c["name"] for c in db.execute("PRAGMA table_info(bans)")]:
         db.execute("ALTER TABLE bans ADD COLUMN external INTEGER NOT NULL DEFAULT 0")
+    # Sıra eskiden yalnızca ban atardı; toplu ban kaldırma da sıraya girer.
+    if "action" not in [c["name"] for c in db.execute("PRAGMA table_info(queue)")]:
+        db.execute("ALTER TABLE queue ADD COLUMN action TEXT NOT NULL DEFAULT 'ban'")
     # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
     if fernet():
         for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
@@ -1128,31 +1133,44 @@ def unban_create(req, team_id):
     if not req.db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
         raise ApiError(400, "Önce ekibe en az bir kanal ekle")
     with kick_slot(req.user["id"]):
-        target_id, slug = lookup_channel(req.db, req.user, req.body.get("username"))
-        now = int(time.time())
-        ban = req.db.execute(
-            "SELECT b.*, u.name AS creator FROM bans b LEFT JOIN users u ON u.id = b.created_by "
-            "WHERE b.team_id = ? AND b.target_id = ? AND b.revoked_at IS NULL ORDER BY b.id DESC",
-            (team["id"], target_id)).fetchone()
-        if ban and ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
-            raise ApiError(403, f"{slug} listede {ban['creator'] or 'başka bir üye'} tarafından banlanmış; "
-                                "başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir")
-        if not ban:
-            # Kayıt baştan kaldırılmış açılır; Kick isteği yarıda kalsa da listede aktif ban gibi görünmez.
-            cur = req.db.execute(
-                "INSERT INTO bans (team_id, target_id, target_name, reason, created_by, created_at, "
-                "revoked_by, revoked_at, external) VALUES (?,?,?,?,?,?,?,?,1)",
-                (team["id"], target_id, slug, "", req.user["id"], now, req.user["id"], now))
-            ban = req.db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
-        apply_ban(req.db, ban, req.user, unban=True, everywhere=True)
-    req.db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?", (req.user["id"], now, ban["id"]))
+        ban = create_unban(req.db, team, req.user, req.role, req.body.get("username"))
     return ban_json(req.db, ban_for(req, team, ban["id"]))
 
 
+def create_unban(db, team, actor, role, username, resolved=None):
+    """Banı ekibin bütün kanallarında kaldırır; listede yoksa "dışarıda atılmış" kaydı açar.
+
+    role: kaldıran kişinin ekipteki rolü. resolved: (user_id, slug) önceden sorgulandıysa Kick'e yeniden sorulmaz.
+    """
+    target_id, slug = resolved or lookup_channel(db, actor, username)
+    now = int(time.time())
+    ban = db.execute(
+        "SELECT b.*, u.name AS creator FROM bans b LEFT JOIN users u ON u.id = b.created_by "
+        "WHERE b.team_id = ? AND b.target_id = ? AND b.revoked_at IS NULL ORDER BY b.id DESC",
+        (team["id"], target_id)).fetchone()
+    if ban and ban["created_by"] != actor["id"] and ROLES[role] < ROLES["admin"]:
+        raise ApiError(403, f"{slug} listede {ban['creator'] or 'başka bir üye'} tarafından banlanmış; "
+                            "başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir")
+    if not ban:
+        # Kayıt baştan kaldırılmış açılır; Kick isteği yarıda kalsa da listede aktif ban gibi görünmez.
+        cur = db.execute(
+            "INSERT INTO bans (team_id, target_id, target_name, reason, created_by, created_at, "
+            "revoked_by, revoked_at, external) VALUES (?,?,?,?,?,?,?,?,1)",
+            (team["id"], target_id, slug, "", actor["id"], now, actor["id"], now))
+        ban = db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
+    apply_ban(db, ban, actor, unban=True, everywhere=True)
+    db.execute("UPDATE bans SET revoked_by = ?, revoked_at = ? WHERE id = ?", (actor["id"], now, ban["id"]))
+    return db.execute("SELECT * FROM bans WHERE id = ?", (ban["id"],)).fetchone()
+
+
 def import_create(req, team_id):
-    """Uzun listeleri sıraya alır; banları arka plandaki işçi atar."""
+    """Uzun listeleri sıraya alır; arka plandaki işçi banları atar ya da kaldırır (action: ban | unban)."""
     team = team_for(req, team_id, need="mod")
-    reason, duration = parse_ban_options(req.body)
+    action = req.body.get("action") or "ban"
+    if action not in ("ban", "unban"):
+        raise ApiError(400, "Geçersiz işlem")
+    # Ban kaldırmada sebep ve süre yoktur.
+    reason, duration = parse_ban_options(req.body) if action == "ban" else ("", None)
     usernames = req.body.get("usernames")
     if not isinstance(usernames, list) or not usernames:
         raise ApiError(400, "Kullanıcı listesi boş")
@@ -1175,8 +1193,8 @@ def import_create(req, team_id):
             continue
         waiting.add(name.lower())
         req.db.execute(
-            "INSERT INTO queue (team_id, target_name, reason, duration, created_by, created_at) "
-            "VALUES (?,?,?,?,?,?)", (team["id"], name, reason, duration, req.user["id"], now))
+            "INSERT INTO queue (team_id, target_name, reason, duration, created_by, created_at, action) "
+            "VALUES (?,?,?,?,?,?,?)", (team["id"], name, reason, duration, req.user["id"], now, action))
         added += 1
     return {"added": added, "skipped": len(usernames) - added}
 
@@ -1190,7 +1208,7 @@ def import_status(req, team_id):
         counts["pending"] = counts.get("pending", 0) + working
     problems = req.db.execute(
         "SELECT target_name, status, detail FROM queue WHERE team_id = ? "
-        "AND status NOT IN ('pending', 'working', 'done') ORDER BY id LIMIT 500", (team["id"],)).fetchall()
+        "AND status NOT IN ('pending', 'working', 'done', 'unbanned') ORDER BY id LIMIT 500", (team["id"],)).fetchall()
     return {
         "counts": counts,
         "total": sum(counts.values()),
@@ -1282,16 +1300,22 @@ def process_next():
         actor = db.execute(
             "SELECT u.*, m.role FROM users u JOIN members m ON m.user_id = u.id WHERE u.id = ? AND m.team_id = ?",
             (row["created_by"], row["team_id"])).fetchone()
-        if not team or not actor or ROLES[role_of(team, actor["id"], actor["role"])] < ROLES["mod"]:
+        role = role_of(team, actor["id"], actor["role"]) if team and actor else "viewer"
+        if not team or not actor or ROLES[role] < ROLES["mod"]:
             finish("error", "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok")
             return True
+        unban = row["action"] == "unban"
         try:
             resolved = resolve_queued(db, row, actor)
-            ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
+            if unban:
+                ban = create_unban(db, team, actor, role, row["target_name"], resolved)
+            else:
+                ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
         except ApiError as e:
             if e.status == 404:
                 finish("notfound")
-            elif e.status == 400:
+            elif e.status in (400, 403):
+                # 403: moderatör başkasının attığı banı kaldıramaz.
                 finish("rejected", e.message)
             elif e.status in (429, 502):
                 retry_later(e.message)
@@ -1301,13 +1325,15 @@ def process_next():
         except Exception as e:
             finish("error", repr(e))
             raise
-        failed = [r for r in ban_json(db, ban)["results"] if r["status"] != "ok"]
+        expected = "unbanned" if unban else "ok"
+        failed = [r for r in ban_json(db, ban)["results"] if r["status"] != expected]
         if any(r["detail"].startswith("429") for r in failed):
             retry_later("Kick istek sınırı")
         elif failed:
-            finish("partial", "; ".join(f"{r['slug']}: {r['detail']}" for r in failed))
+            finish("unban_partial" if unban else "partial",
+                   "; ".join(f"{r['slug']}: {r['detail']}" for r in failed))
         else:
-            finish("done")
+            finish("unbanned" if unban else "done")
         return True
     finally:
         db.close()

@@ -513,6 +513,7 @@ const PROBLEM_KEY = {
   notfound: "problemNotfound",
   rejected: "problemRejected",
   partial: "problemPartial",
+  unban_partial: "problemPartial",
   error: "problemError",
 };
 
@@ -530,7 +531,10 @@ function renderQueue(status) {
 
   $("queue-progress").textContent = `${processed} / ${status.total}`;
   $("queue-bar").style.width = `${Math.round((processed / status.total) * 100)}%`;
-  const parts = [t("queueBanned", (counts.done || 0) + (counts.partial || 0))];
+  const banned = (counts.done || 0) + (counts.partial || 0);
+  const unbanned = (counts.unbanned || 0) + (counts.unban_partial || 0);
+  const parts = banned || !unbanned ? [t("queueBanned", banned)] : [];
+  if (unbanned) parts.push(t("queueUnbanned", unbanned));
   if (counts.notfound) parts.push(t("queueNotfound", counts.notfound));
   if (counts.rejected) parts.push(t("queueRejected", counts.rejected));
   if (counts.error) parts.push(t("queueErrors", counts.error));
@@ -1023,14 +1027,38 @@ for (const radio of $("tab-ban").elements.mode) {
 }
 
 // Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
+// Sunucunun sürümü en az istenen kadar mı (/health). Yanıt yoksa eski sunucu sayılır.
+async function serverAtLeast(...want) {
+  const version = await api("GET", "/health").then((r) => r.version || "0", () => "0");
+  const have = version.split(".").map(Number);
+  for (const [i, part] of want.entries()) {
+    if ((have[i] || 0) !== part) return (have[i] || 0) > part;
+  }
+  return true;
+}
+
+// Uzun kaldırma listesi, toplu ban gibi sunucudaki sıraya gider; panel kapansa da işlenir.
+// Kısa listeler eskisi gibi tek tek kaldırılır ve sonuçları hemen görünür.
 function submitUnban(form, button, usernames, count) {
-  if (usernames.length > QUEUE_THRESHOLD) {
-    showMessage(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
+  if (usernames.length > MAX_IMPORT) {
+    showMessage(t("banLimit", MAX_IMPORT, usernames.length));
     return;
   }
   const label = button.textContent;
   run(button, async () => {
     const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
+    if (usernames.length > QUEUE_THRESHOLD) {
+      // 0.12.1 öncesi sunucu sıradaki işlemin türünü tanımaz ve listeyi banlar; orada eski sınır geçerli.
+      if (!(await serverAtLeast(0, 12, 1))) throw new Error(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
+      if (!(await ask(t("confirmUnbanQueue", who, count)))) return;
+      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, action: "unban" });
+      form.username.value = "";
+      updateNameCount();
+      $("ban-result").replaceChildren();
+      showMessage(t("queued", added, skipped), "info");
+      await pollQueue();
+      return;
+    }
     if (!(await ask(t("confirmUnban", who, count)))) return;
     const failed = [];
     $("ban-result").replaceChildren();

@@ -24,7 +24,7 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o"}
+         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -438,6 +438,43 @@ class CrossBanTest(unittest.TestCase):
         self.assertNotEqual(again["id"], listed["id"])
         self.assertEqual(unban(mod, "trol-iki")[1]["id"], again["id"])
         self.assertNotIn((30, 97), BANNED)
+
+    def test_unban_queue(self):
+        """Uzun ban kaldırma listesi sıraya girer; tek tek kaldırmayla aynı yetki kuralları geçerlidir."""
+        app.LOGIN_HITS.clear()
+        sahip, mod = self.login(65), self.login(66)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Toplu kaldırma"})[1]["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        call(self.base, "POST", "/teams/join", mod, {"invite_code": code})
+        queue = lambda token, names, **extra: call(self.base, "POST", f"/teams/{tid}/imports", token,
+                                                   {"usernames": names, **extra})
+        drain = lambda: [None for _ in iter(app.process_next, False)]
+        status = lambda: call(self.base, "GET", f"/teams/{tid}/imports", sahip)[1]
+
+        for name in ("trol", "eski-trol"):
+            call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": name})
+        # Kick'te elle atılmış, listede olmayan ban da kaldırılır.
+        BANNED.add((65, 97))
+        self.assertEqual(queue(sahip, ["x"], action="sil")[0], 400)
+        res = queue(sahip, ["trol", "eski-trol", "trol-iki", "yok-boyle-biri"], action="unban", reason="yok sayılır")[1]
+        self.assertEqual(res, {"added": 4, "skipped": 0})
+        drain()
+        self.assertEqual(status()["counts"], {"unbanned": 3, "notfound": 1})
+        self.assertEqual([p["name"] for p in status()["problems"]], ["yok-boyle-biri"])
+        self.assertEqual({b for b in BANNED if b[0] == 65}, set())
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]["active_total"], 0)
+        call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+
+        # Moderatör sahibin attığı banı sırayla da kaldıramaz; kayıt reddedilir, ban yerinde kalır.
+        call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol"})
+        queue(mod, ["trol"], action="unban")
+        drain()
+        self.assertEqual(status()["counts"], {"rejected": 1})
+        self.assertIn("sahip-q", status()["problems"][0]["detail"])
+        self.assertIn((65, 99), BANNED)
+        call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+        BANNED.difference_update({b for b in BANNED if b[0] == 65})
+        app.LOGIN_HITS.clear()
 
     def test_hardening(self):
         """Güvenlik QA'sında bulunan sorunların regresyon testleri."""

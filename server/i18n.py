@@ -59,6 +59,7 @@ EN = {
         "You can create at most {n} teams; delete one you don't use and try again",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "New members can start as moderator or viewer",
     "Davet kodu geçersiz": "Invalid invite code",
+    "Geçersiz işlem": "Invalid action",
     "En fazla {n} ekibe üye olabilirsin": "You can be a member of at most {n} teams",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "The team owner's role can't be changed; you can transfer ownership to another member",
@@ -144,6 +145,7 @@ ES = {
         "Puedes crear como máximo {n} equipos; elimina uno que no uses y vuelve a intentarlo",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Los nuevos miembros pueden empezar como moderador o espectador",
     "Davet kodu geçersiz": "Código de invitación no válido",
+    "Geçersiz işlem": "Acción no válida",
     "En fazla {n} ekibe üye olabilirsin": "Puedes ser miembro de {n} equipos como máximo",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "No se puede cambiar el rol del dueño del equipo; puedes transferir la propiedad a otro miembro",
@@ -229,6 +231,7 @@ PT = {
         "Você pode criar no máximo {n} equipes; exclua uma que não usa e tente de novo",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Novos membros podem começar como moderador ou espectador",
     "Davet kodu geçersiz": "Código de convite inválido",
+    "Geçersiz işlem": "Ação inválida",
     "En fazla {n} ekibe üye olabilirsin": "Você pode participar de no máximo {n} equipes",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "O cargo do dono da equipe não pode ser alterado; você pode transferir a posse para outro membro",
@@ -314,6 +317,7 @@ AR = {
         "يمكنك إنشاء {n} فرق كحد أقصى؛ احذف فريقًا لا تستخدمه ثم حاول مجددًا",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "يمكن للأعضاء الجدد البدء مشرفين أو مشاهدين",
     "Davet kodu geçersiz": "رمز الدعوة غير صالح",
+    "Geçersiz işlem": "إجراء غير صالح",
     "En fazla {n} ekibe üye olabilirsin": "يمكنك أن تكون عضوًا في {n} فرق كحد أقصى",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "لا يمكن تغيير دور مالك الفريق؛ يمكنك نقل الملكية إلى عضو آخر",

@@ -60,7 +60,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
 | **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir; sahip ve yöneticiler onay vererek geçmişi silebilir. |
 | **Tekrar dene ve geri al** | Uygulanamadığı kanallarda banı yeniden dener; banı tek tıkla bütün kanallardan kaldırır. |
-| **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. |
+| **Adıyla ban kaldırma** | **Banla > Ban kaldır** ile kullanıcı adını yaz; ban ekibin bütün kanallarından kaldırılır. Kick'te elle ya da Magnetosphere'den önce atılmış, listede olmayan banlar da kaldırılır ve kaldırma işlemi listeye kaydedilir. 10'dan uzun listeler (dosyadan da yüklenebilir) toplu ban gibi sıraya alınır. |
 | **Sağ tık kısayolu** | kick.com'da sohbette kullanıcının kartını aç, kartındaki adına sağ tıkla ve "Ekibin tüm kanallarında banla"yı seç. Panel o adla açılır. |
 | **Tek başına ya da ekiple** | Giriş yapan herkes tek tıkla kendi kanal listesini kurar; isterse davet bağlantısı ya da koduyla başkalarını da ekibe alır. Bağlantıyı açan kişi eklentiyi kurup tek tıkla katılır. |
 | **Roller** | Sahip, yönetici, moderatör ve izleyici. Davetle katılanların hangi rolle başlayacağı seçilebilir. |
@@ -88,6 +88,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
    uygulanamadığı kanallarda yeniden deneyebilirsin.
 7. **Eski banları kaldır.** Listede olmayan bir ban (Kick'te elle ya da Magnetosphere'den önce atılmış) için
    **Banla** sekmesinde **Ban kaldır**'ı seç ve kullanıcı adını yaz; ban ekibin bütün kanallarından kalkar.
+   Uzun listeler burada da sıraya alınır.
 
 Ekip kurmak istersen **Ekip** sekmesinde **Davet bağlantısını kopyala**'ya bas ve bağlantıyı modlarına
 gönder. Açan kişi eklentiyi kurar, sayfadaki **Ekibe katıl**'a basar ve panelde ekibin adını ve sahibini görüp
