@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const MAX_IMPORT = 5000;
+const MAX_IMPORT = 6000;
 // Bundan uzun listeler sunucudaki sıraya gider; panel kapansa da işlenmeye devam eder.
 const QUEUE_THRESHOLD = 10;
 

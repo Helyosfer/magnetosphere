@@ -55,7 +55,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | | |
 |---|---|
 | **Birden çok kanalda tek seferde ban** | Kalıcı ban ya da 10 dakika, 1 saat, 1 gün veya 7 günlük uzaklaştırma; bütün kanallara aynı anda uygulanır. |
-| **Toplu ban, içe ve dışa aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 5.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. **Liste > Dışa aktar**, ekibin bütün kalıcı banlarını her satırda bir kullanıcı adı olan bir `.txt` dosyası olarak indirir; dosya başka bir ekibe olduğu gibi yüklenebilir. |
+| **Toplu ban, içe ve dışa aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 6.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. **Liste > Dışa aktar**, ekibin bütün kalıcı banlarını her satırda bir kullanıcı adı olan bir `.txt` dosyası olarak indirir; dosya başka bir ekibe olduğu gibi yüklenebilir. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |
 | **Ortak liste ve geçmiş** | Her banı kimin, ne zaman ve neden attığı, banın hangi kanallarda uygulandığı; kullanıcı adına ya da sebebe göre arama. **Liste** kalıcı banları ve süren uzaklaştırmaları, **Geçmiş** kaldırılan banları ve süresi dolan uzaklaştırmaları gösterir; sahip ve yöneticiler onay vererek geçmişi silebilir. |
@@ -365,7 +365,7 @@ veritabanıyla çalışır. Yedeği yalnızca veri bozulduysa, servis durdurulmu
   erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Uzantı
   yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği eklemez.
-- **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 5.000 adla, bir ekibin sırada
+- **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 6.000 adla, bir ekibin sırada
   bekleyen kaydı 20.000 ile sınırlıdır. Aynı adresten 10 dakikada en fazla 30 giriş başlatılabilir.
   Bir hesap dakikada en fazla 300 istek atabilir, en fazla 10 ekip kurabilir ve 50 ekibe üye olabilir;
   bir ekipte en fazla 50 kanal ve 200 üye olur. Bir hesabın aynı anda Kick'e giden en fazla iki işlemi

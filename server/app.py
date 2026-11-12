@@ -67,7 +67,7 @@ VERSION = "0.12.1"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
-MAX_IMPORT = 5000
+MAX_IMPORT = 6000
 MAX_BODY_BYTES = 1_000_000
 MAX_QUEUE_PER_TEAM = 20_000   # bir ekibin sırada bekleyebilecek en fazla kaydı
 LOGIN_LIMIT = 30              # aynı adresten LOGIN_WINDOW saniyede başlatılabilecek giriş sayısı

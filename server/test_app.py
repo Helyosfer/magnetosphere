@@ -473,6 +473,13 @@ class CrossBanTest(unittest.TestCase):
         self.assertIn("sahip-q", status()["problems"][0]["detail"])
         self.assertIn((65, 99), BANNED)
         call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+
+        # Tek seferde en fazla 6000 ad; fazlası hiç sıraya alınmaz.
+        names = [f"ad-{i}" for i in range(app.MAX_IMPORT + 1)]
+        self.assertEqual(app.MAX_IMPORT, 6000)
+        self.assertEqual(queue(sahip, names, action="unban")[0], 400)
+        self.assertEqual(queue(sahip, names[:-1], action="unban")[1], {"added": 6000, "skipped": 0})
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/imports/pending", sahip)[1]["removed"], 6000)
         BANNED.difference_update({b for b in BANNED if b[0] == 65})
         app.LOGIN_HITS.clear()
 
