@@ -2,6 +2,7 @@
 import http.client
 import json
 import os
+import re
 import sqlite3
 import tempfile
 import threading
@@ -759,7 +760,9 @@ class CrossBanTest(unittest.TestCase):
         self.assertIn(f'property="og:image" content="{app.CFG["public_url"]}/icon.png"', page)
         self.assertNotIn("__PREVIEW", page)
         for header, title in (("tr-TR,tr;q=0.9,en;q=0.8", "Magnetosphere ekibine davet edildin"),
-                              ("fr-FR", "You&#x27;re invited"), ("es", "Te invitaron")):
+                              ("pl-PL", "You&#x27;re invited"), ("es", "Te invitaron"),
+                              ("de-DE,de;q=0.9", "Du wurdest"), ("fr-FR", "Tu es invité"), ("ru", "Тебя пригласили"),
+                              ("id-ID", "Kamu diundang")):
             request = urllib.request.Request(self.base + "/join", headers={"Accept-Language": header})
             with urllib.request.urlopen(request) as res:
                 self.assertIn(f'<title>{title}', res.read().decode())
@@ -935,7 +938,7 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(L("'ali' Kick'te bulunamadı", "es"), "'ali' no existe en Kick")
         self.assertEqual(L("kanal-a: 429: Kick istek sınırı; biraz sonra tekrar dene", "ar"),
                          "kanal-a: 429: حد طلبات Kick؛ حاول مجددًا بعد قليل")
-        self.assertEqual([app.pick_lang(h) for h in ("es", "pt", "AR", "es-ES,es;q=0.9", "pt-BR", "ar-SA", "fr")],
+        self.assertEqual([app.pick_lang(h) for h in ("es", "pt", "AR", "es-ES,es;q=0.9", "pt-BR", "ar-SA", "pl")],
                          ["es", "pt", "ar", "tr", "tr", "tr", "tr"])
 
         user = self.login(24)
@@ -947,12 +950,26 @@ class CrossBanTest(unittest.TestCase):
         for lang, text in (("es", "No se aprobó el inicio de sesión en Kick"),
                            ("pt", "O login na Kick não foi aprovado"),
                            ("ar", "لم تتم الموافقة على تسجيل الدخول عبر Kick"),
-                           ("fr", "Kick girişi onaylanmadı")):
+                           ("fr", "La connexion Kick n'a pas été approuvée"),
+                           ("pl", "Kick girişi onaylanmadı")):
             path = "/auth/login?redirect=" + urllib.parse.quote(REDIRECT) + f"&lang={lang}"
             _, _, headers = call(self.base, "GET", path)
             state = urllib.parse.parse_qs(urllib.parse.urlsplit(headers["Location"]).query)["state"][0]
             _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
             self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
+
+    def test_translation_tables(self):
+        """Her dilin sunucu tablosu İngilizceyle aynı mesajları çevirir; kalıplardaki yer tutucular korunur."""
+
+        self.assertEqual(set(i18n.LANGS), {"en", "es", "pt", "ar", "de", "fr", "ru", "id"})
+        for lang, table in i18n.TABLES.items():
+            self.assertEqual(set(table), set(i18n.EN), lang)
+            for tr, out in table.items():
+                self.assertEqual(sorted(re.findall(r"\{(\w+)\}", tr)), sorted(re.findall(r"\{(\w+)\}", out)),
+                                 f"{lang}: {tr}")
+        self.assertEqual(app.localize("'trol' Kick'te bulunamadı", "de"), "'trol' wurde auf Kick nicht gefunden")
+        self.assertEqual(app.localize("kanal-a: Kick istek sınırı", "ru"), "kanal-a: Лимит запросов Kick")
+        self.assertEqual([app.pick_lang(h) for h in ("de", "fr", "ru", "id", "pl")], ["de", "fr", "ru", "id", "tr"])
 
     def test_localize_robust(self):
         L = app.localize

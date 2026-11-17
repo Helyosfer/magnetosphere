@@ -63,7 +63,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.12.1"
+VERSION = "0.13.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -1404,6 +1404,14 @@ JOIN_PREVIEW = {
            "Entre na equipe: um ban em um canal é aplicado em todos os canais da Kick da equipe."),
     "ar": ("تمت دعوتك إلى فريق في Magnetosphere",
            "انضم إلى الفريق: يُطبَّق الحظر في قناة واحدة على جميع قنوات Kick الخاصة بالفريق."),
+    "de": ("Du wurdest in ein Magnetosphere-Team eingeladen",
+           "Tritt dem Team bei: Ein Bann in einem Kanal gilt in allen Kick-Kanälen des Teams."),
+    "fr": ("Tu es invité dans une équipe Magnetosphere",
+           "Rejoins l'équipe : un ban sur une chaîne s'applique sur toutes les chaînes Kick de l'équipe."),
+    "ru": ("Тебя пригласили в команду Magnetosphere",
+           "Вступай в команду: бан на одном канале действует на всех Kick-каналах команды."),
+    "id": ("Kamu diundang ke tim Magnetosphere",
+           "Gabung ke tim: ban di satu channel berlaku di semua channel Kick milik tim."),
 }
 
 

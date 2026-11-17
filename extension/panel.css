@@ -96,7 +96,11 @@ body.scrolled .tabs-bar::after,
 body.scrolled:not(:has(#app-view:not([hidden]) #team-view:not([hidden]))) .top::after { opacity: 1; }
 .logo { width: 22px; height: 22px; flex: none; }
 .brand { font-size: 14px; letter-spacing: .2px; }
-.user { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; color: var(--muted); }
+.top-end { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; }
+.user { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+button.icon-button { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; }
+button.icon-button .icon { width: 15px; height: 15px; }
+button.icon-button[aria-expanded="true"] { background: var(--raised); border-color: var(--accent-2); color: var(--accent-2); }
 .avatar {
   display: grid; place-items: center; width: 22px; height: 22px; flex: none;
   border-radius: 50%; background: var(--aurora); color: #06281a; font-size: 11px; font-weight: 700;
@@ -258,8 +262,14 @@ select.small { width: auto; padding-block: 3px; padding-inline: 8px 26px; font-s
 .roles strong { margin-inline-end: 6px; color: var(--text); }
 li .you { color: var(--muted); font-size: 12px; }
 #team-leave { margin-top: 10px; }
-#app-links { justify-content: center; margin-top: 18px; }
-.links.lang-switch { justify-content: center; margin-top: 0; }
+/* Ayarlar: açıkken giriş ve uygulama görünümleri gizlenir, kapanınca oldukları gibi geri gelir */
+body.settings-open #login-view, body.settings-open #app-view { display: none !important; }
+#settings-view { padding-top: 12px; }
+.view-title { margin: 0; font-size: 15px; }
+.settings-links { margin: 0; padding: 0; list-style: none; }
+.settings-links li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+.settings-links li:first-child { border-top: 0; padding-top: 0; }
+#account-delete { margin-top: 10px; }
 button.link.quiet { color: var(--muted); font-weight: 400; }
 #load-error { margin-top: 4px; }
 #load-error button { margin-top: 10px; }
@@ -282,6 +292,9 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
   transform: scaleX(0); opacity: 0; transition: transform .2s ease-out, opacity .2s;
 }
 .tabs button.active::after { transform: scaleX(1); opacity: 1; }
+/* Uzun dillerde ya da büyük sayaçta sekmeler sığmazsa simgeler gizlenir (panel.js: fitTabs) */
+.tabs.compact .icon { display: none; }
+.tabs.compact button { gap: 4px; padding-inline: 4px; }
 .panel:not([hidden]) { animation: fade .18s ease-out; }
 
 /* İlk yükleme: içerik gelene dek yerini tutan iskelet */

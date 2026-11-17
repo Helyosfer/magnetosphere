@@ -282,6 +282,7 @@ function renderBans() {
   const bans = state.list.bans.filter((ban) => isActive(ban) !== history);
   $("list-count").textContent = activeTotal;
   $("list-count").hidden = !activeTotal;
+  fitTabs();
   $("ban-list").classList.toggle("history", history);
   // Geçmişi ekibin herkesi için siler; yalnızca sahip ve yöneticiler, silinecek bir şey varken görür.
   // Bir kanalda kaldırılamamış kayıt silinmez (sunucu da bırakır), silinebilir sayılmaz.
@@ -673,6 +674,7 @@ async function render() {
   $("login-view").hidden = loggedIn;
   $("app-view").hidden = !loggedIn;
   $("user").hidden = !loggedIn;
+  $("account-card").hidden = !loggedIn;
   $("server").value = state.server;
   if (!loggedIn) return handlePendingInvite();
   // Sunucu yanıt verene dek boş panel yerine iskelet görünür.
@@ -910,6 +912,7 @@ $("account-delete").onclick = () => run($("account-delete"), async () => {
   state.teamId = null;
   await chrome.storage.local.remove(["token", "teamId"]);
   await clearDraft();
+  toggleSettings(false);
   await render();
   showMessage(t("accountDeleted"), "info");
 });
@@ -1172,26 +1175,49 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// Dil düğmeleri bağlantıların altında kendi satırındadır; geçerli dil dışındakiler kendi adlarıyla sıralanır.
-// Seçim saklanır, panel yeni dille baştan açılır.
-function renderLangSwitch() {
-  for (const row of document.querySelectorAll(".lang-switch")) {
-    const parts = LANGS.filter((lang) => lang !== LANG).flatMap((lang, index) => {
-      const button = el("button", { type: "button", className: "link quiet", lang, textContent: LANG_NAMES[lang] });
-      button.onclick = async () => {
-        await chrome.storage.local.set({ lang });
-        location.reload();
-      };
-      return index ? [el("span", { ariaHidden: "true", textContent: "·" }), button] : [button];
-    });
-    row.replaceChildren(...parts);
-  }
+// Sekme adları bazı dillerde uzun; sayaç da büyüyebilir. Sığmazlarsa simgeler gizlenir, adlar kalır.
+function fitTabs() {
+  const tabs = document.querySelector(".tabs");
+  tabs.classList.remove("compact");
+  tabs.classList.toggle("compact", tabs.scrollWidth > tabs.clientWidth + 1);
 }
+// Sekmeler ekip seçilince görünür hale gelir; o an ölçülür.
+new ResizeObserver(fitTabs).observe(document.querySelector(".tabs"));
+
+// Ayarlar başlıktaki dişliyle açılır. Açıkken giriş ve uygulama görünümleri CSS ile gizlenir; kapanınca
+// oldukları gibi geri gelir, panel yeniden yüklenmez.
+function toggleSettings(open = !document.body.classList.contains("settings-open")) {
+  document.body.classList.toggle("settings-open", open);
+  $("settings-view").hidden = !open;
+  $("settings-toggle").setAttribute("aria-expanded", String(open));
+  scrollTo(0, 0);
+}
+
+$("settings-toggle").onclick = () => toggleSettings();
+$("settings-close").onclick = () => toggleSettings(false);
+addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.body.classList.contains("settings-open") && !$("confirm").open) {
+    toggleSettings(false);
+  }
+});
+
+// Diller kendi adlarıyla listelenir; seçim saklanır ve panel yeni dille baştan açılır.
+function renderSettings() {
+  $("lang-select").replaceChildren(...LANGS.map((lang) =>
+    el("option", { value: lang, lang, textContent: LANG_NAMES[lang], selected: lang === LANG })));
+  const version = chrome.runtime.getManifest().version;
+  $("version").textContent = version ? t("version", version) : "";
+}
+
+$("lang-select").onchange = async () => {
+  await chrome.storage.local.set({ lang: $("lang-select").value });
+  location.reload();
+};
 
 (async () => {
   await loadLang();
   applyI18n();
-  renderLangSwitch();
+  renderSettings();
   const stored = await chrome.storage.local.get(["server", "token", "teamId"]);
   state.server = stored.server || DEFAULT_SERVER;
   state.token = stored.token || null;
