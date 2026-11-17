@@ -98,8 +98,9 @@ body.scrolled:not(:has(#app-view:not([hidden]) #team-view:not([hidden]))) .top::
 .brand { font-size: 14px; letter-spacing: .2px; }
 .top-end { display: flex; align-items: center; gap: 6px; margin-inline-start: auto; }
 .user { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-button.icon-button { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; }
-button.icon-button .icon { width: 15px; height: 15px; }
+/* Kare simge düğmesi; yanındaki küçük düğmelerle aynı yükseklikte. button.small iç boşluğunu ezmesin diye .top ile yazılır */
+.top button.icon-button { display: grid; place-items: center; box-sizing: border-box; width: 25px; height: 25px; padding: 0; }
+.top button.icon-button .icon { width: 14px; height: 14px; stroke-width: 1.7; }
 button.icon-button[aria-expanded="true"] { background: var(--raised); border-color: var(--accent-2); color: var(--accent-2); }
 .avatar {
   display: grid; place-items: center; width: 22px; height: 22px; flex: none;
