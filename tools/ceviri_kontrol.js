@@ -15,7 +15,10 @@ const { STRINGS, LANGS } = context;
 
 // Chrome'un _locales klasör adı; Brezilya Portekizcesi "pt_BR" olarak aranır.
 const LOCALE_DIR = { pt: "pt_BR" };
-const SAMPLE_ROLE = { tr: "Moderatör", en: "Moderator", es: "Moderador", pt: "Moderador", ar: "مشرف" };
+const SAMPLE_ROLE = {
+  tr: "Moderatör", en: "Moderator", es: "Moderador", pt: "Moderador", ar: "مشرف",
+  de: "Moderator", fr: "Modérateur", ru: "Модератор", id: "Moderator",
+};
 const problems = [];
 const base = Object.keys(STRINGS.en);
 

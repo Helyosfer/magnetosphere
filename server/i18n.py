@@ -1,7 +1,8 @@
-"""Kullanıcıya giden mesajların İngilizcesi, İspanyolcası, Portekizcesi ve Arapçası.
+"""Kullanıcıya giden mesajların çevirileri (İngilizce, İspanyolca, Portekizce, Arapça, Almanca, Fransızca,
+Rusça, Endonezce).
 
 Sunucu mesajları Türkçe yazar ve veritabanına (ban ayrıntıları, sıra kayıtları) Türkçe kaydeder.
-İngilizce, İspanyolca, Portekizce ya da Arapça isteyen panele yanıt giderken metin bu tablolardan çevrilir; tabloda olmayan metin
+Başka bir dil isteyen panele yanıt giderken metin bu tablolardan çevrilir; tabloda olmayan metin
 (ör. Kick'in kendi hata mesajı) olduğu gibi kalır.
 """
 import re
@@ -350,7 +351,347 @@ AR = {
         "الشخص الذي رفع القائمة لم يعد في الفريق أو لا يملك صلاحية الحظر",
 }
 
-TABLES = {"en": EN, "es": ES, "pt": PT, "ar": AR}
+DE = {
+    # yetki
+    "İzleyici rolündesin; bunun için moderatör yetkisi gerekir": "Du bist Zuschauer; dafür brauchst du Moderatorrechte",
+    "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir": "Das können nur der Teambesitzer und Admins",
+    "Bunu yalnızca ekip sahibi yapabilir": "Das kann nur der Teambesitzer",
+    # istek
+    "{label} metin olmalı": "{label} muss Text sein",
+    "Ekip adı": "Teamname",
+    "Davet kodu": "Einladungscode",
+    "Ban sebebi": "Banngrund",
+    "Geçersiz istek": "Ungültige Anfrage",
+    "İstek çok büyük": "Anfrage zu groß",
+    "Geçersiz JSON": "Ungültiges JSON",
+    "Bulunamadı": "Nicht gefunden",
+    "Sunucuda beklenmeyen bir hata oluştu": "Auf dem Server ist ein unerwarteter Fehler aufgetreten",
+    # oturum ve giriş
+    "Oturum geçersiz": "Ungültige Sitzung",
+    "Oturumun süresi doldu, yeniden giriş yap": "Deine Sitzung ist abgelaufen; melde dich erneut an",
+    "Geçersiz redirect adresi": "Ungültige Weiterleitungsadresse",
+    "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil": "KICK_CLIENT_ID / KICK_CLIENT_SECRET sind auf dem Server nicht gesetzt",
+    "Giriş isteği geçersiz ya da süresi dolmuş": "Die Anmeldeanfrage ist ungültig oder abgelaufen",
+    "Kick girişi onaylanmadı": "Die Kick-Anmeldung wurde nicht bestätigt",
+    "Kick girişi tamamlanamadı; biraz sonra tekrar dene": "Die Kick-Anmeldung konnte nicht abgeschlossen werden; versuche es gleich noch einmal",
+    "Kick hesap bilgisi alınamadı; biraz sonra tekrar dene": "Deine Kick-Kontodaten konnten nicht abgerufen werden; versuche es gleich noch einmal",
+    "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene": "Zu viele Anmeldeversuche; versuche es in ein paar Minuten erneut",
+    # hız sınırları
+    "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene": "Du sendest zu schnell Anfragen; versuche es in einer Minute erneut",
+    "Önceki işlemin bitmesini bekle, sonra tekrar dene": "Warte, bis deine vorige Aktion fertig ist, und versuche es dann erneut",
+    # Kick
+    "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)": "Ungültiger Nutzername (Kick-Namen haben höchstens 25 Zeichen)",
+    "Kick oturumun yenilenemedi, yeniden giriş yap": "Deine Kick-Sitzung konnte nicht erneuert werden; melde dich erneut an",
+    "Kick istek sınırına takıldı, biraz sonra tekrar dene": "Kicks Anfragelimit erreicht; versuche es gleich noch einmal",
+    "Kick bu kullanıcı adını geçersiz buldu": "Kick hält diesen Nutzernamen für ungültig",
+    "Kick kullanıcı sorgusu başarısız ({status})": "Kick-Nutzerabfrage fehlgeschlagen ({status})",
+    "'{slug}' Kick'te bulunamadı": "'{slug}' wurde auf Kick nicht gefunden",
+    "Kick'e ulaşılamadı": "Kick ist nicht erreichbar",
+    "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap": "Die Kick-Sitzung ist ungültig; melde dich ab und wieder an",
+    "bu kanalda ban yetkin yok (moderatör değilsin)": "du darfst in diesem Kanal nicht bannen (du bist kein Moderator)",
+    "kullanıcı ya da kanal Kick'te bulunamadı": "Nutzer oder Kanal auf Kick nicht gefunden",
+    "Kick istek sınırı; biraz sonra tekrar dene": "Kick-Anfragelimit; versuche es gleich noch einmal",
+    "Kick istek sınırı": "Kick-Anfragelimit",
+    "Kick oturumu yenilenemedi": "die Kick-Sitzung konnte nicht erneuert werden",
+    "hata": "Fehler",
+    # ekip ve üyeler
+    "Ekip bulunamadı": "Team nicht gefunden",
+    "Ekip adı gerekli": "Ein Teamname ist erforderlich",
+    "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.":
+        "Auf diesem Server können keine neuen Teams erstellt werden. Bitte dein Team um einen Einladungscode, um beizutreten.",
+    "En fazla {n} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene":
+        "Du kannst höchstens {n} Teams erstellen; lösche eines, das du nicht nutzt, und versuche es erneut",
+    "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Neue Mitglieder können als Moderator oder Zuschauer starten",
+    "Davet kodu geçersiz": "Ungültiger Einladungscode",
+    "Geçersiz işlem": "Ungültige Aktion",
+    "En fazla {n} ekibe üye olabilirsin": "Du kannst höchstens in {n} Teams Mitglied sein",
+    "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
+        "Die Rolle des Teambesitzers kann nicht geändert werden; du kannst den Besitz an ein anderes Mitglied übertragen",
+    "Üye bulunamadı": "Mitglied nicht gefunden",
+    "Bu üye daha fazla ekibin sahibi olamaz": "Dieses Mitglied kann keine weiteren Teams besitzen",
+    "Geçersiz rol": "Ungültige Rolle",
+    "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil":
+        "Der Teambesitzer kann das Team nicht verlassen; übertrage zuerst den Besitz oder lösche das Team",
+    "Ekip sahibi çıkarılamaz": "Der Teambesitzer kann nicht entfernt werden",
+    "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin": "Du kannst nur Mitglieder mit einer niedrigeren Rolle als deiner entfernen",
+    "Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}":
+        "Übertrage zuerst den Besitz dieser Teams oder lösche sie: {names}",
+    "silinmiş kullanıcı": "gelöschter Nutzer",
+    "başka bir üye": "einem anderen Mitglied",
+    # banlar
+    "Ban kaydı bulunamadı": "Banneintrag nicht gefunden",
+    "Süre 1 ile 10080 dakika arasında olmalı": "Die Dauer muss zwischen 1 und 10080 Minuten liegen",
+    "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Teammitglieder und Streamer im Team können nicht gebannt werden",
+    "Önce ekibe en az bir kanal ekle": "Füge dem Team zuerst mindestens einen Kanal hinzu",
+    "Bu ban kaldırılmış": "Dieser Bann wurde bereits aufgehoben",
+    "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
+        "Du kannst nur deine eigenen Banns aufheben; für andere ist ein Admin nötig",
+    "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
+        "{slug} wurde in der Liste von {creator} gebannt; fremde Banns können nur der Besitzer und Admins aufheben",
+    # sıra
+    "Kullanıcı listesi boş": "Die Nutzerliste ist leer",
+    "Tek seferde en fazla {n} kullanıcı sıraya alınabilir": "Es können höchstens {n} Nutzer auf einmal in die Warteschlange",
+    "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "Die Warteschlange ist voll; versuche es erneut, wenn die wartenden Einträge erledigt sind",
+    "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
+        "Die Person, die die Liste hochgeladen hat, ist nicht mehr im Team oder darf nicht bannen",
+}
+
+FR = {
+    # yetki
+    "İzleyici rolündesin; bunun için moderatör yetkisi gerekir": "Tu es spectateur ; il faut les droits de modérateur pour cela",
+    "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir": "Seuls le propriétaire et les admins de l'équipe peuvent faire cela",
+    "Bunu yalnızca ekip sahibi yapabilir": "Seul le propriétaire de l'équipe peut faire cela",
+    # istek
+    "{label} metin olmalı": "{label} doit être du texte",
+    "Ekip adı": "Le nom de l'équipe",
+    "Davet kodu": "Le code d'invitation",
+    "Ban sebebi": "Le motif du ban",
+    "Geçersiz istek": "Requête invalide",
+    "İstek çok büyük": "Requête trop volumineuse",
+    "Geçersiz JSON": "JSON invalide",
+    "Bulunamadı": "Introuvable",
+    "Sunucuda beklenmeyen bir hata oluştu": "Une erreur inattendue s'est produite sur le serveur",
+    # oturum ve giriş
+    "Oturum geçersiz": "Session invalide",
+    "Oturumun süresi doldu, yeniden giriş yap": "Ta session a expiré ; reconnecte-toi",
+    "Geçersiz redirect adresi": "Adresse de redirection invalide",
+    "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil": "KICK_CLIENT_ID / KICK_CLIENT_SECRET ne sont pas définis sur le serveur",
+    "Giriş isteği geçersiz ya da süresi dolmuş": "La demande de connexion est invalide ou a expiré",
+    "Kick girişi onaylanmadı": "La connexion Kick n'a pas été approuvée",
+    "Kick girişi tamamlanamadı; biraz sonra tekrar dene": "Impossible de terminer la connexion Kick ; réessaie dans un instant",
+    "Kick hesap bilgisi alınamadı; biraz sonra tekrar dene": "Impossible de récupérer les infos de ton compte Kick ; réessaie dans un instant",
+    "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene": "Trop de tentatives de connexion ; réessaie dans quelques minutes",
+    # hız sınırları
+    "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene": "Tu envoies des requêtes trop vite ; réessaie dans une minute",
+    "Önceki işlemin bitmesini bekle, sonra tekrar dene": "Attends la fin de ton action précédente, puis réessaie",
+    # Kick
+    "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)": "Pseudo invalide (les pseudos Kick font au plus 25 caractères)",
+    "Kick oturumun yenilenemedi, yeniden giriş yap": "Impossible de renouveler ta session Kick ; reconnecte-toi",
+    "Kick istek sınırına takıldı, biraz sonra tekrar dene": "Limite de requêtes de Kick atteinte ; réessaie dans un instant",
+    "Kick bu kullanıcı adını geçersiz buldu": "Kick considère ce pseudo comme invalide",
+    "Kick kullanıcı sorgusu başarısız ({status})": "La recherche d'utilisateur Kick a échoué ({status})",
+    "'{slug}' Kick'te bulunamadı": "'{slug}' est introuvable sur Kick",
+    "Kick'e ulaşılamadı": "Impossible de joindre Kick",
+    "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap": "La session Kick est invalide ; déconnecte-toi puis reconnecte-toi",
+    "bu kanalda ban yetkin yok (moderatör değilsin)": "tu ne peux pas bannir sur cette chaîne (tu n'es pas modérateur)",
+    "kullanıcı ya da kanal Kick'te bulunamadı": "utilisateur ou chaîne introuvable sur Kick",
+    "Kick istek sınırı; biraz sonra tekrar dene": "Limite de requêtes Kick ; réessaie dans un instant",
+    "Kick istek sınırı": "Limite de requêtes Kick",
+    "Kick oturumu yenilenemedi": "impossible de renouveler la session Kick",
+    "hata": "erreur",
+    # ekip ve üyeler
+    "Ekip bulunamadı": "Équipe introuvable",
+    "Ekip adı gerekli": "Le nom de l'équipe est obligatoire",
+    "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.":
+        "La création d'équipes est désactivée sur ce serveur. Demande un code d'invitation à ton équipe pour la rejoindre.",
+    "En fazla {n} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene":
+        "Tu peux créer au plus {n} équipes ; supprimes-en une que tu n'utilises pas et réessaie",
+    "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Les nouveaux membres peuvent commencer comme modérateur ou spectateur",
+    "Davet kodu geçersiz": "Code d'invitation invalide",
+    "Geçersiz işlem": "Action invalide",
+    "En fazla {n} ekibe üye olabilirsin": "Tu peux être membre d'au plus {n} équipes",
+    "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
+        "Le rôle du propriétaire ne peut pas être modifié ; tu peux transférer la propriété à un autre membre",
+    "Üye bulunamadı": "Membre introuvable",
+    "Bu üye daha fazla ekibin sahibi olamaz": "Ce membre ne peut pas posséder d'autres équipes",
+    "Geçersiz rol": "Rôle invalide",
+    "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil":
+        "Le propriétaire ne peut pas quitter l'équipe ; transfère d'abord la propriété ou supprime l'équipe",
+    "Ekip sahibi çıkarılamaz": "Le propriétaire de l'équipe ne peut pas être retiré",
+    "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin": "Tu ne peux retirer que des membres ayant un rôle inférieur au tien",
+    "Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}":
+        "Transfère d'abord la propriété de ces équipes ou supprime-les : {names}",
+    "silinmiş kullanıcı": "utilisateur supprimé",
+    "başka bir üye": "un autre membre",
+    # banlar
+    "Ban kaydı bulunamadı": "Ban introuvable",
+    "Süre 1 ile 10080 dakika arasında olmalı": "La durée doit être comprise entre 1 et 10080 minutes",
+    "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Les membres de l'équipe et ses streamers ne peuvent pas être bannis",
+    "Önce ekibe en az bir kanal ekle": "Ajoute d'abord au moins une chaîne à l'équipe",
+    "Bu ban kaldırılmış": "Ce ban a déjà été levé",
+    "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
+        "Tu ne peux lever que tes propres bans ; pour les autres, il faut un admin",
+    "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
+        "{slug} a été banni dans la liste par {creator} ; seuls le propriétaire et les admins peuvent lever le ban de quelqu'un d'autre",
+    # sıra
+    "Kullanıcı listesi boş": "La liste d'utilisateurs est vide",
+    "Tek seferde en fazla {n} kullanıcı sıraya alınabilir": "Au plus {n} utilisateurs peuvent être mis en file à la fois",
+    "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "La file est pleine ; réessaie une fois les entrées en attente traitées",
+    "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
+        "La personne qui a envoyé la liste n'est plus dans l'équipe ou ne peut plus bannir",
+}
+
+RU = {
+    # yetki
+    "İzleyici rolündesin; bunun için moderatör yetkisi gerekir": "Ты зритель; для этого нужны права модератора",
+    "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir": "Это могут только владелец команды и админы",
+    "Bunu yalnızca ekip sahibi yapabilir": "Это может только владелец команды",
+    # istek
+    "{label} metin olmalı": "{label}: нужен текст",
+    "Ekip adı": "Название команды",
+    "Davet kodu": "Код приглашения",
+    "Ban sebebi": "Причина бана",
+    "Geçersiz istek": "Неверный запрос",
+    "İstek çok büyük": "Слишком большой запрос",
+    "Geçersiz JSON": "Неверный JSON",
+    "Bulunamadı": "Не найдено",
+    "Sunucuda beklenmeyen bir hata oluştu": "На сервере произошла непредвиденная ошибка",
+    # oturum ve giriş
+    "Oturum geçersiz": "Недействительная сессия",
+    "Oturumun süresi doldu, yeniden giriş yap": "Сессия истекла; войди снова",
+    "Geçersiz redirect adresi": "Неверный адрес перенаправления",
+    "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil": "На сервере не заданы KICK_CLIENT_ID / KICK_CLIENT_SECRET",
+    "Giriş isteği geçersiz ya da süresi dolmuş": "Запрос на вход недействителен или истёк",
+    "Kick girişi onaylanmadı": "Вход через Kick не подтверждён",
+    "Kick girişi tamamlanamadı; biraz sonra tekrar dene": "Не удалось завершить вход через Kick; попробуй чуть позже",
+    "Kick hesap bilgisi alınamadı; biraz sonra tekrar dene": "Не удалось получить данные аккаунта Kick; попробуй чуть позже",
+    "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene": "Слишком много попыток входа; попробуй через несколько минут",
+    # hız sınırları
+    "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene": "Слишком частые запросы; попробуй через минуту",
+    "Önceki işlemin bitmesini bekle, sonra tekrar dene": "Дождись завершения предыдущего действия и попробуй снова",
+    # Kick
+    "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)": "Неверный ник (ники в Kick не длиннее 25 символов)",
+    "Kick oturumun yenilenemedi, yeniden giriş yap": "Не удалось обновить сессию Kick; войди снова",
+    "Kick istek sınırına takıldı, biraz sonra tekrar dene": "Достигнут лимит запросов Kick; попробуй чуть позже",
+    "Kick bu kullanıcı adını geçersiz buldu": "Kick считает этот ник неверным",
+    "Kick kullanıcı sorgusu başarısız ({status})": "Не удалось найти пользователя в Kick ({status})",
+    "'{slug}' Kick'te bulunamadı": "'{slug}' не найден в Kick",
+    "Kick'e ulaşılamadı": "Kick недоступен",
+    "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap": "Сессия Kick недействительна; выйди и войди снова",
+    "bu kanalda ban yetkin yok (moderatör değilsin)": "на этом канале у тебя нет права банить (ты не модератор)",
+    "kullanıcı ya da kanal Kick'te bulunamadı": "пользователь или канал не найден в Kick",
+    "Kick istek sınırı; biraz sonra tekrar dene": "Лимит запросов Kick; попробуй чуть позже",
+    "Kick istek sınırı": "Лимит запросов Kick",
+    "Kick oturumu yenilenemedi": "не удалось обновить сессию Kick",
+    "hata": "ошибка",
+    # ekip ve üyeler
+    "Ekip bulunamadı": "Команда не найдена",
+    "Ekip adı gerekli": "Нужно название команды",
+    "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.":
+        "На этом сервере нельзя создавать новые команды. Попроси у своей команды код приглашения, чтобы вступить.",
+    "En fazla {n} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene":
+        "Можно создать не больше {n} команд; удали ненужную и попробуй снова",
+    "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Новые участники могут начинать модераторами или зрителями",
+    "Davet kodu geçersiz": "Неверный код приглашения",
+    "Geçersiz işlem": "Неверное действие",
+    "En fazla {n} ekibe üye olabilirsin": "Можно состоять не больше чем в {n} командах",
+    "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
+        "Роль владельца нельзя изменить; можно передать владение другому участнику",
+    "Üye bulunamadı": "Участник не найден",
+    "Bu üye daha fazla ekibin sahibi olamaz": "Этот участник не может владеть большим числом команд",
+    "Geçersiz rol": "Неверная роль",
+    "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil":
+        "Владелец не может покинуть команду; сначала передай владение или удали команду",
+    "Ekip sahibi çıkarılamaz": "Владельца команды нельзя удалить",
+    "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin": "Удалять можно только участников с ролью ниже твоей",
+    "Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}":
+        "Сначала передай владение этими командами или удали их: {names}",
+    "silinmiş kullanıcı": "удалённый пользователь",
+    "başka bir üye": "другой участник",
+    # banlar
+    "Ban kaydı bulunamadı": "Запись о бане не найдена",
+    "Süre 1 ile 10080 dakika arasında olmalı": "Срок должен быть от 1 до 10080 минут",
+    "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Нельзя банить участников команды и её стримеров",
+    "Önce ekibe en az bir kanal ekle": "Сначала добавь в команду хотя бы один канал",
+    "Bu ban kaldırılmış": "Этот бан уже снят",
+    "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
+        "Снимать можно только свои баны; для остальных нужен админ",
+    "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
+        "{slug} забанен в списке (выдал: {creator}); чужие баны могут снимать только владелец и админы",
+    # sıra
+    "Kullanıcı listesi boş": "Список пользователей пуст",
+    "Tek seferde en fazla {n} kullanıcı sıraya alınabilir": "За раз в очередь можно поставить не больше {n} пользователей",
+    "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "Очередь заполнена; попробуй снова, когда ожидающие записи обработаются",
+    "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
+        "Тот, кто загрузил список, больше не в команде или не может банить",
+}
+
+ID = {
+    # yetki
+    "İzleyici rolündesin; bunun için moderatör yetkisi gerekir": "Kamu penonton; ini butuh izin moderator",
+    "Bunu yalnızca ekip sahibi ve yöneticiler yapabilir": "Hanya pemilik tim dan admin yang bisa melakukan ini",
+    "Bunu yalnızca ekip sahibi yapabilir": "Hanya pemilik tim yang bisa melakukan ini",
+    # istek
+    "{label} metin olmalı": "{label} harus berupa teks",
+    "Ekip adı": "Nama tim",
+    "Davet kodu": "Kode undangan",
+    "Ban sebebi": "Alasan ban",
+    "Geçersiz istek": "Permintaan tidak valid",
+    "İstek çok büyük": "Permintaan terlalu besar",
+    "Geçersiz JSON": "JSON tidak valid",
+    "Bulunamadı": "Tidak ditemukan",
+    "Sunucuda beklenmeyen bir hata oluştu": "Terjadi galat tak terduga di server",
+    # oturum ve giriş
+    "Oturum geçersiz": "Sesi tidak valid",
+    "Oturumun süresi doldu, yeniden giriş yap": "Sesimu kedaluwarsa; masuk lagi",
+    "Geçersiz redirect adresi": "Alamat pengalihan tidak valid",
+    "Sunucuda KICK_CLIENT_ID / KICK_CLIENT_SECRET ayarlı değil": "KICK_CLIENT_ID / KICK_CLIENT_SECRET belum diatur di server",
+    "Giriş isteği geçersiz ya da süresi dolmuş": "Permintaan masuk tidak valid atau sudah kedaluwarsa",
+    "Kick girişi onaylanmadı": "Masuk lewat Kick tidak disetujui",
+    "Kick girişi tamamlanamadı; biraz sonra tekrar dene": "Masuk lewat Kick tidak bisa diselesaikan; coba lagi sebentar lagi",
+    "Kick hesap bilgisi alınamadı; biraz sonra tekrar dene": "Data akun Kick-mu tidak bisa diambil; coba lagi sebentar lagi",
+    "Çok fazla giriş denemesi, birkaç dakika sonra tekrar dene": "Terlalu banyak percobaan masuk; coba lagi beberapa menit lagi",
+    # hız sınırları
+    "Çok hızlı istek gönderiyorsun; bir dakika sonra tekrar dene": "Permintaanmu terlalu cepat; coba lagi satu menit lagi",
+    "Önceki işlemin bitmesini bekle, sonra tekrar dene": "Tunggu tindakan sebelumnya selesai, lalu coba lagi",
+    # Kick
+    "Geçersiz kullanıcı adı (Kick adları en fazla 25 karakterdir)": "Username tidak valid (nama Kick maksimal 25 karakter)",
+    "Kick oturumun yenilenemedi, yeniden giriş yap": "Sesi Kick-mu tidak bisa diperbarui; masuk lagi",
+    "Kick istek sınırına takıldı, biraz sonra tekrar dene": "Batas permintaan Kick tercapai; coba lagi sebentar lagi",
+    "Kick bu kullanıcı adını geçersiz buldu": "Kick menganggap username ini tidak valid",
+    "Kick kullanıcı sorgusu başarısız ({status})": "Pencarian pengguna Kick gagal ({status})",
+    "'{slug}' Kick'te bulunamadı": "'{slug}' tidak ditemukan di Kick",
+    "Kick'e ulaşılamadı": "Kick tidak bisa dihubungi",
+    "Kick oturumu geçersiz; çıkış yapıp yeniden giriş yap": "Sesi Kick tidak valid; keluar lalu masuk lagi",
+    "bu kanalda ban yetkin yok (moderatör değilsin)": "kamu tidak bisa mem-ban di channel ini (kamu bukan moderator)",
+    "kullanıcı ya da kanal Kick'te bulunamadı": "pengguna atau channel tidak ditemukan di Kick",
+    "Kick istek sınırı; biraz sonra tekrar dene": "Batas permintaan Kick; coba lagi sebentar lagi",
+    "Kick istek sınırı": "Batas permintaan Kick",
+    "Kick oturumu yenilenemedi": "sesi Kick tidak bisa diperbarui",
+    "hata": "galat",
+    # ekip ve üyeler
+    "Ekip bulunamadı": "Tim tidak ditemukan",
+    "Ekip adı gerekli": "Nama tim wajib diisi",
+    "Bu sunucuda yeni ekip kurma kapalı. Ekibinden bir davet kodu isteyip katılabilirsin.":
+        "Pembuatan tim baru dimatikan di server ini. Minta kode undangan ke timmu untuk bergabung.",
+    "En fazla {n} ekip kurabilirsin; kullanmadığın bir ekibi silip tekrar dene":
+        "Kamu bisa membuat maksimal {n} tim; hapus tim yang tidak dipakai lalu coba lagi",
+    "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Anggota baru bisa mulai sebagai moderator atau penonton",
+    "Davet kodu geçersiz": "Kode undangan tidak valid",
+    "Geçersiz işlem": "Tindakan tidak valid",
+    "En fazla {n} ekibe üye olabilirsin": "Kamu bisa menjadi anggota maksimal {n} tim",
+    "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
+        "Peran pemilik tim tidak bisa diubah; kamu bisa memindahkan kepemilikan ke anggota lain",
+    "Üye bulunamadı": "Anggota tidak ditemukan",
+    "Bu üye daha fazla ekibin sahibi olamaz": "Anggota ini tidak bisa memiliki tim lagi",
+    "Geçersiz rol": "Peran tidak valid",
+    "Ekip sahibi ayrılamaz; önce sahipliği başka bir üyeye devret ya da ekibi sil":
+        "Pemilik tim tidak bisa keluar; pindahkan kepemilikan dulu atau hapus timnya",
+    "Ekip sahibi çıkarılamaz": "Pemilik tim tidak bisa dikeluarkan",
+    "Yalnızca kendinden düşük yetkili üyeleri çıkarabilirsin": "Kamu hanya bisa mengeluarkan anggota dengan peran di bawahmu",
+    "Önce şu ekiplerin sahipliğini devret ya da ekipleri sil: {names}":
+        "Pindahkan dulu kepemilikan tim ini atau hapus timnya: {names}",
+    "silinmiş kullanıcı": "pengguna terhapus",
+    "başka bir üye": "anggota lain",
+    # banlar
+    "Ban kaydı bulunamadı": "Catatan ban tidak ditemukan",
+    "Süre 1 ile 10080 dakika arasında olmalı": "Durasi harus antara 1 dan 10080 menit",
+    "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Anggota tim dan streamer di tim tidak bisa di-ban",
+    "Önce ekibe en az bir kanal ekle": "Tambahkan setidaknya satu channel ke tim dulu",
+    "Bu ban kaldırılmış": "Ban ini sudah dicabut",
+    "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
+        "Kamu hanya bisa mencabut ban milikmu sendiri; untuk yang lain perlu admin",
+    "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
+        "{slug} di-ban oleh {creator} di daftar; ban milik orang lain hanya bisa dicabut oleh pemilik dan admin",
+    # sıra
+    "Kullanıcı listesi boş": "Daftar pengguna kosong",
+    "Tek seferde en fazla {n} kullanıcı sıraya alınabilir": "Maksimal {n} pengguna bisa masuk antrean sekaligus",
+    "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene": "Antrean penuh; coba lagi setelah entri yang menunggu selesai",
+    "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok":
+        "Orang yang mengunggah daftar sudah tidak ada di tim atau tidak bisa mem-ban",
+}
+
+TABLES = {"en": EN, "es": ES, "pt": PT, "ar": AR, "de": DE, "fr": FR, "ru": RU, "id": ID}
 LANGS = tuple(TABLES)
 FIXED = {lang: {tr: out for tr, out in table.items() if "{" not in tr} for lang, table in TABLES.items()}
 PATTERNS = {

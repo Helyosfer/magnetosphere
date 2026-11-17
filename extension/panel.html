@@ -28,16 +28,22 @@
       <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4h4M12 7.5V12l3 2"/></symbol>
       <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.500"/><path d="m16 16 4.500 4.500"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.500 4.500 4.500L19 7.500"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.400 15a1.700 1.700 0 0 0 .3 1.800l.1.1a2 2 0 1 1-2.800 2.800l-.1-.1a1.700 1.700 0 0 0-1.800-.3 1.700 1.700 0 0 0-1 1.500V21a2 2 0 1 1-4 0v-.1a1.700 1.700 0 0 0-1.100-1.500 1.700 1.700 0 0 0-1.800.3l-.1.1a2 2 0 1 1-2.800-2.800l.1-.1a1.700 1.700 0 0 0 .3-1.800 1.700 1.700 0 0 0-1.500-1H3a2 2 0 1 1 0-4h.1a1.700 1.700 0 0 0 1.500-1.100 1.700 1.700 0 0 0-.3-1.800l-.1-.1a2 2 0 1 1 2.800-2.800l.1.1a1.700 1.700 0 0 0 1.800.3H9a1.700 1.700 0 0 0 1-1.500V3a2 2 0 1 1 4 0v.1a1.700 1.700 0 0 0 1 1.500 1.700 1.700 0 0 0 1.800-.3l.1-.1a2 2 0 1 1 2.800 2.800l-.1.1a1.700 1.700 0 0 0-.3 1.800V9a1.700 1.700 0 0 0 1.500 1H21a2 2 0 1 1 0 4h-.1a1.700 1.700 0 0 0-1.500 1z"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.500"/><path d="M3.500 12h17M12 3.500c2.300 2.400 3.500 5.200 3.500 8.500s-1.200 6.100-3.500 8.500c-2.300-2.400-3.500-5.200-3.500-8.500S9.700 5.900 12 3.500z"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.500"/><path d="M12 11v5.500M12 7.700h.01"/></symbol>
     </defs>
   </svg>
 
   <header class="top">
     <svg class="logo"><use href="#logo"/></svg>
     <strong class="brand">Magnetosphere</strong>
-    <div id="user" class="user" hidden>
-      <span id="avatar" class="avatar"></span>
-      <span id="who"></span>
-      <button id="logout" class="ghost small" title="Çıkış yap" data-i18n="logout" data-i18n-title="logoutTitle">Çıkış</button>
+    <div class="top-end">
+      <div id="user" class="user" hidden>
+        <span id="avatar" class="avatar"></span>
+        <span id="who"></span>
+        <button id="logout" class="ghost small" title="Çıkış yap" data-i18n="logout" data-i18n-title="logoutTitle">Çıkış</button>
+      </div>
+      <button type="button" id="settings-toggle" class="ghost small icon-button" title="Ayarlar" aria-label="Ayarlar" aria-expanded="false" data-i18n-title="settings" data-i18n-aria="settings"><svg class="icon"><use href="#i-settings"/></svg></button>
     </div>
   </header>
 
@@ -62,12 +68,29 @@
       <p class="muted small" data-i18n="advancedText">Ekibin kendi Magnetosphere sunucusunu çalıştırıyorsa adresini yaz. Emin değilsen dokunma.</p>
       <input id="server" type="url" placeholder="https://magnetosphere.helyosfer.me" aria-label="Sunucu adresi" data-i18n-aria="serverAddress">
     </details>
-    <p class="links small">
-      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener" data-i18n="privacy">Gizlilik</a>
-      <span aria-hidden="true">·</span>
-      <a href="mailto:destek@helyosfer.me" data-i18n="support">Destek</a>
-    </p>
-    <p class="links small lang-switch"></p>
+  </section>
+
+  <!-- Dil, bağlantılar ve hesap. Başlıktaki dişliyle açılır; giriş yapmadan da kullanılabilir. -->
+  <section id="settings-view" class="stack" hidden>
+    <h2 class="view-title" data-i18n="settings">Ayarlar</h2>
+    <div class="card">
+      <h3 data-i18n="language"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>Dil</h3>
+      <select id="lang-select" aria-label="Dil" data-i18n-aria="language"></select>
+    </div>
+    <div class="card">
+      <h3 data-i18n="about"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>Hakkında</h3>
+      <ul class="settings-links">
+        <li><a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener" data-i18n="privacyPolicy">Gizlilik politikası</a></li>
+        <li><a href="mailto:destek@helyosfer.me" data-i18n="support">Destek</a><span class="muted small">destek@helyosfer.me</span></li>
+        <li><a href="https://github.com/Helyosfer/magnetosphere" target="_blank" rel="noopener" data-i18n="sourceCode">Kaynak kodu</a><span id="version" class="muted small"></span></li>
+      </ul>
+    </div>
+    <div id="account-card" class="card" hidden>
+      <h3 data-i18n="account"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Hesap</h3>
+      <p class="muted small" data-i18n="accountDeleteNote">Oturumların, üyeliklerin ve tek üyesi olduğun ekipler kalıcı olarak silinir. Kick'teki banlar yerinde kalır.</p>
+      <button type="button" id="account-delete" class="danger-ghost" data-i18n="accountDelete">Hesabımı sil</button>
+    </div>
+    <button type="button" id="settings-close" class="ghost wide" data-i18n="back">Geri dön</button>
   </section>
 
   <section id="app-view" hidden>
@@ -268,14 +291,6 @@
       </div>
     </div>
 
-    <p id="app-links" class="links small">
-      <a href="https://magnetosphere.helyosfer.me/privacy" target="_blank" rel="noopener" data-i18n="privacy">Gizlilik</a>
-      <span aria-hidden="true">·</span>
-      <a href="mailto:destek@helyosfer.me" data-i18n="support">Destek</a>
-      <span aria-hidden="true">·</span>
-      <button type="button" id="account-delete" class="link quiet" data-i18n="accountDelete">Hesabımı sil</button>
-    </p>
-    <p class="links small lang-switch"></p>
   </section>
 
   <dialog id="confirm">
