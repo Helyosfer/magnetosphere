@@ -317,7 +317,9 @@ const STRINGS = {
     scopeNone: "En az bir kanal seç.",
     scopeOnly: (slugs) => `Yalnızca seçtiğin kanallarda: ${slugs}.`,
     applyMissing: "Eksik kanallara uygula",
-    missingChannels: (slugs) => `Henüz ban yok: ${slugs}. Kanal bandan sonra eklenmiş olabilir.`,
+    missingChannels: (slugs, n) => n === 1
+      ? `Ban ${slugs} kanalında henüz uygulanmadı. Kanal, ban atıldıktan sonra ekibe eklenmiş olabilir.`
+      : `Ban ${slugs} kanallarında henüz uygulanmadı. Bu kanallar, ban atıldıktan sonra ekibe eklenmiş olabilir.`,
     needChannel: "Önce Ekip sekmesinden en az bir kanal ekle.",
     banLimit: (max, n) => `Tek seferde en fazla ${max} kullanıcı gönderilebilir (${n} girildi).`,
     howTimed: (dur) => `${dur} süreyle`,

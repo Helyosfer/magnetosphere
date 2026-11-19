@@ -278,7 +278,7 @@ function banCard(ban) {
     if (actions.children.length) foot.append(actions);
   }
   card.append(foot);
-  if (missing.length) card.append(el("div", { className: "hint", textContent: t("missingChannels", missing.join(", ")) }));
+  if (missing.length) card.append(el("div", { className: "hint", textContent: t("missingChannels", missing.join(", "), missing.length) }));
   // Kick'in verdiği sebep (ör. o kanalda moderatör olmamak) imleç üstüne gelmeden de görünür; ilk ikisi yazılır.
   const reasons = failed.filter((r) => r.detail);
   if (reasons.length) {
