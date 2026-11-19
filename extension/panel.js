@@ -15,7 +15,7 @@ let state = {
   server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, view: "list",
   list: { bans: [], matched: 0, active_total: 0 },
   // Ban formundaki kanal seçimi: all (ekibin bütün kanalları) | own (yalnızca kendi kanalım) | custom (işaretlenenler)
-  scope: { mode: "all", ids: [] }, scopeSupported: false,
+  scope: { mode: "all", ids: [] }, scopeSupported: false, unbanScopeSupported: false,
 };
 
 function el(tag, props = {}, ...children) {
@@ -214,8 +214,10 @@ function applying(ban) {
 }
 
 function banCard(ban) {
-  const applied = ban.results.filter((r) => r.status === "ok").length;
-  const complete = applied === ban.results.length;
+  // Kısmen kaldırılmış aktif banda, kaldırılan kanallar eksik sayılmaz: orada ban bilerek yok.
+  const live = ban.revoked_at ? ban.results : ban.results.filter((r) => r.status !== "unbanned");
+  const applied = live.filter((r) => r.status === "ok").length;
+  const complete = applied === live.length;
   const inFlight = applying(ban);
   // Banın atılmasından sonra eklenen kanalda ban hiç denenmemiştir ("uygulanmadı"). Bu bir hata değildir;
   // kartta açıkça yazılır ve düğme "Tekrar dene" yerine ne yapacağını söyler.
@@ -1041,8 +1043,8 @@ const unbanMode = () => $("tab-ban").elements.mode.value === "unban";
 // Ban kaldırmada sebep ve süre yoktur; düğme yapılacak işi söyler.
 function syncMode() {
   const unban = unbanMode();
-  // Düğme, banın uygulanacağı kanal sayısını söyler; kaldırma her zaman ekibin bütün kanallarındadır.
-  const count = state.team ? (unban ? state.team.channels.length : resolveScope().list.length) : 0;
+  // Düğme, işlemin uygulanacağı kanal sayısını söyler.
+  const count = state.team ? resolveScope().list.length : 0;
   $("reason-field").hidden = unban;
   $("duration-field").hidden = unban;
   $("scope-field").hidden = !scopeVisible();
@@ -1055,22 +1057,24 @@ function syncMode() {
 
 for (const radio of $("tab-ban").elements.mode) {
   radio.onchange = () => {
-    syncMode();
+    renderTargets();   // ban ve kaldırmada kanal seçimi geçerli olabilir; hedef satırı ve düğme yenilenir
     saveDraft();
     $("ban-result").replaceChildren();
   };
 }
 
 // Kanal seçimi: ban hangi kanallarda atılsın. Varsayılan "Tümü"; "Sadece benimki" kendi kanalında, "Seç" işaretlenen
-// kanallarda banlar. Yalnızca ekipte birden çok kanal varsa görünür, ban kaldırmada yoktur. Seçim ban atılana dek
-// taslakla saklanır, ban atılınca "Tümü"ne döner.
-const scopeVisible = () => Boolean(state.scopeSupported && state.team && state.team.channels.length > 1 && !unbanMode());
+// kanallarda banlar ya da banı kaldırır. Yalnızca ekipte birden çok kanal varsa görünür. Seçim işlem yapılana dek
+// taslakla saklanır, işlem yapılınca "Tümü"ne döner.
+// Ban kaldırmada seçimi 0.15.0 öncesi sunucu tanımaz ve bütün kanallarda kaldırırdı; orada seçici gizlenir.
+const scopeEnabled = () => Boolean(state.scopeSupported && (!unbanMode() || state.unbanScopeSupported));
+const scopeVisible = () => Boolean(scopeEnabled() && state.team && state.team.channels.length > 1);
 
 // Banın uygulanacağı kanallar. channels: sunucuya gidecek kimlikler; seçim yoksa ya da hepsi seçiliyse null.
 function resolveScope() {
   const all = state.team ? state.team.channels : [];
   let list = all;
-  if (state.scopeSupported && all.length > 1) {
+  if (scopeEnabled() && all.length > 1) {
     const { mode, ids } = state.scope;
     if (mode === "own") {
       const own = all.filter((c) => c.broadcaster_id === state.me.user.id);
@@ -1134,8 +1138,10 @@ function resetScope() {
 // bu yüzden seçici yalnızca 0.14.0 ve sonrasında görünür.
 async function checkScopeSupport() {
   const ok = await serverAtLeast(0, 14, 0);
-  if (ok === state.scopeSupported) return;
+  const unbanOk = await serverAtLeast(0, 15, 0);
+  if (ok === state.scopeSupported && unbanOk === state.unbanScopeSupported) return;
   state.scopeSupported = ok;
+  state.unbanScopeSupported = unbanOk;
   if (state.team) renderScope();
 }
 
@@ -1159,7 +1165,12 @@ async function serverAtLeast(...want) {
 
 // Uzun kaldırma listesi, toplu ban gibi sunucudaki sıraya gider; panel kapansa da işlenir.
 // Kısa listeler eskisi gibi tek tek kaldırılır ve sonuçları hemen görünür.
-function submitUnban(form, button, usernames, count) {
+function submitUnban(form, button, usernames) {
+  const target = resolveScope();
+  if (!target.list.length) {
+    showMessage(t("scopeNone"));
+    return;
+  }
   if (usernames.length > MAX_IMPORT) {
     showMessage(t("banLimit", MAX_IMPORT, usernames.length));
     return;
@@ -1167,26 +1178,31 @@ function submitUnban(form, button, usernames, count) {
   const label = button.textContent;
   run(button, async () => {
     const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
+    // Seçim yapıldıysa onay metni kanalları söyler; sunucuya yalnızca gerçek seçim gider.
+    const count = target.list.length;
+    const extra = target.channels ? { channels: target.channels } : {};
+    const where = target.channels ? `${t("scopeOnly", target.list.map((c) => c.slug).join(", "))} ` : "";
     if (usernames.length > QUEUE_THRESHOLD) {
       // 0.12.1 öncesi sunucu sıradaki işlemin türünü tanımaz ve listeyi banlar; orada eski sınır geçerli.
       if (!(await serverAtLeast(0, 12, 1))) throw new Error(t("unbanLimit", QUEUE_THRESHOLD, usernames.length));
-      if (!(await ask(t("confirmUnbanQueue", who, count)))) return;
-      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, action: "unban" });
+      if (!(await ask(where + t("confirmUnbanQueue", who, count)))) return;
+      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, action: "unban", ...extra });
       form.username.value = "";
+      resetScope();
       updateNameCount();
       $("ban-result").replaceChildren();
       showMessage(t("queued", added, skipped), "info");
       await pollQueue();
       return;
     }
-    if (!(await ask(t("confirmUnban", who, count)))) return;
+    if (!(await ask(where + t("confirmUnban", who, count)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
     try {
       for (const [index, username] of usernames.entries()) {
         button.textContent = t("unbanning", index + 1, usernames.length);
         try {
-          const ban = await api("POST", `/teams/${state.teamId}/unbans`, { username });
+          const ban = await api("POST", `/teams/${state.teamId}/unbans`, { username, ...extra });
           $("ban-result").prepend(banCard(ban));
         } catch (e) {
           if (!state.token) throw e;
@@ -1206,6 +1222,7 @@ function submitUnban(form, button, usernames, count) {
     form.username.value = failed.join("\n");
     updateNameCount();
     if (failed.length) showMessage(t("unbanFailedN", failed.length));
+    else resetScope();
     await loadBans();
   });
 }
@@ -1222,7 +1239,7 @@ $("tab-ban").onsubmit = (event) => {
     return;
   }
   if (!usernames.length) return;
-  if (unbanMode()) return submitUnban(form, button, usernames, count);
+  if (unbanMode()) return submitUnban(form, button, usernames);
   const target = resolveScope();
   if (!target.list.length) {
     showMessage(t("scopeNone"));
