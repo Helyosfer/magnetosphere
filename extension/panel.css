@@ -358,7 +358,10 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .ban .meta .avatar { background: var(--raised); color: var(--text); }
 .ban .meta .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ban .meta time { flex: none; }
-.ban .foot { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; }
+.ban .foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px; }
+/* Kanal bandan sonra eklendiyse kartın altında açıklaması durur */
+.ban .hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ban .hint.bad { color: #ff9aa4; }
 .ban .actions { display: flex; gap: 5px; margin-inline-start: auto; transition: opacity .12s; }
 /* Aksiyonlar kartın üzerine gelince ya da klavyeyle odaklanınca belirir. Yarım kalan banda "Tekrar dene"
    gözden kaçmasın diye hep görünür; fare olmayan cihazda da gizlenmez. */

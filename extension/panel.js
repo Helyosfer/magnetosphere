@@ -217,6 +217,11 @@ function banCard(ban) {
   const applied = ban.results.filter((r) => r.status === "ok").length;
   const complete = applied === ban.results.length;
   const inFlight = applying(ban);
+  // Banın atılmasından sonra eklenen kanalda ban hiç denenmemiştir ("uygulanmadı"). Bu bir hata değildir;
+  // kartta açıkça yazılır ve düğme "Tekrar dene" yerine ne yapacağını söyler.
+  const missing = inFlight || ban.revoked_at ? [] : ban.results.filter((r) => r.status === "pending").map((r) => r.slug);
+  const failed = ban.revoked_at ? [] : ban.results.filter((r) => r.status === "failed");
+  const hasFailed = failed.length > 0;
   const chips = ban.results.map((r) => {
     const via = r.via === "broadcaster" && r.status === "ok" ? t("viaBroadcaster") : "";
     const status = inFlight && r.status === "pending" ? t("statusApplying") : t(STATUS_KEY[r.status]);
@@ -251,7 +256,10 @@ function banCard(ban) {
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
     if (!complete && !inFlight) {
-      const retry = el("button", { className: "ghost small retry", textContent: t("retry") });
+      const retry = el("button", {
+        className: "ghost small retry",
+        textContent: missing.length && !hasFailed ? t("applyMissing") : t("retry"),
+      });
       retry.onclick = () => run(retry, async () => {
         await api("POST", `/teams/${state.teamId}/bans/${ban.id}/retry`);
         await loadBans();
@@ -270,6 +278,13 @@ function banCard(ban) {
     if (actions.children.length) foot.append(actions);
   }
   card.append(foot);
+  if (missing.length) card.append(el("div", { className: "hint", textContent: t("missingChannels", missing.join(", ")) }));
+  // Kick'in verdiği sebep (ör. o kanalda moderatör olmamak) imleç üstüne gelmeden de görünür; ilk ikisi yazılır.
+  const reasons = failed.filter((r) => r.detail);
+  if (reasons.length) {
+    const shown = reasons.slice(0, 2).map((r) => `${r.slug}: ${r.detail}`).join(" · ");
+    card.append(el("div", { className: "hint bad", textContent: shown + (reasons.length > 2 ? ` · +${reasons.length - 2}` : "") }));
+  }
   if (tag.dataset.expires) updateTimedTag(tag);
   return card;
 }

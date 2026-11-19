@@ -25,7 +25,7 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t"}
+         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -790,6 +790,40 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(join(), {"id": tid, "name": "Önizleme", "already": True})
         self.assertTrue(preview(yeni, code)[1]["member"])
         BANNED.difference_update({b for b in BANNED if b[0] == 63})
+        app.LOGIN_HITS.clear()
+
+    def test_retry_missing_channel(self):
+        """Ban atıldıktan sonra eklenen kanal kartta "uygulanmadı" görünür; Tekrar dene yalnızca o kanala istek atar."""
+        app.LOGIN_HITS.clear()
+        BANNED.difference_update({b for b in BANNED if b[0] in (1, 68)})
+        sahip = self.login(68)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Sonradan"})[1]["id"]
+        ban = call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol"})[1]
+        self.assertEqual([(r["slug"], r["status"]) for r in ban["results"]], [("sahip-r", "ok")])
+
+        # Arkadaşın kanalı ban atıldıktan sonra eklenir: eski ban orada denenmemiş (pending) görünür.
+        MODS[1].add(68)
+        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-a"})
+        listed = call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]["bans"][0]
+        self.assertEqual([(r["slug"], r["status"]) for r in listed["results"]],
+                         [("sahip-r", "ok"), ("yayinci-a", "pending")])
+        self.assertEqual(BANNED & {(1, 99), (68, 99)}, {(68, 99)})
+
+        # Tekrar dene, zaten banlı olan kendi kanalına yeniden istek atmaz; yalnızca eksik kanala gider.
+        sent, real = [], app.call_channel
+        app.call_channel = lambda candidates, body, unban: (sent.append(body["broadcaster_user_id"]),
+                                                            real(candidates, body, unban))[1]
+        try:
+            retried = call(self.base, "POST", f"/teams/{tid}/bans/{ban['id']}/retry", sahip)[1]
+        finally:
+            app.call_channel = real
+        self.assertEqual(sent, [1])
+        self.assertEqual([(r["slug"], r["status"]) for r in retried["results"]],
+                         [("sahip-r", "ok"), ("yayinci-a", "ok")])
+        self.assertEqual(BANNED & {(1, 99), (68, 99)}, {(1, 99), (68, 99)})
+
+        MODS[1].discard(68)
+        BANNED.difference_update({b for b in BANNED if b[0] in (1, 68)})
         app.LOGIN_HITS.clear()
 
     def test_roles(self):
