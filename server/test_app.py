@@ -1,4 +1,5 @@
 """Sahte bir Kick API'sine karşı uçtan uca testler: python -m unittest test_app"""
+import email.message
 import http.client
 import json
 import os
@@ -771,6 +772,49 @@ class CrossBanTest(unittest.TestCase):
         # Yalnızca bu yollar statik; başka dosya adı istenemez.
         self.assertEqual(call(self.base, "GET", "/join.html")[0], 404)
         self.assertEqual(call(self.base, "GET", "/web/join.js")[0], 404)
+
+    def test_head_and_client_disconnect(self):
+        """HEAD, GET ile aynı başlıkları gövdesiz döner; yanıtı beklemeden ayrılan istemci hata sayılmaz."""
+        head = lambda path: urllib.request.urlopen(urllib.request.Request(self.base + path, method="HEAD"))
+        with urllib.request.urlopen(self.base + "/health") as res:
+            body = res.read()
+        self.assertEqual(json.loads(body), {"ok": True, "version": app.VERSION})
+        with head("/health") as res:
+            self.assertEqual((res.status, res.read(), int(res.headers["Content-Length"])), (200, b"", len(body)))
+            self.assertIn("json", res.headers["Content-Type"])
+        with head("/join") as res:
+            self.assertEqual((res.status, res.read()), (200, b""))
+            self.assertIn("script-src 'self'", res.headers["Content-Security-Policy"])
+        # HEAD, oturum gerektiren ve olmayan yollarda GET gibi davranır.
+        for path, status in (("/yok", 404), ("/me", 401)):
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                head(path)
+            self.assertEqual(caught.exception.code, status, path)
+
+        # Panel kapanınca bağlantı kopar: yanıt yazılamaz ama istisna dışarı çıkmaz, günlüğe hata düşmez.
+        class Gone:
+            def write(self, data):
+                raise BrokenPipeError
+
+            def flush(self):
+                pass
+
+        handler = object.__new__(app.Handler)
+        handler.wfile, handler.headers = Gone(), email.message.Message()
+        handler.command, handler.path, handler.request_version = "POST", "/teams/1/bans", "HTTP/1.1"
+        handler.requestline, handler.client_address = "POST /teams/1/bans HTTP/1.1", ("127.0.0.1", 1)
+        handler.close_connection = False
+        handler.send_json(200, {"ok": True})
+        self.assertTrue(handler.close_connection)
+        handler.send_page("join.js", "text/javascript")
+        # Bağlantı kopması dışındaki yazma hataları yutulmaz.
+        class Broken(Gone):
+            def write(self, data):
+                raise ValueError("beklenmeyen")
+
+        handler.wfile = Broken()
+        with self.assertRaises(ValueError):
+            handler.send_json(200, {"ok": True})
 
     def test_invite_preview(self):
         """Bağlantıyla katılmadan önce ekip adı ve sahibi görünür; zaten üye olana 'already' döner."""

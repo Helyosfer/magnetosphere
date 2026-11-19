@@ -1529,8 +1529,21 @@ class Handler(BaseHTTPRequestHandler):
         if raw:
             self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        self.end_response(raw)
+
+    def end_response(self, raw):
+        """Başlıkları bitirir ve gövdeyi yazar; HEAD isteğinde gövde yazılmaz.
+
+        İstemci yanıtı beklemeden ayrıldıysa (ör. Chrome'un başka yere tıklanınca kapanan eklenti paneli)
+        yazacak kimse kalmamıştır. İş zaten yapılmıştır, bu bir hata değil; günlüğe tek satır düşer.
+        """
+        try:
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            self.close_connection = True
+            print(f"{self.command} {log_path(self.path)} istemci yanıtı beklemeden ayrıldı")
 
     def client_ip(self):
         # Ters vekilin arkasında gerçek adres X-Forwarded-For'un son değeridir; öncekileri istemci uydurabilir.
@@ -1558,19 +1571,20 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; "
                          "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-        self.end_headers()
-        self.wfile.write(raw)
+        self.end_response(raw)
 
     def dispatch(self):
         url = urllib.parse.urlsplit(self.path)
-        if self.command == "GET" and url.path in WEB_PAGES:
+        # HEAD, GET ile aynı yoldan geçer, yalnızca gövdesiz döner (izleme servisleri /health'i böyle yoklar).
+        verb = "GET" if self.command == "HEAD" else self.command
+        if verb == "GET" and url.path in WEB_PAGES:
             return self.send_page(*WEB_PAGES[url.path])
         query = dict(urllib.parse.parse_qsl(url.query))
         db = connect()
         try:
             for method, pattern, fn, needs_auth in ROUTES:
                 match = re.fullmatch(pattern, url.path)
-                if method != self.command or not match:
+                if method != verb or not match:
                     continue
                 body = {}
                 raw_length = self.headers.get("Content-Length") or "0"
@@ -1618,7 +1632,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_json(204)
 
-    do_GET = do_POST = do_DELETE = dispatch
+    do_GET = do_HEAD = do_POST = do_DELETE = dispatch
 
 
 def main():
