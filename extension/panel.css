@@ -255,6 +255,10 @@ fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 .note { padding: 9px 11px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
 select.small { width: auto; padding-block: 3px; padding-inline: 8px 26px; font-size: 12px; background-position: right 8px center; }
 .setting { margin-top: 8px; }
+/* Ban formundaki kanal seçici: "Seç" ile açılan işaret kutuları; çok kanallı ekipte kaydırılır */
+.scope-list { max-height: 148px; overflow-y: auto; margin-top: 6px; padding: 2px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.scope-list li { padding: 5px 0; }
+.scope-list .switch input { margin-top: 2px; }
 .switch { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
 .switch input { width: auto; margin: 3px 0 0; accent-color: var(--accent); }
 .help { margin-top: 8px; }
@@ -354,7 +358,10 @@ button.link.quiet { color: var(--muted); font-weight: 400; }
 .ban .meta .avatar { background: var(--raised); color: var(--text); }
 .ban .meta .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ban .meta time { flex: none; }
-.ban .foot { display: flex; align-items: flex-end; gap: 8px; margin-top: 8px; }
+.ban .foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px; }
+/* Kanal bandan sonra eklendiyse kartın altında açıklaması durur */
+.ban .hint { margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ban .hint.bad { color: #ff9aa4; }
 .ban .actions { display: flex; gap: 5px; margin-inline-start: auto; transition: opacity .12s; }
 /* Aksiyonlar kartın üzerine gelince ya da klavyeyle odaklanınca belirir. Yarım kalan banda "Tekrar dene"
    gözden kaçmasın diye hep görünür; fare olmayan cihazda da gizlenmez. */

@@ -63,7 +63,7 @@ CFG = {
     "kick_rps_max": float(os.environ.get("KICK_REQUESTS_PER_SECOND_MAX", "5")),
 }
 
-VERSION = "0.13.0"
+VERSION = "0.14.0"
 SCOPES = "user:read channel:read moderation:ban"
 # Chrome'un getRedirectURL() adresi; yolda yalnızca güvenli karakterler (satır sonu ve boşluk yok).
 REDIRECT_RE = re.compile(r"https://([a-p]{32})\.chromiumapp\.org/[A-Za-z0-9._~/-]*")
@@ -148,7 +148,8 @@ CREATE TABLE IF NOT EXISTS bans (
     created_at INTEGER NOT NULL,
     revoked_by INTEGER REFERENCES users(id),
     revoked_at INTEGER,
-    external INTEGER NOT NULL DEFAULT 0   -- 1: ban Kick'te Magnetosphere dışında atılmıştı, kayıt kaldırılırken açıldı
+    external INTEGER NOT NULL DEFAULT 0,  -- 1: ban Kick'te Magnetosphere dışında atılmıştı, kayıt kaldırılırken açıldı
+    scope TEXT                       -- JSON: banın uygulandığı kanalların kimlikleri; NULL = ekibin bütün kanalları
 );
 CREATE TABLE IF NOT EXISTS ban_results (
     ban_id INTEGER NOT NULL REFERENCES bans(id),
@@ -172,7 +173,9 @@ CREATE TABLE IF NOT EXISTS queue (
     attempts INTEGER NOT NULL DEFAULT 0,
     retry_at INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    action TEXT NOT NULL DEFAULT 'ban'  -- ban | unban
+    action TEXT NOT NULL DEFAULT 'ban',  -- ban | unban
+    channels TEXT,                   -- JSON: sıraya girerken ekibin kanalları; işçi yalnızca bunlara uygular
+    scoped INTEGER NOT NULL DEFAULT 0  -- 1: kanalları kullanıcı seçti, ban kapsamı olarak kaydedilir
 );
 CREATE INDEX IF NOT EXISTS queue_pending ON queue (status, id);
 """
@@ -206,6 +209,12 @@ def init_db():
     # Sıra eskiden yalnızca ban atardı; toplu ban kaldırma da sıraya girer.
     if "action" not in [c["name"] for c in db.execute("PRAGMA table_info(queue)")]:
         db.execute("ALTER TABLE queue ADD COLUMN action TEXT NOT NULL DEFAULT 'ban'")
+    # Kanal seçimi öncesi veritabanları: boş kapsam "ekibin bütün kanalları" demektir, eski kayıtlar değişmez.
+    if "scope" not in [c["name"] for c in db.execute("PRAGMA table_info(bans)")]:
+        db.execute("ALTER TABLE bans ADD COLUMN scope TEXT")
+    if "channels" not in [c["name"] for c in db.execute("PRAGMA table_info(queue)")]:
+        db.execute("ALTER TABLE queue ADD COLUMN channels TEXT")
+        db.execute("ALTER TABLE queue ADD COLUMN scoped INTEGER NOT NULL DEFAULT 0")
     # Anahtar tanımlıysa düz metin kalmış tokenlar şifrelenir.
     if fernet():
         for user in db.execute("SELECT id, access_token, refresh_token FROM users").fetchall():
@@ -489,8 +498,23 @@ def call_channel(candidates, body, unban):
     return False, detail, via
 
 
-def apply_ban(db, ban, actor, unban=False, only_unfinished=False, everywhere=False):
-    """everywhere: ban kaldırılırken kayıtta tutmamış kanallar da denenir (ban Kick'te elle atılmış olabilir)."""
+def ban_scope(ban):
+    """Banın kapsamı: kanal kimlikleri kümesi; None ise ekibin bütün kanalları."""
+    raw = ban["scope"]
+    return None if raw is None else set(json.loads(raw))
+
+
+def team_channel_ids(db, team_id):
+    return {r["broadcaster_id"] for r in db.execute(
+        "SELECT broadcaster_id FROM channels WHERE team_id = ?", (team_id,))}
+
+
+def apply_ban(db, ban, actor, unban=False, only_unfinished=False, everywhere=False, only=None):
+    """everywhere: ban kaldırılırken kayıtta tutmamış kanallar da denenir (ban Kick'te elle atılmış olabilir).
+
+    only: yalnızca bu kanal kimlikleri denenir. Kapsamı olan bir ban, kapsamı dışındaki kanallara uygulanmaz.
+    """
+    scope = ban_scope(ban)
     channels = db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
                           (ban["team_id"],)).fetchall()
     done = {r["broadcaster_id"]: r["status"] for r in db.execute(
@@ -498,6 +522,10 @@ def apply_ban(db, ban, actor, unban=False, only_unfinished=False, everywhere=Fal
     jobs = []
     for channel in channels:
         current = done.get(channel["broadcaster_id"])
+        if only is not None and channel["broadcaster_id"] not in only:
+            continue
+        if scope is not None and not unban and channel["broadcaster_id"] not in scope:
+            continue
         if unban and not everywhere and current not in ("ok", "unban_failed"):
             continue
         if only_unfinished and current == "ok":
@@ -527,8 +555,11 @@ def apply_ban(db, ban, actor, unban=False, only_unfinished=False, everywhere=Fal
 def ban_json(db, ban):
     results = {r["broadcaster_id"]: r for r in db.execute(
         "SELECT * FROM ban_results WHERE ban_id = ?", (ban["id"],))}
-    channels = db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
-                          (ban["team_id"],)).fetchall()
+    scope = ban_scope(ban)
+    # Kapsamı olan banda yalnızca seçilen kanallar (ve sonucu olanlar) görünür; diğerleri "uygulanmadı" sayılmaz.
+    channels = [c for c in db.execute("SELECT * FROM channels WHERE team_id = ? ORDER BY slug",
+                                      (ban["team_id"],)).fetchall()
+                if scope is None or c["broadcaster_id"] in scope or c["broadcaster_id"] in results]
     creator = db.execute("SELECT name FROM users WHERE id = ?", (ban["created_by"],)).fetchone()
     # Süreli uzaklaştırma her kanalda uygulandığı andan itibaren işler; en son uygulanan kanal bitişi belirler.
     expires_at = None
@@ -548,6 +579,7 @@ def ban_json(db, ban):
         "revoked_at": ban["revoked_at"],
         "external": bool(ban["external"]),
         "results": [{
+            "broadcaster_id": c["broadcaster_id"],
             "slug": c["slug"],
             "status": results[c["broadcaster_id"]]["status"] if c["broadcaster_id"] in results else "pending",
             "detail": results[c["broadcaster_id"]]["detail"] if c["broadcaster_id"] in results else "",
@@ -1061,10 +1093,26 @@ def parse_ban_options(body):
     return reason, duration
 
 
-def create_ban(db, team, actor, username, reason, duration, resolved=None):
+def parse_channels(db, team, body):
+    """İstekteki kanal seçimi (kanal kimlikleri listesi); seçim yoksa None: ekibin bütün kanalları."""
+    raw = body.get("channels")
+    if raw is None:
+        return None
+    if (not isinstance(raw, list) or not raw or len(raw) > MAX_CHANNELS_PER_TEAM
+            or any(type(c) is not int for c in raw)):
+        raise ApiError(400, "Kanal seçimi geçersiz")
+    if not set(raw) <= team_channel_ids(db, team["id"]):
+        raise ApiError(400, "Seçilen kanallar bu ekipte yok")
+    return sorted(set(raw))
+
+
+def create_ban(db, team, actor, username, reason, duration, resolved=None, channels=None, scoped=False):
     """Kullanıcıyı ekibin tüm kanallarında banlar; aktif kaydı varsa eksik kanalları tamamlar.
 
     resolved: (user_id, slug) önceden sorgulandıysa Kick'e yeniden sorulmaz.
+    channels: bu seferde uygulanacak kanal kimlikleri (None: ekibin bütün kanalları). Ekipten çıkarılmış
+    kanallar atlanır. scoped: seçim banın kapsamı olarak kaydedilir; değilse ban ekibin bütün kanallarına
+    aittir ve sonradan eklenen kanallar için "Tekrar dene" çıkar.
     """
     target_id, slug = resolved or lookup_channel(db, actor, username)
     # Sızan bir davet koduyla izleyici olarak katılan biri kendini bandan korumasın diye
@@ -1076,27 +1124,44 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None):
         (team["id"], target_id, team["id"], target_id)).fetchone()
     if protected:
         raise ApiError(400, "Ekip üyeleri ve ekipteki yayıncılar banlanamaz")
-    if not db.execute("SELECT 1 FROM channels WHERE team_id = ?", (team["id"],)).fetchone():
+    team_channels = team_channel_ids(db, team["id"])
+    if not team_channels:
         raise ApiError(400, "Önce ekibe en az bir kanal ekle")
+    chosen = team_channels if channels is None else team_channels & set(channels)
+    if not chosen:
+        raise ApiError(400, "Seçilen kanallar bu ekipte yok")
+    # Hepsi seçildiyse ban ekibin bütün kanallarına aittir.
+    scoped = scoped and chosen != team_channels
     # Süresi dolmuş uzaklaştırma aktif sayılmaz: yeniden banlamak yeni kayıt açar ve Kick'e gerçekten gider.
     ban = db.execute(
         f"SELECT * FROM bans WHERE team_id = ? AND target_id = ? AND {active_sql()} ORDER BY id DESC",
         (team["id"], target_id, int(time.time()))).fetchone()
     if not ban:
         cur = db.execute(
-            "INSERT INTO bans (team_id, target_id, target_name, reason, duration, created_by, created_at) "
-            "VALUES (?,?,?,?,?,?,?)",
-            (team["id"], target_id, slug, reason, duration, actor["id"], int(time.time())))
+            "INSERT INTO bans (team_id, target_id, target_name, reason, duration, created_by, created_at, scope) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (team["id"], target_id, slug, reason, duration, actor["id"], int(time.time()),
+             json.dumps(sorted(chosen)) if scoped else None))
         ban = db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
-    apply_ban(db, ban, actor, only_unfinished=True)
+    else:
+        # Var olan banın kapsamı genişler, daralmaz: kapsamsız ban ya da "tümü" isteği kapsamı kaldırır.
+        old = ban_scope(ban)
+        new = None if not scoped or old is None else old | chosen
+        if new != old:
+            db.execute("UPDATE bans SET scope = ? WHERE id = ?",
+                       (None if new is None else json.dumps(sorted(new)), ban["id"]))
+            ban = db.execute("SELECT * FROM bans WHERE id = ?", (ban["id"],)).fetchone()
+    apply_ban(db, ban, actor, only_unfinished=True, only=chosen)
     return ban
 
 
 def ban_create(req, team_id):
     team = team_for(req, team_id, need="mod")
     reason, duration = parse_ban_options(req.body)
+    channels = parse_channels(req.db, team, req.body)
     with kick_slot(req.user["id"]):
-        ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration)
+        ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration,
+                         channels=channels, scoped=channels is not None)
     return ban_json(req.db, ban)
 
 
@@ -1169,8 +1234,9 @@ def import_create(req, team_id):
     action = req.body.get("action") or "ban"
     if action not in ("ban", "unban"):
         raise ApiError(400, "Geçersiz işlem")
-    # Ban kaldırmada sebep ve süre yoktur.
+    # Ban kaldırmada sebep, süre ve kanal seçimi yoktur.
     reason, duration = parse_ban_options(req.body) if action == "ban" else ("", None)
+    selected = parse_channels(req.db, team, req.body) if action == "ban" else None
     usernames = req.body.get("usernames")
     if not isinstance(usernames, list) or not usernames:
         raise ApiError(400, "Kullanıcı listesi boş")
@@ -1183,6 +1249,10 @@ def import_create(req, team_id):
     room = MAX_QUEUE_PER_TEAM - len(waiting)
     if room <= 0:
         raise ApiError(400, "Sıra dolu; bekleyen kayıtlar işlenince tekrar dene")
+    # Kanallar sıraya girerken sabitlenir: liste işlenirken ekibe eklenen kanal kalan adlara uygulanmaz.
+    snapshot = None
+    if action == "ban":
+        snapshot = json.dumps(selected if selected is not None else sorted(team_channel_ids(req.db, team["id"])))
     now, added = int(time.time()), 0
     for name in usernames:
         # Metin olmayan öğe atlanır; str() ile null "None" adlı bir Kick kullanıcısına dönüşüp banlanmasın.
@@ -1193,8 +1263,9 @@ def import_create(req, team_id):
             continue
         waiting.add(name.lower())
         req.db.execute(
-            "INSERT INTO queue (team_id, target_name, reason, duration, created_by, created_at, action) "
-            "VALUES (?,?,?,?,?,?,?)", (team["id"], name, reason, duration, req.user["id"], now, action))
+            "INSERT INTO queue (team_id, target_name, reason, duration, created_by, created_at, action, "
+            "channels, scoped) VALUES (?,?,?,?,?,?,?,?,?)",
+            (team["id"], name, reason, duration, req.user["id"], now, action, snapshot, int(selected is not None)))
         added += 1
     return {"added": added, "skipped": len(usernames) - added}
 
@@ -1305,12 +1376,14 @@ def process_next():
             finish("error", "Listeyi yükleyen kişi artık ekipte değil ya da ban yetkisi yok")
             return True
         unban = row["action"] == "unban"
+        snapshot = json.loads(row["channels"]) if row["channels"] else None
         try:
             resolved = resolve_queued(db, row, actor)
             if unban:
                 ban = create_unban(db, team, actor, role, row["target_name"], resolved)
             else:
-                ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved)
+                ban = create_ban(db, team, actor, row["target_name"], row["reason"], row["duration"], resolved,
+                                 channels=snapshot, scoped=bool(row["scoped"]))
         except ApiError as e:
             if e.status == 404:
                 finish("notfound")
@@ -1326,7 +1399,9 @@ def process_next():
             finish("error", repr(e))
             raise
         expected = "unbanned" if unban else "ok"
-        failed = [r for r in ban_json(db, ban)["results"] if r["status"] != expected]
+        # Sonradan eklenen kanallar bu kayıtta denenmedi; "uygulanmadı" diye hata sayılmaz.
+        failed = [r for r in ban_json(db, ban)["results"] if r["status"] != expected
+                  and (unban or snapshot is None or r["broadcaster_id"] in snapshot)]
         if any(r["detail"].startswith("429") for r in failed):
             retry_later("Kick istek sınırı")
         elif failed:
@@ -1454,8 +1529,21 @@ class Handler(BaseHTTPRequestHandler):
         if raw:
             self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        self.end_response(raw)
+
+    def end_response(self, raw):
+        """Başlıkları bitirir ve gövdeyi yazar; HEAD isteğinde gövde yazılmaz.
+
+        İstemci yanıtı beklemeden ayrıldıysa (ör. Chrome'un başka yere tıklanınca kapanan eklenti paneli)
+        yazacak kimse kalmamıştır. İş zaten yapılmıştır, bu bir hata değil; günlüğe tek satır düşer.
+        """
+        try:
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(raw)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            self.close_connection = True
+            print(f"{self.command} {log_path(self.path)} istemci yanıtı beklemeden ayrıldı")
 
     def client_ip(self):
         # Ters vekilin arkasında gerçek adres X-Forwarded-For'un son değeridir; öncekileri istemci uydurabilir.
@@ -1483,19 +1571,20 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; "
                          "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-        self.end_headers()
-        self.wfile.write(raw)
+        self.end_response(raw)
 
     def dispatch(self):
         url = urllib.parse.urlsplit(self.path)
-        if self.command == "GET" and url.path in WEB_PAGES:
+        # HEAD, GET ile aynı yoldan geçer, yalnızca gövdesiz döner (izleme servisleri /health'i böyle yoklar).
+        verb = "GET" if self.command == "HEAD" else self.command
+        if verb == "GET" and url.path in WEB_PAGES:
             return self.send_page(*WEB_PAGES[url.path])
         query = dict(urllib.parse.parse_qsl(url.query))
         db = connect()
         try:
             for method, pattern, fn, needs_auth in ROUTES:
                 match = re.fullmatch(pattern, url.path)
-                if method != self.command or not match:
+                if method != verb or not match:
                     continue
                 body = {}
                 raw_length = self.headers.get("Content-Length") or "0"
@@ -1543,7 +1632,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_json(204)
 
-    do_GET = do_POST = do_DELETE = dispatch
+    do_GET = do_HEAD = do_POST = do_DELETE = dispatch
 
 
 def main():

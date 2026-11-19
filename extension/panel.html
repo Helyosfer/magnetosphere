@@ -209,6 +209,16 @@
           </div>
         </div>
 
+        <div id="scope-field" class="field" hidden>
+          <span class="label" data-i18n="channels">Kanallar</span>
+          <div class="segmented" role="radiogroup" aria-label="Kanallar" data-i18n-aria="channels">
+            <label><input type="radio" name="scope" value="all" checked><span data-i18n="scopeAll">Tümü</span></label>
+            <label id="scope-own"><input type="radio" name="scope" value="own"><span data-i18n="scopeOwn">Sadece benimki</span></label>
+            <label><input type="radio" name="scope" value="custom"><span data-i18n="scopeCustom">Seç…</span></label>
+          </div>
+          <ul id="scope-list" class="scope-list" hidden></ul>
+        </div>
+
         <p id="targets" class="muted small"></p>
         <button id="ban-submit" class="danger wide" data-i18n="banAll">Tüm kanallarda banla</button>
         </fieldset>
