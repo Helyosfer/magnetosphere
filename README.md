@@ -55,6 +55,7 @@ Adını, Dünya'yı güneş rüzgârına karşı koruyan manyetik kalkandan (man
 | | |
 |---|---|
 | **Birden çok kanalda tek seferde ban** | Kalıcı ban ya da 10 dakika, 1 saat, 1 gün veya 7 günlük uzaklaştırma; bütün kanallara aynı anda uygulanır. |
+| **Kanal seçimi** | Ekipte birden çok kanal varken **Banla** sekmesinde banın nerede atılacağı seçilir: **Tümü**, **Sadece benimki** ya da **Seç…** ile işaretlenen kanallar. Seçim yalnızca o ban içindir; ban atılınca **Tümü**'ne döner. Uzun listelerde kanallar sıraya girerken sabitlenir: liste işlenirken ekibe eklenen kanal kalan adlara uygulanmaz. |
 | **Toplu ban, içe ve dışa aktarma** | Adları yapıştır ya da `.txt`, `.csv`, `.json` dosyası yükle (tek seferde 6.000 ada kadar). CSV dosyalarında yalnızca ilk sütun okunur, başlık satırı atlanır. **Liste > Dışa aktar**, ekibin bütün kalıcı banlarını her satırda bir kullanıcı adı olan bir `.txt` dosyası olarak indirir; dosya başka bir ekibe olduğu gibi yüklenebilir. |
 | **Arka plan sırası** | Uzun listeler sunucuda sıraya alınır; panel ya da tarayıcı kapansa da banlar atılmaya devam eder. İlerleme, bulunamayan adlar ve iptal panelden yönetilir. |
 | **Kick'in istek sınırına uyum** | İstek hızı kendiliğinden ayarlanır. Kick istekleri yavaşlatırsa hiçbir ad kaybolmaz, sıraya geri döner. |

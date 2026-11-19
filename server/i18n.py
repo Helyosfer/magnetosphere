@@ -61,6 +61,8 @@ EN = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "New members can start as moderator or viewer",
     "Davet kodu geçersiz": "Invalid invite code",
     "Geçersiz işlem": "Invalid action",
+    "Kanal seçimi geçersiz": "Invalid channel selection",
+    "Seçilen kanallar bu ekipte yok": "The selected channels aren't on this team",
     "En fazla {n} ekibe üye olabilirsin": "You can be a member of at most {n} teams",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "The team owner's role can't be changed; you can transfer ownership to another member",
@@ -147,6 +149,8 @@ ES = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Los nuevos miembros pueden empezar como moderador o espectador",
     "Davet kodu geçersiz": "Código de invitación no válido",
     "Geçersiz işlem": "Acción no válida",
+    "Kanal seçimi geçersiz": "Selección de canales no válida",
+    "Seçilen kanallar bu ekipte yok": "Los canales seleccionados no están en este equipo",
     "En fazla {n} ekibe üye olabilirsin": "Puedes ser miembro de {n} equipos como máximo",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "No se puede cambiar el rol del dueño del equipo; puedes transferir la propiedad a otro miembro",
@@ -233,6 +237,8 @@ PT = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Novos membros podem começar como moderador ou espectador",
     "Davet kodu geçersiz": "Código de convite inválido",
     "Geçersiz işlem": "Ação inválida",
+    "Kanal seçimi geçersiz": "Seleção de canais inválida",
+    "Seçilen kanallar bu ekipte yok": "Os canais selecionados não estão nesta equipe",
     "En fazla {n} ekibe üye olabilirsin": "Você pode participar de no máximo {n} equipes",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "O cargo do dono da equipe não pode ser alterado; você pode transferir a posse para outro membro",
@@ -319,6 +325,8 @@ AR = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "يمكن للأعضاء الجدد البدء مشرفين أو مشاهدين",
     "Davet kodu geçersiz": "رمز الدعوة غير صالح",
     "Geçersiz işlem": "إجراء غير صالح",
+    "Kanal seçimi geçersiz": "اختيار القنوات غير صالح",
+    "Seçilen kanallar bu ekipte yok": "القنوات المحددة غير موجودة في هذا الفريق",
     "En fazla {n} ekibe üye olabilirsin": "يمكنك أن تكون عضوًا في {n} فرق كحد أقصى",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "لا يمكن تغيير دور مالك الفريق؛ يمكنك نقل الملكية إلى عضو آخر",
@@ -404,6 +412,8 @@ DE = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Neue Mitglieder können als Moderator oder Zuschauer starten",
     "Davet kodu geçersiz": "Ungültiger Einladungscode",
     "Geçersiz işlem": "Ungültige Aktion",
+    "Kanal seçimi geçersiz": "Ungültige Kanalauswahl",
+    "Seçilen kanallar bu ekipte yok": "Die ausgewählten Kanäle gehören nicht zu diesem Team",
     "En fazla {n} ekibe üye olabilirsin": "Du kannst höchstens in {n} Teams Mitglied sein",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "Die Rolle des Teambesitzers kann nicht geändert werden; du kannst den Besitz an ein anderes Mitglied übertragen",
@@ -489,6 +499,8 @@ FR = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Les nouveaux membres peuvent commencer comme modérateur ou spectateur",
     "Davet kodu geçersiz": "Code d'invitation invalide",
     "Geçersiz işlem": "Action invalide",
+    "Kanal seçimi geçersiz": "Sélection de chaînes invalide",
+    "Seçilen kanallar bu ekipte yok": "Les chaînes sélectionnées ne font pas partie de cette équipe",
     "En fazla {n} ekibe üye olabilirsin": "Tu peux être membre d'au plus {n} équipes",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "Le rôle du propriétaire ne peut pas être modifié ; tu peux transférer la propriété à un autre membre",
@@ -574,6 +586,8 @@ RU = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Новые участники могут начинать модераторами или зрителями",
     "Davet kodu geçersiz": "Неверный код приглашения",
     "Geçersiz işlem": "Неверное действие",
+    "Kanal seçimi geçersiz": "Неверный выбор каналов",
+    "Seçilen kanallar bu ekipte yok": "Выбранных каналов нет в этой команде",
     "En fazla {n} ekibe üye olabilirsin": "Можно состоять не больше чем в {n} командах",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "Роль владельца нельзя изменить; можно передать владение другому участнику",
@@ -659,6 +673,8 @@ ID = {
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Anggota baru bisa mulai sebagai moderator atau penonton",
     "Davet kodu geçersiz": "Kode undangan tidak valid",
     "Geçersiz işlem": "Tindakan tidak valid",
+    "Kanal seçimi geçersiz": "Pilihan channel tidak valid",
+    "Seçilen kanallar bu ekipte yok": "Channel yang dipilih tidak ada di tim ini",
     "En fazla {n} ekibe üye olabilirsin": "Kamu bisa menjadi anggota maksimal {n} tim",
     "Ekip sahibinin rolü değiştirilemez; sahipliği başka bir üyeye devredebilirsin":
         "Peran pemilik tim tidak bisa diubah; kamu bisa memindahkan kepemilikan ke anggota lain",

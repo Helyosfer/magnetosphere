@@ -11,7 +11,12 @@ const roleLabel = (role) => t(ROLE_KEY[role]);
 const roleOf = (item) => item.role || (item.owner ? "owner" : "mod");
 const can = (need) => ROLE_RANK[roleOf(state.team)] >= ROLE_RANK[need];
 
-let state = { server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, view: "list", list: { bans: [], matched: 0, active_total: 0 } };
+let state = {
+  server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, view: "list",
+  list: { bans: [], matched: 0, active_total: 0 },
+  // Ban formundaki kanal seçimi: all (ekibin bütün kanalları) | own (yalnızca kendi kanalım) | custom (işaretlenenler)
+  scope: { mode: "all", ids: [] }, scopeSupported: false,
+};
 
 function el(tag, props = {}, ...children) {
   const node = Object.assign(document.createElement(tag), props);
@@ -359,8 +364,9 @@ function renderTeam() {
   const slugs = team.channels.map((c) => c.slug);
   $("viewer-note").hidden = mod;
   $("ban-fields").hidden = !mod;
+  $("scope-field").hidden = true;
   if (slugs.length) {
-    $("targets").textContent = t("targets", slugs.length, slugs.join(", "));
+    renderScope();
   } else if (admin) {
     const add = el("button", { type: "button", className: "link", textContent: t("addChannel") });
     add.onclick = () => {
@@ -697,6 +703,7 @@ async function render() {
   $("app-view").classList.remove("loading");
   if ($("app-view").classList.contains("failed")) return;
   if (state.inviteLinks?.server !== state.server) checkInviteLinks();
+  checkScopeSupport();
   await handlePendingInvite();
 }
 
@@ -943,8 +950,9 @@ function saveDraft() {
   if (!draftReady) return;
   const form = $("tab-ban");
   const draft = { username: form.username.value, reason: form.reason.value,
-                  duration: form.duration.value, mode: form.mode.value };
-  if (!draft.username.trim() && !draft.reason.trim() && !draft.duration && draft.mode === "ban") {
+                  duration: form.duration.value, mode: form.mode.value, scope: state.scope };
+  if (!draft.username.trim() && !draft.reason.trim() && !draft.duration && draft.mode === "ban"
+      && state.scope.mode === "all") {
     chrome.storage.local.remove(DRAFT_KEY);
   } else {
     chrome.storage.local.set({ [DRAFT_KEY]: draft });
@@ -960,18 +968,25 @@ async function restoreDraft(extraName) {
     form.reason.value = draft.reason || "";
     for (const radio of form.duration) radio.checked = radio.value === (draft.duration || "");
     for (const radio of form.mode) radio.checked = radio.value === (draft.mode || "ban");
+    const saved = draft.scope || {};
+    state.scope = {
+      mode: saved.mode === "own" || saved.mode === "custom" ? saved.mode : "all",
+      ids: Array.isArray(saved.ids) ? saved.ids.filter(Number.isInteger) : [],
+    };
   }
   if (extraName) form.username.value = parseUsernames(`${form.username.value}\n${extraName}`).join("\n");
   draftReady = true;
   updateNameCount();
   syncPresets();
   syncMode();
+  if (state.team) renderScope();
 }
 
 // Çıkışta yarım kalan form da silinir; aynı bilgisayarda başka hesapla giren görmesin.
 async function clearDraft() {
   draftReady = false;
   $("tab-ban").reset();
+  state.scope = { mode: "all", ids: [] };
   await chrome.storage.local.remove(DRAFT_KEY);
   await restoreDraft("");
 }
@@ -1011,9 +1026,11 @@ const unbanMode = () => $("tab-ban").elements.mode.value === "unban";
 // Ban kaldırmada sebep ve süre yoktur; düğme yapılacak işi söyler.
 function syncMode() {
   const unban = unbanMode();
-  const count = state.team ? state.team.channels.length : 0;
+  // Düğme, banın uygulanacağı kanal sayısını söyler; kaldırma her zaman ekibin bütün kanallarındadır.
+  const count = state.team ? (unban ? state.team.channels.length : resolveScope().list.length) : 0;
   $("reason-field").hidden = unban;
   $("duration-field").hidden = unban;
+  $("scope-field").hidden = !scopeVisible();
   $("unban-hint").hidden = !unban;
   $("ban-submit").className = unban ? "primary wide" : "danger wide";
   $("ban-submit").textContent = unban
@@ -1029,16 +1046,101 @@ for (const radio of $("tab-ban").elements.mode) {
   };
 }
 
-// Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
-// Sunucunun sürümü en az istenen kadar mı (/health). Yanıt yoksa eski sunucu sayılır.
+// Kanal seçimi: ban hangi kanallarda atılsın. Varsayılan "Tümü"; "Sadece benimki" kendi kanalında, "Seç" işaretlenen
+// kanallarda banlar. Yalnızca ekipte birden çok kanal varsa görünür, ban kaldırmada yoktur. Seçim ban atılana dek
+// taslakla saklanır, ban atılınca "Tümü"ne döner.
+const scopeVisible = () => Boolean(state.scopeSupported && state.team && state.team.channels.length > 1 && !unbanMode());
+
+// Banın uygulanacağı kanallar. channels: sunucuya gidecek kimlikler; seçim yoksa ya da hepsi seçiliyse null.
+function resolveScope() {
+  const all = state.team ? state.team.channels : [];
+  let list = all;
+  if (state.scopeSupported && all.length > 1) {
+    const { mode, ids } = state.scope;
+    if (mode === "own") {
+      const own = all.filter((c) => c.broadcaster_id === state.me.user.id);
+      if (own.length) list = own;
+    } else if (mode === "custom") {
+      list = all.filter((c) => ids.includes(c.broadcaster_id));
+    }
+  }
+  const partial = list.length > 0 && list.length < all.length;
+  return { list, channels: partial ? list.map((c) => c.broadcaster_id) : null };
+}
+
+function renderTargets() {
+  const slugs = resolveScope().list.map((c) => c.slug);
+  $("targets").textContent = slugs.length ? t("targets", slugs.length, slugs.join(", ")) : t("scopeNone");
+  syncMode();
+}
+
+function renderScope() {
+  const channels = state.team ? state.team.channels : [];
+  const scope = state.scope;
+  const own = channels.some((c) => c.broadcaster_id === state.me.user.id);
+  // Ekipten çıkarılan kanal seçimden düşer; kendi kanalı listede yoksa "sadece benimki" geçersizdir.
+  scope.ids = scope.ids.filter((id) => channels.some((c) => c.broadcaster_id === id));
+  if (scope.mode === "own" && !own) scope.mode = "all";
+  $("scope-field").hidden = !scopeVisible();
+  $("scope-own").hidden = !own;
+  for (const radio of $("tab-ban").elements.scope) radio.checked = radio.value === scope.mode;
+  $("scope-list").hidden = scope.mode !== "custom";
+  $("scope-list").replaceChildren(...channels.map((c) => {
+    const box = el("input", { type: "checkbox", checked: scope.ids.includes(c.broadcaster_id) });
+    box.onchange = () => {
+      scope.ids = box.checked ? [...scope.ids, c.broadcaster_id] : scope.ids.filter((id) => id !== c.broadcaster_id);
+      renderTargets();
+      saveDraft();
+    };
+    return el("li", {}, el("label", { className: "switch" }, box, el("span", { className: "mono", textContent: c.slug })));
+  }));
+  renderTargets();
+}
+
+for (const radio of $("tab-ban").elements.scope) {
+  radio.onchange = () => {
+    state.scope.mode = radio.value;
+    // "Seç" ilk açıldığında hepsi işaretlidir: çoğu zaman bir iki kanalı çıkarmak istenir.
+    if (radio.value === "custom" && !state.scope.ids.length && state.team) {
+      state.scope.ids = state.team.channels.map((c) => c.broadcaster_id);
+    }
+    renderScope();
+    saveDraft();
+  };
+}
+
+function resetScope() {
+  state.scope = { mode: "all", ids: [] };
+  if (state.team) renderScope();
+  saveDraft();
+}
+
+// Kanal seçimini tanımayan eski sunucu `channels` alanını yok sayıp banı bütün kanallara uygulardı;
+// bu yüzden seçici yalnızca 0.14.0 ve sonrasında görünür.
+async function checkScopeSupport() {
+  const ok = await serverAtLeast(0, 14, 0);
+  if (ok === state.scopeSupported) return;
+  state.scopeSupported = ok;
+  if (state.team) renderScope();
+}
+
+// Sunucunun sürümü en az istenen kadar mı (/health). Yanıt yoksa eski sunucu sayılır. Başarılı yanıt saklanır.
+let versionCache = { server: null, have: [] };
 async function serverAtLeast(...want) {
-  const version = await api("GET", "/health").then((r) => r.version || "0", () => "0");
-  const have = version.split(".").map(Number);
+  const server = state.server;
+  if (versionCache.server !== server) {
+    const res = await api("GET", "/health").catch(() => null);
+    if (!res) return false;
+    versionCache = { server, have: String(res.version || "0").split(".").map(Number) };
+  }
+  const { have } = versionCache;
   for (const [i, part] of want.entries()) {
     if ((have[i] || 0) !== part) return (have[i] || 0) > part;
   }
   return true;
 }
+
+// Kaldırma sıraya gitmez; panel kapanırsa yarıda kalmasın diye tek seferde az kişi alınır.
 
 // Uzun kaldırma listesi, toplu ban gibi sunucudaki sıraya gider; panel kapansa da işlenir.
 // Kısa listeler eskisi gibi tek tek kaldırılır ve sonuçları hemen görünür.
@@ -1106,6 +1208,11 @@ $("tab-ban").onsubmit = (event) => {
   }
   if (!usernames.length) return;
   if (unbanMode()) return submitUnban(form, button, usernames, count);
+  const target = resolveScope();
+  if (!target.list.length) {
+    showMessage(t("scopeNone"));
+    return;
+  }
   if (usernames.length > MAX_IMPORT) {
     showMessage(t("banLimit", MAX_IMPORT, usernames.length));
     return;
@@ -1115,11 +1222,15 @@ $("tab-ban").onsubmit = (event) => {
     const reason = form.reason.value.trim();
     const duration = form.duration.value ? Number(form.duration.value) : null;
     const how = duration ? t("howTimed", formatDuration(duration)) : t("howPerm");
+    // Seçim yapıldıysa onay metni hangi kanallar olduğunu da söyler; sunucuya yalnızca gerçek seçim gider.
+    const extra = target.channels ? { channels: target.channels } : {};
+    const where = target.channels ? `${t("scopeOnly", target.list.map((c) => c.slug).join(", "))} ` : "";
     if (usernames.length > QUEUE_THRESHOLD) {
-      if (!(await ask(t("confirmQueue", who, count, how)))) return;
-      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, reason, duration });
+      if (!(await ask(where + t("confirmQueue", who, target.list.length, how)))) return;
+      const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, reason, duration, ...extra });
       form.username.value = "";
       form.reason.value = "";
+      resetScope();
       syncPresets();
       updateNameCount();
       $("ban-result").replaceChildren();
@@ -1127,14 +1238,14 @@ $("tab-ban").onsubmit = (event) => {
       await pollQueue();
       return;
     }
-    if (!(await ask(t("confirmBan", who, count, how)))) return;
+    if (!(await ask(where + t("confirmBan", who, target.list.length, how)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
     try {
       for (const [index, username] of usernames.entries()) {
         button.textContent = t("banning", index + 1, usernames.length);
         try {
-          const ban = await api("POST", `/teams/${state.teamId}/bans`, { username, reason, duration });
+          const ban = await api("POST", `/teams/${state.teamId}/bans`, { username, reason, duration, ...extra });
           $("ban-result").prepend(banCard(ban));
         } catch (e) {
           // Oturum düştüyse kalanları denemenin anlamı yok.
@@ -1153,6 +1264,7 @@ $("tab-ban").onsubmit = (event) => {
     updateNameCount();
     if (!failed.length) {
       form.reason.value = "";
+      resetScope();
       syncPresets();
     } else {
       showMessage(t("banFailedN", failed.length));

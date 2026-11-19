@@ -25,7 +25,7 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q"}
+         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -926,6 +926,86 @@ class CrossBanTest(unittest.TestCase):
             _, _, headers = call(self.base, "GET", f"/auth/callback?error=access_denied&state={state}")
             self.assertEqual(urllib.parse.unquote(headers["Location"].split("#error=")[1]), text)
         call(self.base, "DELETE", f"/teams/{team['id']}", user)
+
+    def test_scope_channels(self):
+        """Ban seçilen kanallara uygulanır, kapsam genişler ama daralmaz; kuyruk kanalları sıraya girerken sabitler."""
+        app.LOGIN_HITS.clear()
+        # Önceki testlerin sahte Kick'te bıraktığı banlar bu testin kanallarında kalmasın.
+        BANNED.difference_update({b for b in BANNED if b[0] in (1, 2, 3, 67)})
+        sahip = self.login(67)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Kapsam"})[1]["id"]
+        for slug in ("yayinci-a", "yayinci-b"):
+            call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": slug})
+        for channel in (1, 2, 3):
+            MODS[channel].add(67)
+        team = call(self.base, "GET", f"/teams/{tid}", sahip)[1]
+        self.assertEqual({c["slug"]: c["broadcaster_id"] for c in team["channels"]},
+                         {"sahip-t": 67, "yayinci-a": 1, "yayinci-b": 2})
+        ban = lambda name, **extra: call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": name, **extra})
+        slugs = lambda b: [r["slug"] for r in b["results"]]
+        banned = lambda user: {c for c, u in BANNED if u == user and c in (1, 2, 3, 67)}
+
+        # Yalnızca kendi kanalında ban: öteki kanallar kartta "uygulanmadı" görünmez, Kick'e istek gitmez.
+        status, first, _ = ban("trol", channels=[67])
+        self.assertEqual((status, slugs(first), {r["status"] for r in first["results"]}), (200, ["sahip-t"], {"ok"}))
+        self.assertEqual(banned(99), {67})
+        retried = call(self.base, "POST", f"/teams/{tid}/bans/{first['id']}/retry", sahip)[1]
+        self.assertEqual((slugs(retried), banned(99)), (["sahip-t"], {67}))
+
+        # Aynı kişiyi başka kanalda banlamak aynı kaydı genişletir.
+        wider = ban("trol", channels=[1])[1]
+        self.assertEqual((wider["id"], slugs(wider), banned(99)), (first["id"], ["sahip-t", "yayinci-a"], {67, 1}))
+        for bad in ([], [999], "x", [True], [1.5], [1, "2"]):
+            self.assertEqual(ban("trol", channels=bad)[0], 400, bad)
+        self.assertEqual(banned(99), {67, 1})
+        # Seçim yapılmazsa ekibin bütün kanalları; kapsam kalkar.
+        full = ban("trol")[1]
+        self.assertEqual((full["id"], slugs(full), banned(99)), (first["id"], ["sahip-t", "yayinci-a", "yayinci-b"], {67, 1, 2}))
+        revoked = call(self.base, "DELETE", f"/teams/{tid}/bans/{first['id']}", sahip)[1]
+        self.assertEqual(({r["status"] for r in revoked["results"]}, banned(99)), ({"unbanned"}, set()))
+
+        # Bütün kanalları elle seçmek "tümü" demektir: sonradan eklenen kanal için "uygulanmadı" görünür.
+        self.assertEqual(slugs(ban("yeni-n", channels=[1, 2, 67])[1]), ["sahip-t", "yayinci-a", "yayinci-b"])
+
+        # Kuyruk: liste sıraya girdikten sonra eklenen kanal kalan adlara uygulanmaz (asıl şikâyet).
+        queue = lambda names, **extra: call(self.base, "POST", f"/teams/{tid}/imports", sahip, {"usernames": names, **extra})
+        drain = lambda: [None for _ in iter(app.process_next, False)]
+        counts = lambda: call(self.base, "GET", f"/teams/{tid}/imports", sahip)[1]
+        self.assertEqual(queue(["trol-iki", "eski-trol"], reason="liste")[1], {"added": 2, "skipped": 0})
+        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-c"})
+        drain()
+        self.assertEqual(counts()["counts"], {"done": 2})
+        self.assertEqual((banned(97), banned(98)), ({1, 2, 67}, {1, 2, 67}))
+        listed = {b["target_name"]: b for b in call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]["bans"]}
+        pending = {"sahip-t": "ok", "yayinci-a": "ok", "yayinci-b": "ok", "yayinci-c": "pending"}
+        self.assertEqual({r["slug"]: r["status"] for r in listed["trol-iki"]["results"]}, pending)
+        self.assertEqual({r["slug"]: r["status"] for r in listed["yeni-n"]["results"]}, pending)
+        call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+
+        # Kuyrukta kanal seçimi: yalnızca seçilen kanalda ban, kayıt da yalnızca onu gösterir.
+        self.assertEqual(queue(["trol"], channels=[67])[1]["added"], 1)
+        drain()
+        self.assertEqual((counts()["counts"], banned(99)), ({"done": 1}, {67}))
+        listed = {b["target_name"]: b for b in call(self.base, "GET", f"/teams/{tid}/bans", sahip)[1]["bans"]}
+        self.assertEqual(slugs(listed["trol"]), ["sahip-t"])
+        self.assertEqual(queue(["x"], channels=[999])[0], 400)
+        call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+
+        # Seçilen kanal sıra işlenmeden ekipten çıkarılırsa kayıt reddedilir, başka kanala uygulanmaz.
+        queue(["mod-veli"], channels=[3])
+        call(self.base, "DELETE", f"/teams/{tid}/channels/3", sahip)
+        drain()
+        state = counts()
+        self.assertEqual((state["counts"], state["problems"][0]["detail"], banned(11)),
+                         ({"rejected": 1}, "Seçilen kanallar bu ekipte yok", set()))
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", sahip,
+                              {"username": "mod-veli", "channels": [3]}, lang="en")[1],
+                         {"error": "The selected channels aren't on this team"})
+
+        for channel in (1, 2, 3):
+            MODS[channel].discard(67)
+        BANNED.difference_update({b for b in BANNED if b[0] in (1, 2, 3, 67)})
+        app.LOGIN_HITS.clear()
 
     def test_spanish_portuguese_arabic(self):
         L = app.localize
