@@ -26,7 +26,7 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r", 69: "sahip-v"}
+         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r", 69: "sahip-v", 70: "sahip-w", 71: "sahip-x"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -869,6 +869,71 @@ class CrossBanTest(unittest.TestCase):
         MODS[1].discard(68)
         BANNED.difference_update({b for b in BANNED if b[0] in (1, 68)})
         app.LOGIN_HITS.clear()
+
+    def test_review_escalation(self):
+        """Uzaklaştırılmış kişiye kalıcı ban (ya da daha uzun uzaklaştırma) Kick'e gerçekten gider; hafifletme gitmez."""
+        app.LOGIN_HITS.clear()
+        BANNED.difference_update({b for b in BANNED if b[0] == 70})
+        sahip = self.login(70)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Ağırlaştırma"})[1]["id"]
+        ban = lambda **body: call(self.base, "POST", f"/teams/{tid}/bans", sahip, {"username": "trol", **body})[1]
+        sent, real = [], app.call_channel
+        app.call_channel = lambda candidates, body, unban: (sent.append(body.get("duration")),
+                                                            real(candidates, body, unban))[1]
+        try:
+            first = ban(duration=10)
+            self.assertEqual((first["duration"], sent), (10, [10]))
+            # Kalıcı ban: kayıt kalıcı olur ve Kick'e süresiz istek gider.
+            perm = ban()
+            self.assertEqual((perm["id"], perm["duration"], sent), (first["id"], None, [10, None]))
+            # Kalıcı banın üstüne uzaklaştırma hafifletme olur: Kick'e gitmez, kayıt kalıcı kalır.
+            soft = ban(duration=60)
+            self.assertEqual((soft["duration"], sent), (None, [10, None]))
+        finally:
+            app.call_channel = real
+
+        # Uzaklaştırmadan daha uzun uzaklaştırmaya geçiş de uygulanır; kısa olan uygulanmaz.
+        sent.clear()
+        app.call_channel = lambda candidates, body, unban: (sent.append(body.get("duration")),
+                                                            real(candidates, body, unban))[1]
+        try:
+            target = lambda **body: call(self.base, "POST", f"/teams/{tid}/bans", sahip,
+                                         {"username": "trol-iki", **body})[1]
+            self.assertEqual(target(duration=10)["duration"], 10)
+            self.assertEqual(target(duration=1440)["duration"], 1440)
+            self.assertEqual(target(duration=60)["duration"], 1440)
+            self.assertEqual(sent, [10, 1440])
+        finally:
+            app.call_channel = real
+        BANNED.difference_update({b for b in BANNED if b[0] == 70})
+        app.LOGIN_HITS.clear()
+
+    def test_review_stale_lookup(self):
+        """İptal edilen sıranın önceden sorgulanmış adları sonraki sırada eski Kick kimliğiyle kullanılmaz."""
+        app.LOGIN_HITS.clear()
+        BANNED.difference_update({b for b in BANNED if b[0] == 71})
+        sahip = self.login(71)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Önbellek"})[1]["id"]
+        queue = lambda names: call(self.base, "POST", f"/teams/{tid}/imports", sahip, {"usernames": names})
+        queue(["trol-iki", "eski-trol"])
+        self.assertTrue(app.process_next())          # ikisini birden sorgular, birini işler
+        call(self.base, "DELETE", f"/teams/{tid}/imports/pending", sahip)
+        # Kick'te ad el değiştirdi: "eski-trol" artık başka bir hesabın adı.
+        old = USERS[98]
+        USERS[98], USERS[300] = "eski-trol-x", "eski-trol"
+        MODS.setdefault(300, set())
+        try:
+            queue(["eski-trol"])
+            while app.process_next():
+                pass
+            self.assertIn((71, 300), BANNED)
+            self.assertNotIn((71, 98), BANNED)
+        finally:
+            USERS[98] = old
+            USERS.pop(300, None)
+            BANNED.difference_update({b for b in BANNED if b[0] == 71})
+            call(self.base, "DELETE", f"/teams/{tid}/imports/finished", sahip)
+            app.LOGIN_HITS.clear()
 
     def test_roles(self):
         sahip, yonetici, mod, izleyici = (self.login(i) for i in (20, 21, 22, 23))

@@ -1106,6 +1106,22 @@ def parse_channels(db, team, body):
     return sorted(set(raw))
 
 
+def heavier(db, ban, duration, now):
+    """Yeni ceza, aktif banın kalanından ağır mı? Kalıcı ban en ağırıdır; uzaklaştırmalar kalan süreyle karşılaştırılır.
+
+    Hafifletme (kalıcının üstüne uzaklaştırma, uzun uzaklaştırmanın üstüne kısa) yapılmaz: Kick'te kısa uzaklaştırma
+    kalıcı banın yerini alıp kişiyi erkenden geri getirebilir.
+    """
+    if ban["duration"] is None:
+        return False
+    if duration is None:
+        return True
+    applied = db.execute("SELECT MAX(updated_at) FROM ban_results WHERE ban_id = ? AND status = 'ok'",
+                         (ban["id"],)).fetchone()[0]
+    remaining = (applied or ban["created_at"]) + ban["duration"] * 60 - now
+    return duration * 60 > remaining
+
+
 def create_ban(db, team, actor, username, reason, duration, resolved=None, channels=None, scoped=False):
     """Kullanıcıyı ekibin tüm kanallarında banlar; aktif kaydı varsa eksik kanalları tamamlar.
 
@@ -1143,15 +1159,27 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None, chann
             (team["id"], target_id, slug, reason, duration, actor["id"], int(time.time()),
              json.dumps(sorted(chosen)) if scoped else None))
         ban = db.execute("SELECT * FROM bans WHERE id = ?", (cur.lastrowid,)).fetchone()
-    else:
+    escalate = False
+    if ban:
         # Var olan banın kapsamı genişler, daralmaz: kapsamsız ban ya da "tümü" isteği kapsamı kaldırır.
         old = ban_scope(ban)
         new = None if not scoped or old is None else old | chosen
         if new != old:
             db.execute("UPDATE bans SET scope = ? WHERE id = ?",
                        (None if new is None else json.dumps(sorted(new)), ban["id"]))
-            ban = db.execute("SELECT * FROM bans WHERE id = ?", (ban["id"],)).fetchone()
-    apply_ban(db, ban, actor, only_unfinished=True, only=chosen)
+        # Uzaklaştırılmış kişiye kalıcı ban (ya da daha uzun uzaklaştırma): kayıt yeni cezaya döner ve
+        # Kick'e yeniden gider. Yoksa eski kısa uzaklaştırma bitince kişi geri gelirdi.
+        now = int(time.time())
+        escalate = heavier(db, ban, duration, now)
+        if escalate:
+            db.execute("UPDATE bans SET duration = ?, reason = ?, created_by = ?, created_at = ? WHERE id = ?",
+                       (duration, reason or ban["reason"], actor["id"], now, ban["id"]))
+        ban = db.execute("SELECT * FROM bans WHERE id = ?", (ban["id"],)).fetchone()
+    if escalate:
+        # Ağır ceza banın bütün kanallarına uygulanır; yoksa bazı kanallarda eski uzaklaştırma kalırdı.
+        apply_ban(db, ban, actor)
+    else:
+        apply_ban(db, ban, actor, only_unfinished=True, only=chosen)
     return ban
 
 
@@ -1315,11 +1343,23 @@ def import_clear(req, team_id, which):
     # İşlenmekte olan kayıtlara dokunulmaz; onlar birkaç saniyede biter.
     where = "status = 'pending'" if which == "pending" else "status NOT IN ('pending', 'working')"
     cur = req.db.execute(f"DELETE FROM queue WHERE team_id = ? AND {where}", (team["id"],))
+    if which == "pending":
+        forget_resolved(team["id"])
     return {"removed": cur.rowcount}
 
 
-RESOLVED = {}                    # (team_id, slug) -> user_id ya da None (Kick'te yok)
+RESOLVED = {}                    # (team_id, slug) -> (user_id ya da None (Kick'te yok), sorgu zamanı)
 RESOLVE_LOCK = threading.Lock()
+# Önceden sorgulanan adın Kick kimliği bu kadar saniye geçerli. Kick'te ad el değiştirebilir; iptal edilen
+# sıranın kalıntısı günler sonra aynı ad sıraya girince eski hesabı banlatmasın.
+RESOLVE_TTL = 300
+
+
+def forget_resolved(team_id):
+    """Ekibin önceden sorgulanmış adlarını unutur (sıra iptal edilince)."""
+    with RESOLVE_LOCK:
+        for key in [k for k in RESOLVED if k[0] == team_id]:
+            del RESOLVED[key]
 PAUSE_UNTIL = 0.0                # Kick istek sınırına takılınca tüm işçiler bu ana kadar bekler
 LAST_TEAM = 0                    # sırası en son gelen ekip; bir sonraki kayıt başka ekipten seçilir
 
@@ -1328,7 +1368,10 @@ def resolve_queued(db, row, actor):
     """Sıradaki kaydın Kick kimliğini bulur; sıradaki sonraki adları da aynı istekte sorgular."""
     slug = to_slug(row["target_name"])
     key = (row["team_id"], slug)
+    now = time.time()
     with RESOLVE_LOCK:
+        for stale in [k for k, (_, at) in RESOLVED.items() if now - at > RESOLVE_TTL]:
+            del RESOLVED[stale]
         if key not in RESOLVED:
             slugs = [slug]
             for r in db.execute("SELECT target_name FROM queue WHERE team_id = ? AND status = 'pending' "
@@ -1350,8 +1393,8 @@ def resolve_queued(db, row, actor):
                 slugs = [slug]
                 found = lookup_many(db, actor, slugs)
             for item in slugs:
-                RESOLVED[(row["team_id"], item)] = found.get(item)
-        user_id = RESOLVED.pop(key)
+                RESOLVED[(row["team_id"], item)] = (found.get(item), now)
+        user_id = RESOLVED.pop(key)[0]
     if user_id is None:
         raise ApiError(404, f"'{slug}' Kick'te bulunamadı")
     return user_id, slug

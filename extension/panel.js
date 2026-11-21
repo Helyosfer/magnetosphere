@@ -330,7 +330,11 @@ function renderBans() {
   $("ban-list").replaceChildren(...cards);
 }
 
+// Her liste isteği bir sıra numarası alır; arama yazılırken geç gelen eski yanıt yenisinin üstüne yazmasın.
+let loadSeq = 0;
+
 async function loadBans() {
+  const seq = ++loadSeq;
   const params = new URLSearchParams();
   const query = $("list-search").value.trim();
   if (query) params.set("q", query);
@@ -344,12 +348,12 @@ async function loadBans() {
   try {
     list = await api("GET", `/teams/${teamId}/bans?${params}`);
   } catch (e) {
-    if (teamId === state.teamId && view === state.view && !state.listLoaded) {
+    if (seq === loadSeq && teamId === state.teamId && view === state.view && !state.listLoaded) {
       $("ban-list").replaceChildren(emptyState("alert", t("listFailedTitle"), t("listFailedHint")));
     }
     throw e;
   }
-  if (teamId !== state.teamId || view !== state.view) return;
+  if (seq !== loadSeq || teamId !== state.teamId || view !== state.view) return;
   // Eski sunucu saatini göndermez; o zaman panelin saati kullanılır.
   list.clockSkew = typeof list.now === "number" ? list.now - Date.now() / 1000 : 0;
   state.list = list;
