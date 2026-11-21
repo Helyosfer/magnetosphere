@@ -83,6 +83,9 @@ EN = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Team members and broadcasters on the team can't be banned",
     "Önce ekibe en az bir kanal ekle": "Add at least one channel to the team first",
     "Bu ban kaldırılmış": "This ban has already been removed",
+    "Değiştirilecek bir şey yok": "Nothing to change",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "You can only change the reason of bans you placed; others need an admin",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "A ban can only be extended or made permanent",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "You can only remove bans you placed; others need an admin",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -171,6 +174,9 @@ ES = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "No se puede banear a miembros del equipo ni a streamers del equipo",
     "Önce ekibe en az bir kanal ekle": "Primero agrega al menos un canal al equipo",
     "Bu ban kaldırılmış": "Este baneo ya se quitó",
+    "Değiştirilecek bir şey yok": "No hay nada que cambiar",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Solo puedes cambiar el motivo de los baneos que pusiste; para los demás hace falta un administrador",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "El baneo solo se puede alargar o volver permanente",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Solo puedes quitar los baneos que hiciste tú; para los demás se necesita un admin",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -259,6 +265,9 @@ PT = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Membros da equipe e streamers da equipe não podem ser banidos",
     "Önce ekibe en az bir kanal ekle": "Primeiro adicione pelo menos um canal à equipe",
     "Bu ban kaldırılmış": "Este ban já foi removido",
+    "Değiştirilecek bir şey yok": "Nada para alterar",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Você só pode alterar o motivo dos bans que aplicou; os demais exigem um administrador",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "O ban só pode ser estendido ou tornado permanente",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Você só pode remover os bans que você fez; para os outros é preciso um admin",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -347,6 +356,9 @@ AR = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "لا يمكن حظر أعضاء الفريق وأصحاب القنوات في الفريق",
     "Önce ekibe en az bir kanal ekle": "أضف قناة واحدة على الأقل إلى الفريق أولًا",
     "Bu ban kaldırılmış": "رُفع هذا الحظر بالفعل",
+    "Değiştirilecek bir şey yok": "لا يوجد ما يُغيَّر",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "يمكنك تغيير سبب الحظر الذي وضعته أنت فقط؛ غير ذلك يحتاج إلى مشرف عام",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "يمكن تمديد الحظر أو جعله دائمًا فقط",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "يمكنك رفع الحظر الذي وضعته بنفسك فقط؛ غير ذلك يتطلب مديرًا",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -434,6 +446,9 @@ DE = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Teammitglieder und Streamer im Team können nicht gebannt werden",
     "Önce ekibe en az bir kanal ekle": "Füge dem Team zuerst mindestens einen Kanal hinzu",
     "Bu ban kaldırılmış": "Dieser Bann wurde bereits aufgehoben",
+    "Değiştirilecek bir şey yok": "Nichts zu ändern",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Du kannst nur den Grund deiner eigenen Banns ändern; für andere braucht es einen Admin",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "Ein Bann kann nur verlängert oder dauerhaft gemacht werden",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Du kannst nur deine eigenen Banns aufheben; für andere ist ein Admin nötig",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -521,6 +536,9 @@ FR = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Les membres de l'équipe et ses streamers ne peuvent pas être bannis",
     "Önce ekibe en az bir kanal ekle": "Ajoute d'abord au moins une chaîne à l'équipe",
     "Bu ban kaldırılmış": "Ce ban a déjà été levé",
+    "Değiştirilecek bir şey yok": "Rien à modifier",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Tu ne peux modifier que la raison des bans que tu as posés ; pour les autres, il faut un admin",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "Un ban ne peut qu'être prolongé ou rendu permanent",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Tu ne peux lever que tes propres bans ; pour les autres, il faut un admin",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -608,6 +626,9 @@ RU = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Нельзя банить участников команды и её стримеров",
     "Önce ekibe en az bir kanal ekle": "Сначала добавь в команду хотя бы один канал",
     "Bu ban kaldırılmış": "Этот бан уже снят",
+    "Değiştirilecek bir şey yok": "Нечего менять",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Менять причину можно только у своих банов; для остальных нужен администратор",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "Бан можно только продлить или сделать постоянным",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Снимать можно только свои баны; для остальных нужен админ",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
@@ -695,6 +716,9 @@ ID = {
     "Ekip üyeleri ve ekipteki yayıncılar banlanamaz": "Anggota tim dan streamer di tim tidak bisa di-ban",
     "Önce ekibe en az bir kanal ekle": "Tambahkan setidaknya satu channel ke tim dulu",
     "Bu ban kaldırılmış": "Ban ini sudah dicabut",
+    "Değiştirilecek bir şey yok": "Tidak ada yang diubah",
+    "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir": "Kamu hanya bisa mengubah alasan ban yang kamu berikan; yang lain perlu admin",
+    "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir": "Ban hanya bisa diperpanjang atau dijadikan permanen",
     "Yalnızca kendi attığın banı kaldırabilirsin; diğerleri için yönetici gerekir":
         "Kamu hanya bisa mencabut ban milikmu sendiri; untuk yang lain perlu admin",
     "{slug} listede {creator} tarafından banlanmış; başkasının attığı banı yalnızca sahip ve yöneticiler kaldırabilir":
