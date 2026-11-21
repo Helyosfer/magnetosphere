@@ -15,7 +15,7 @@ let state = {
   server: DEFAULT_SERVER, token: null, teamId: null, me: null, team: null, view: "list",
   list: { bans: [], matched: 0, active_total: 0 },
   // Ban formundaki kanal seçimi: all (ekibin bütün kanalları) | own (yalnızca kendi kanalım) | custom (işaretlenenler)
-  scope: { mode: "all", ids: [] }, scopeSupported: false, unbanScopeSupported: false,
+  scope: { mode: "all", ids: [] }, scopeSupported: false, unbanScopeSupported: false, editSupported: false,
 };
 
 function el(tag, props = {}, ...children) {
@@ -243,9 +243,12 @@ function banCard(ban) {
 
   // Kick'te elle atılmış banın kaydı, adıyla kaldırılırken açılır; kaydı açan kişi banı kaldırandır.
   const reason = ban.external ? t("externalReason") : ban.reason || t("noReason");
+  // Moderatör yalnızca kendi attığı banı kaldırabilir; başkasınınkini sahip ve yöneticiler kaldırır.
+  const mine = ban.created_by_id === undefined || ban.created_by_id === state.me.user.id;
+  const editable = state.editSupported && !ban.revoked_at && !ban.external && isActive(ban) && can("mod");
   const card = el("div", { className: `ban${ban.revoked_at ? " revoked" : complete || inFlight ? "" : " partial"}` },
     el("div", { className: "head" }, el("span", { className: "name", textContent: ban.target_name }), tag),
-    el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: reason }),
+    reasonRow(ban, reason, editable && (mine || can("admin"))),
     el("div", { className: "meta" },
       el("span", { className: "avatar mini", textContent: ban.created_by.slice(0, 1).toUpperCase() }),
       el("span", { className: "who", textContent: ban.external ? t("externalWho", ban.created_by) : ban.created_by }),
@@ -253,10 +256,18 @@ function banCard(ban) {
       timeEl(ban.created_at))
   );
   const foot = el("div", { className: "foot" }, el("div", { className: "chips" }, ...chips));
-  // Moderatör yalnızca kendi attığı banı kaldırabilir; başkasınınkini sahip ve yöneticiler kaldırır.
-  const mine = ban.created_by_id === undefined || ban.created_by_id === state.me.user.id;
   if (!ban.revoked_at && can("mod")) {
     const actions = el("div", { className: "actions" });
+    // Süreli banı kalıcıya çevirmek: her moderatör ban atabildiği için herkes yapabilir.
+    if (editable && ban.duration && !inFlight) {
+      const harden = el("button", { className: "ghost small", textContent: t("makePermanent") });
+      harden.onclick = () => run(harden, async () => {
+        if (!(await ask(t("confirmMakePermanent", ban.target_name)))) return;
+        await api("PATCH", `/teams/${state.teamId}/bans/${ban.id}`, { duration: null });
+        await loadBans();
+      });
+      actions.append(harden);
+    }
     if (!complete && !inFlight) {
       const retry = el("button", {
         className: "ghost small retry",
@@ -291,10 +302,65 @@ function banCard(ban) {
   return card;
 }
 
+// Sebep satırı; düzenlenebiliyorsa yanında kalem durur. Kaleme basınca satır kutuya döner:
+// Enter kaydeder, Esc ya da başka yere tıklamak vazgeçer.
+function reasonRow(ban, text, editable) {
+  const row = el("div", { className: `reason${ban.reason ? "" : " none"}`, textContent: text });
+  if (!editable) return row;
+  const pen = el("button", { type: "button", className: "edit-reason", title: t("editReason") });
+  pen.setAttribute("aria-label", t("editReason"));
+  pen.append(icon("edit"));
+  row.append(pen);
+  pen.onclick = () => {
+    const input = el("input", {
+      className: "reason-edit", value: ban.reason || "", maxLength: 100, placeholder: t("editReasonHint"),
+    });
+    input.setAttribute("aria-label", t("editReason"));
+    let done = false;
+    const close = () => { done = true; input.replaceWith(reasonRow(ban, text, editable)); };
+    input.onkeydown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const value = input.value.trim();
+      if (value === (ban.reason || "")) return close();
+      done = true;
+      input.disabled = true;
+      api("PATCH", `/teams/${state.teamId}/bans/${ban.id}`, { reason: value })
+        .then(() => loadBans())
+        .catch((e) => { showMessage(e.message); done = false; input.disabled = false; input.focus(); });
+    };
+    input.onblur = () => { if (!done) close(); };
+    row.replaceWith(input);
+    input.focus();
+    input.select();
+  };
+  return row;
+}
+
+// Aynı kişi listede banlıysa onay metni bunu önceden söyler: kalıcı banın üstüne kısa süre bir şey
+// değiştirmez, süreli banın üstüne daha ağır ceza onu ağırlaştırır. Tek kişide cezayı değiştirmeyen istek
+// için onay metni seçilen süreyi değil, kalacak olanı söyler (duration). Liste aramayla süzülmüşse
+// yalnızca görünenlere bakılır; bu bir uyarıdır, sunucu zaten doğru olanı yapar.
+function alreadyNote(usernames, duration) {
+  const active = new Map((state.list?.bans || []).filter(isActive).map((b) => [b.target_name, b]));
+  const slug = (name) => name.replace(/^@/, "").toLowerCase().replace(/_/g, "-");
+  const found = usernames.map((name) => [name, active.get(slug(name))]).filter(([, ban]) => ban);
+  if (!found.length) return { text: "", duration };
+  if (usernames.length > 1) return { text: `${t("alreadyListedN", found.length)} `, duration };
+  const [[name, ban]] = found;
+  if (!ban.duration) return { text: `${t("alreadyPerm", name)} `, duration: null };
+  const left = banExpiry(ban) - Date.now() / 1000 - (state.list.clockSkew || 0);
+  if (duration === null || duration * 60 > left) {
+    return { text: `${t("alreadyHeavier", name, formatDuration(ban.duration))} `, duration };
+  }
+  return { text: `${t("alreadySame", name, formatDuration(ban.duration))} `, duration: ban.duration };
+}
+
 // Liste: kalıcı banlar ve süren uzaklaştırmalar. Geçmiş: kaldırılanlar ve süresi dolan uzaklaştırmalar.
 function isActive(ban) {
   if (ban.revoked_at) return false;
-  return !ban.duration || banExpiry(ban) > Date.now() / 1000;
+  return !ban.duration || banExpiry(ban) > Date.now() / 1000 + (state.list?.clockSkew || 0);
 }
 
 function renderBans() {
@@ -358,7 +424,8 @@ async function loadBans() {
   list.clockSkew = typeof list.now === "number" ? list.now - Date.now() / 1000 : 0;
   state.list = list;
   state.listLoaded = true;
-  renderBans();
+  // Sebep düzenlenirken kendiliğinden yenileme kutuyu silmesin; kaydedince liste zaten yeniden çizilir.
+  if (!document.querySelector("#ban-list input.reason-edit:not(:disabled)")) renderBans();
   // Kick'e gitmekte olan ban varken liste birkaç saniyede bir yenilenir; bitince durur.
   clearTimeout(applyingTimer);
   if (list.bans.some(applying)) {
@@ -1143,6 +1210,10 @@ function resetScope() {
 async function checkScopeSupport() {
   const ok = await serverAtLeast(0, 14, 0);
   const unbanOk = await serverAtLeast(0, 15, 0);
+  // Karttaki düzenleme (sebep, "Kalıcı yap") de 0.15.0 ile geldi; eski sunucuda düğmeler görünmez.
+  const editChanged = unbanOk !== state.editSupported;
+  state.editSupported = unbanOk;
+  if (editChanged && state.listLoaded) renderBans();
   if (ok === state.scopeSupported && unbanOk === state.unbanScopeSupported) return;
   state.scopeSupported = ok;
   state.unbanScopeSupported = unbanOk;
@@ -1257,12 +1328,13 @@ $("tab-ban").onsubmit = (event) => {
     const who = usernames.length === 1 ? usernames[0] : t("userCount", usernames.length);
     const reason = form.reason.value.trim();
     const duration = form.duration.value ? Number(form.duration.value) : null;
-    const how = duration ? t("howTimed", formatDuration(duration)) : t("howPerm");
+    const already = alreadyNote(usernames, duration);
+    const how = already.duration ? t("howTimed", formatDuration(already.duration)) : t("howPerm");
     // Seçim yapıldıysa onay metni hangi kanallar olduğunu da söyler; sunucuya yalnızca gerçek seçim gider.
     const extra = target.channels ? { channels: target.channels } : {};
     const where = target.channels ? `${t("scopeOnly", target.list.map((c) => c.slug).join(", "))} ` : "";
     if (usernames.length > QUEUE_THRESHOLD) {
-      if (!(await ask(where + t("confirmQueue", who, target.list.length, how)))) return;
+      if (!(await ask(already.text + where + t("confirmQueue", who, target.list.length, how)))) return;
       const { added, skipped } = await api("POST", `/teams/${state.teamId}/imports`, { usernames, reason, duration, ...extra });
       form.username.value = "";
       form.reason.value = "";
@@ -1274,7 +1346,7 @@ $("tab-ban").onsubmit = (event) => {
       await pollQueue();
       return;
     }
-    if (!(await ask(where + t("confirmBan", who, target.list.length, how)))) return;
+    if (!(await ask(already.text + where + t("confirmBan", who, target.list.length, how)))) return;
     const failed = [];
     $("ban-result").replaceChildren();
     try {

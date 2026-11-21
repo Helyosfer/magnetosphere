@@ -1174,6 +1174,9 @@ def create_ban(db, team, actor, username, reason, duration, resolved=None, chann
         if escalate:
             db.execute("UPDATE bans SET duration = ?, reason = ?, created_by = ?, created_at = ? WHERE id = ?",
                        (duration, reason or ban["reason"], actor["id"], now, ban["id"]))
+        elif reason and not ban["reason"]:
+            # Sebepsiz atılmış bana sonradan verilen sebep kayda geçer; var olan sebebin üstüne yazılmaz.
+            db.execute("UPDATE bans SET reason = ? WHERE id = ?", (reason, ban["id"]))
         ban = db.execute("SELECT * FROM bans WHERE id = ?", (ban["id"],)).fetchone()
     if escalate:
         # Ağır ceza banın bütün kanallarına uygulanır; yoksa bazı kanallarda eski uzaklaştırma kalırdı.
@@ -1191,6 +1194,35 @@ def ban_create(req, team_id):
         ban = create_ban(req.db, team, req.user, req.body.get("username"), reason, duration,
                          channels=channels, scoped=channels is not None)
     return ban_json(req.db, ban)
+
+
+def ban_edit(req, team_id, ban_id):
+    """Aktif banı düzenler: `reason` sebebi değiştirir, `duration` cezayı ağırlaştırır (null: kalıcı).
+
+    Sebebi banı atan ya da yönetici değiştirir. Ceza yalnızca ağırlaşır (her moderatör ban atabildiği için
+    herkes yapabilir); ağırlaşan ban bütün kanallarına yeniden gider ve ağırlaştıranın olur.
+    """
+    team = team_for(req, team_id, need="mod")
+    ban = ban_for(req, team, ban_id)
+    now = int(time.time())
+    if ban["revoked_at"] or not req.db.execute(
+            f"SELECT 1 FROM bans WHERE id = ? AND {active_sql()}", (ban["id"], now)).fetchone():
+        raise ApiError(400, "Bu ban kaldırılmış")
+    if "reason" not in req.body and "duration" not in req.body:
+        raise ApiError(400, "Değiştirilecek bir şey yok")
+    reason, duration = parse_ban_options(req.body)
+    if "reason" in req.body:
+        if ban["created_by"] != req.user["id"] and ROLES[req.role] < ROLES["admin"]:
+            raise ApiError(403, "Yalnızca kendi attığın banın sebebini değiştirebilirsin; diğerleri için yönetici gerekir")
+        req.db.execute("UPDATE bans SET reason = ? WHERE id = ?", (reason, ban["id"]))
+    if "duration" in req.body:
+        if not heavier(req.db, ban, duration, now):
+            raise ApiError(400, "Ceza yalnızca uzatılabilir ya da kalıcı yapılabilir")
+        req.db.execute("UPDATE bans SET duration = ?, created_by = ?, created_at = ? WHERE id = ?",
+                       (duration, req.user["id"], now, ban["id"]))
+        with kick_slot(req.user["id"]):
+            apply_ban(req.db, ban_for(req, team, ban_id), req.user)
+    return ban_json(req.db, ban_for(req, team, ban_id))
 
 
 def ban_retry(req, team_id, ban_id):
@@ -1516,6 +1548,7 @@ ROUTES = [
     ("POST", r"/teams/(\d{1,18})/bans", ban_create, True),
     ("POST", r"/teams/(\d{1,18})/bans/(\d{1,18})/retry", ban_retry, True),
     ("DELETE", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_revoke, True),
+    ("PATCH", r"/teams/(\d{1,18})/bans/(\d{1,18})", ban_edit, True),
     ("POST", r"/teams/(\d{1,18})/unbans", unban_create, True),
     ("GET", r"/teams/(\d{1,18})/imports", import_status, True),
     ("POST", r"/teams/(\d{1,18})/imports", import_create, True),
@@ -1587,7 +1620,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", origin)
             self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
         if location:
             self.send_header("Location", location)
         if raw:
@@ -1696,7 +1729,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_json(204)
 
-    do_GET = do_HEAD = do_POST = do_DELETE = dispatch
+    do_GET = do_HEAD = do_POST = do_PATCH = do_DELETE = dispatch
 
 
 def main():

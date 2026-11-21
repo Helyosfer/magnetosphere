@@ -329,6 +329,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who}, ${count} kanalda ${how} banlanacak ve ortak listeye eklenecek. Onaylıyor musun?`,
     banning: (i, n) => `${i} / ${n} banlanıyor…`,
     banFailedN: (n) => `${n} kullanıcı banlanamadı; adlar alanda bırakıldı.`,
+    makePermanent: "Kalıcı yap",
+    confirmMakePermanent: (name) => `${name} kalıcı olarak banlanacak ve ban kanallara yeniden gönderilecek. Onaylıyor musun?`,
+    editReason: "Sebebi düzenle",
+    editReasonHint: "Enter ile kaydet, Esc ile vazgeç",
+    alreadyPerm: (name) => `${name} zaten kalıcı olarak banlı; seçilen süre cezayı kısaltmaz.`,
+    alreadyHeavier: (name, dur) => `${name} şu an ${dur} süreyle banlı; bu ban cezayı ağırlaştıracak.`,
+    alreadySame: (name, dur) => `${name} zaten ${dur} süreyle banlı; seçilen süre cezayı değiştirmez.`,
+    alreadyListedN: (n) => `Bunlardan ${n} kişi zaten listede; daha ağır ceza verilmedikçe onlarda bir şey değişmez.`,
   },
 
   en: {
@@ -601,7 +609,16 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} will be banned ${how} on ${plural(count, "channel")} and added to the shared list. Continue?`,
     banning: (i, n) => `Banning ${i} / ${n}…`,
     banFailedN: (n) => `Couldn't ban ${plural(n, "user")}; their names were left in the box.`,
-  },  es: {
+    makePermanent: "Make permanent",
+    confirmMakePermanent: (name) => `${name} will be banned permanently and the ban will be sent to the channels again. Continue?`,
+    editReason: "Edit reason",
+    editReasonHint: "Enter to save, Esc to cancel",
+    alreadyPerm: (name) => `${name} is already banned permanently; the chosen duration won't shorten it.`,
+    alreadyHeavier: (name, dur) => `${name} is currently banned for ${dur}; this ban will make it stricter.`,
+    alreadySame: (name, dur) => `${name} is already banned for ${dur}; the chosen duration won't change it.`,
+    alreadyListedN: (n) => `${n} of these ${n === 1 ? "is" : "are"} already on the list; nothing changes for them unless the penalty is stricter.`,
+  },
+  es: {
     // panel.html
     logoutTitle: "Cerrar sesión",
     logout: "Salir",
@@ -871,6 +888,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} será baneado ${how} en ${plural(count, "canal", "canales")} y se agregará a la lista compartida. ¿Continuar?`,
     banning: (i, n) => `Baneando ${i} / ${n}…`,
     banFailedN: (n) => `No se pudo banear a ${plural(n, "usuario")}; sus nombres quedaron en el campo.`,
+    makePermanent: "Hacer permanente",
+    confirmMakePermanent: (name) => `${name} será baneado de forma permanente y el baneo se enviará de nuevo a los canales. ¿Continuar?`,
+    editReason: "Editar motivo",
+    editReasonHint: "Enter para guardar, Esc para cancelar",
+    alreadyPerm: (name) => `${name} ya está baneado de forma permanente; la duración elegida no la acorta.`,
+    alreadyHeavier: (name, dur) => `${name} está baneado por ${dur}; este baneo endurecerá la sanción.`,
+    alreadySame: (name, dur) => `${name} ya está baneado por ${dur}; la duración elegida no la cambia.`,
+    alreadyListedN: (n) => `${n} de ellos ya ${n === 1 ? "está" : "están"} en la lista; para ellos nada cambia salvo que la sanción sea más dura.`,
   },
   pt: {
     // panel.html
@@ -1142,6 +1167,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} será banido ${how} em ${plural(count, "canal", "canais")} e entrará na lista compartilhada. Continuar?`,
     banning: (i, n) => `Banindo ${i} / ${n}…`,
     banFailedN: (n) => `Não foi possível banir ${plural(n, "usuário")}; os nomes ficaram no campo.`,
+    makePermanent: "Tornar permanente",
+    confirmMakePermanent: (name) => `${name} será banido permanentemente e o ban será enviado de novo aos canais. Continuar?`,
+    editReason: "Editar motivo",
+    editReasonHint: "Enter para salvar, Esc para cancelar",
+    alreadyPerm: (name) => `${name} já está banido permanentemente; a duração escolhida não reduz a punição.`,
+    alreadyHeavier: (name, dur) => `${name} está banido por ${dur}; este ban vai endurecer a punição.`,
+    alreadySame: (name, dur) => `${name} já está banido por ${dur}; a duração escolhida não muda a punição.`,
+    alreadyListedN: (n) => `${n} deles já ${n === 1 ? "está" : "estão"} na lista; nada muda para eles, a menos que a punição seja mais dura.`,
   },
   ar: {
     // panel.html
@@ -1413,6 +1446,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `سيُحظر ${who} ${how} في ${arCount(count, AR.channel)} ويُضاف إلى القائمة المشتركة. متابعة؟`,
     banning: (i, n) => `جارٍ الحظر ${i} / ${n}…`,
     banFailedN: (n) => `تعذّر حظر ${arCount(n, AR.user)}؛ بقيت أسماؤهم في الحقل.`,
+    makePermanent: "اجعله دائمًا",
+    confirmMakePermanent: (name) => `سيُحظر ${name} نهائيًا وسيُرسل الحظر إلى القنوات مجددًا. هل تتابع؟`,
+    editReason: "تعديل السبب",
+    editReasonHint: "Enter للحفظ، Esc للإلغاء",
+    alreadyPerm: (name) => `${name} محظور نهائيًا بالفعل؛ المدة المختارة لا تقصّر العقوبة.`,
+    alreadyHeavier: (name, dur) => `${name} محظور حاليًا لمدة ${dur}؛ هذا الحظر سيشدّد العقوبة.`,
+    alreadySame: (name, dur) => `${name} محظور بالفعل لمدة ${dur}؛ المدة المختارة لا تغيّر العقوبة.`,
+    alreadyListedN: (n) => `${arCount(n, AR.user)} من هؤلاء في القائمة بالفعل؛ لا يتغيّر شيء لهم ما لم تكن العقوبة أشد.`,
   },
   de: {
     // panel.html
@@ -1684,6 +1725,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} wird in ${de(count, "Kanal", "Kanälen")} ${how} gebannt und zur gemeinsamen Liste hinzugefügt. Fortfahren?`,
     banning: (i, n) => `Banne ${i} / ${n}…`,
     banFailedN: (n) => `${n} Nutzer ${n === 1 ? "konnte" : "konnten"} nicht gebannt werden; die Namen stehen noch im Feld.`,
+    makePermanent: "Dauerhaft machen",
+    confirmMakePermanent: (name) => `${name} wird dauerhaft gebannt und der Bann erneut an die Kanäle gesendet. Fortfahren?`,
+    editReason: "Grund bearbeiten",
+    editReasonHint: "Enter zum Speichern, Esc zum Abbrechen",
+    alreadyPerm: (name) => `${name} ist bereits dauerhaft gebannt; die gewählte Dauer verkürzt die Strafe nicht.`,
+    alreadyHeavier: (name, dur) => `${name} ist gerade für ${dur} gebannt; dieser Bann verschärft die Strafe.`,
+    alreadySame: (name, dur) => `${name} ist bereits für ${dur} gebannt; die gewählte Dauer ändert die Strafe nicht.`,
+    alreadyListedN: (n) => `${n} davon ${n === 1 ? "steht" : "stehen"} bereits auf der Liste; für sie ändert sich nur etwas, wenn die Strafe härter ist.`,
   },
   fr: {
     // panel.html
@@ -1955,6 +2004,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} sera banni ${how} sur ${fr(count, "chaîne")} et ajouté à la liste partagée. Continuer ?`,
     banning: (i, n) => `Bannissement ${i} / ${n}…`,
     banFailedN: (n) => `Impossible de bannir ${fr(n, "utilisateur")} ; les pseudos sont restés dans le champ.`,
+    makePermanent: "Rendre permanent",
+    confirmMakePermanent: (name) => `${name} sera banni définitivement et le ban sera renvoyé aux chaînes. Continuer ?`,
+    editReason: "Modifier la raison",
+    editReasonHint: "Entrée pour enregistrer, Échap pour annuler",
+    alreadyPerm: (name) => `${name} est déjà banni définitivement ; la durée choisie ne raccourcit pas la sanction.`,
+    alreadyHeavier: (name, dur) => `${name} est actuellement banni pour ${dur} ; ce ban va durcir la sanction.`,
+    alreadySame: (name, dur) => `${name} est déjà banni pour ${dur} ; la durée choisie ne change pas la sanction.`,
+    alreadyListedN: (n) => `${n} d'entre eux ${n === 1 ? "est" : "sont"} déjà dans la liste ; rien ne change pour eux sauf si la sanction est plus sévère.`,
   },
   ru: {
     // panel.html
@@ -2226,6 +2283,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `Забанить ${how}: ${who}, каналов: ${count}. Бан попадёт в общий список. Продолжить?`,
     banning: (i, n) => `Бан ${i} / ${n}…`,
     banFailedN: (n) => `Не удалось забанить пользователей: ${n}; их ники остались в поле.`,
+    makePermanent: "Сделать постоянным",
+    confirmMakePermanent: (name) => `${name} получит постоянный бан, и бан будет заново отправлен на каналы. Продолжить?`,
+    editReason: "Изменить причину",
+    editReasonHint: "Enter — сохранить, Esc — отменить",
+    alreadyPerm: (name) => `${name} уже забанен навсегда; выбранная длительность не сократит наказание.`,
+    alreadyHeavier: (name, dur) => `${name} сейчас забанен на ${dur}; этот бан ужесточит наказание.`,
+    alreadySame: (name, dur) => `${name} уже забанен на ${dur}; выбранная длительность не изменит наказание.`,
+    alreadyListedN: (n) => `Уже в списке: ${n}; для них ничего не изменится, если наказание не строже.`,
   },
   id: {
     // panel.html
@@ -2497,6 +2562,14 @@ const STRINGS = {
     confirmBan: (who, count, how) => `${who} akan di-ban ${how} di ${count} channel dan ditambahkan ke daftar bersama. Lanjutkan?`,
     banning: (i, n) => `Mem-ban ${i} / ${n}…`,
     banFailedN: (n) => `Gagal mem-ban ${n} pengguna; namanya tetap ada di kolom.`,
+    makePermanent: "Jadikan permanen",
+    confirmMakePermanent: (name) => `${name} akan di-ban permanen dan ban dikirim ulang ke channel. Lanjutkan?`,
+    editReason: "Ubah alasan",
+    editReasonHint: "Enter untuk simpan, Esc untuk batal",
+    alreadyPerm: (name) => `${name} sudah di-ban permanen; durasi yang dipilih tidak memperpendek hukumannya.`,
+    alreadyHeavier: (name, dur) => `${name} sedang di-ban selama ${dur}; ban ini akan memperberat hukumannya.`,
+    alreadySame: (name, dur) => `${name} sudah di-ban selama ${dur}; durasi yang dipilih tidak mengubah hukumannya.`,
+    alreadyListedN: (n) => `${n} di antaranya sudah ada di daftar; tidak ada yang berubah untuk mereka kecuali hukumannya lebih berat.`,
   },
 };
 

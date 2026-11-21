@@ -26,7 +26,8 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          20: "sahip-s", 21: "yonetici-y", 22: "mod-m", 23: "izleyici-i", 24: "yeni-n", 99: "trol",
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
-         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r", 69: "sahip-v", 70: "sahip-w", 71: "sahip-x"}
+         63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r", 69: "sahip-v", 70: "sahip-w", 71: "sahip-x",
+         72: "sahip-y", 73: "mod-y"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
 MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
 BANNED = set()               # (broadcaster_id, user_id)
@@ -907,6 +908,46 @@ class CrossBanTest(unittest.TestCase):
             app.call_channel = real
         BANNED.difference_update({b for b in BANNED if b[0] == 70})
         app.LOGIN_HITS.clear()
+
+    def test_review_edit(self):
+        """Kart üzerinden düzenleme: sebebi banı atan ya da yönetici değiştirir; ceza yalnızca ağırlaşır."""
+        app.LOGIN_HITS.clear()
+        MODS[72] = {73}
+        sahip, mod = self.login(72), self.login(73)
+        tid = call(self.base, "POST", "/teams", sahip, {"name": "Düzenleme"})[1]["id"]
+        code = call(self.base, "GET", f"/teams/{tid}", sahip)[1]["invite_code"]
+        self.assertEqual(call(self.base, "POST", "/teams/join", mod, {"invite_code": code})[0], 200)
+        bans = f"/teams/{tid}/bans"
+        sent, real = [], app.call_channel
+        app.call_channel = lambda candidates, body, unban: (sent.append(body.get("duration")),
+                                                            real(candidates, body, unban))[1]
+        try:
+            ban = call(self.base, "POST", bans, sahip, {"username": "trol", "duration": 10})[1]
+            # Sebepsiz bana tekrar banla verilen sebep kayda geçer; dolu sebebin üstüne yazılmaz.
+            self.assertEqual(call(self.base, "POST", bans, mod, {"username": "trol", "duration": 10, "reason": "spam"})[1]["reason"], "spam")
+            self.assertEqual(call(self.base, "POST", bans, mod, {"username": "trol", "duration": 10, "reason": "başka"})[1]["reason"], "spam")
+            self.assertEqual(sent, [10])
+            edit = lambda who, body: call(self.base, "PATCH", f"{bans}/{ban['id']}", who, body)
+            self.assertEqual(edit(mod, {"reason": "x"})[0], 403)
+            status, body, _ = edit(sahip, {"reason": "küfür"})
+            self.assertEqual((status, body["reason"], body["duration"]), (200, "küfür", 10))
+            self.assertEqual(edit(sahip, {})[0], 400)
+            call(self.base, "DELETE", f"{bans}/{ban['id']}", sahip)
+            self.assertEqual(edit(sahip, {"reason": "y"})[0], 400)         # kaldırılmış
+
+            # Uzaklaştırmayı kartta kalıcı yapmak: Kick'e süresiz gider, kısaltmak reddedilir.
+            sent.clear()
+            ban = call(self.base, "POST", bans, sahip, {"username": "trol-iki", "duration": 60})[1]
+            self.assertEqual(edit(mod, {"duration": 10})[0], 400)
+            status, body, _ = edit(mod, {"duration": None})
+            self.assertEqual((status, body["duration"], body["created_by"]), (200, None, "mod-y"))
+            self.assertEqual(sent, [60, None])
+            self.assertEqual(edit(mod, {"duration": None})[0], 400)        # zaten kalıcı
+        finally:
+            app.call_channel = real
+            MODS.pop(72, None)
+            BANNED.difference_update({b for b in BANNED if b[0] == 72})
+            app.LOGIN_HITS.clear()
 
     def test_review_stale_lookup(self):
         """İptal edilen sıranın önceden sorgulanmış adları sonraki sırada eski Kick kimliğiyle kullanılmaz."""
