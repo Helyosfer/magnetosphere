@@ -449,6 +449,7 @@ Sonuç: test edilen alanlarda başka açık bulunmadı. Bilinen sınırlar yukar
 ### Açık bildirimi
 
 Bir güvenlik açığı bulursan lütfen herkese açık bir issue açma; `destek@helyosfer.me` adresine yaz.
+Kapsam, yanıt süreleri ve açıklama süreci için [SECURITY.md](SECURITY.md) dosyasına bak.
 
 Gizlilik politikası: [magnetosphere.helyosfer.me/privacy](https://magnetosphere.helyosfer.me/privacy)
 (kaynağı [`docs/privacy.html`](docs/privacy.html)).
