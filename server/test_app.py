@@ -4,6 +4,7 @@ import http.client
 import json
 import os
 import re
+import socket
 import sqlite3
 import tempfile
 import threading
@@ -16,6 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from cryptography.fernet import Fernet
 
+import contextlib
+
 import app
 import i18n
 
@@ -27,12 +30,29 @@ USERS = {1: "yayinci-a", 2: "yayinci-b", 3: "yayinci-c", 10: "mod-ali", 11: "mod
          30: "sahip-u", 31: "mod-u", 32: "izleyici-u", 97: "trol-iki", 98: "eski-trol",
          40: "sahip-k", 41: "yayinci-k", 42: "baska-ekip", 60: "sahip-d", 61: "mod-d", 62: "disari-d",
          63: "sahip-o", 64: "yeni-o", 65: "sahip-q", 66: "mod-q", 67: "sahip-t", 68: "sahip-r", 69: "sahip-v", 70: "sahip-w", 71: "sahip-x",
-         72: "sahip-y", 73: "mod-y"}
+         72: "sahip-y", 73: "mod-y",
+         90: "sahip-z", 91: "mod-z1", 92: "mod-z2", 93: "izleyici-z", 94: "cikan-z", 95: "silinen-z",
+         96: "hedef-z"}
 # mod-ali yalnızca yayinci-a'da, mod-m yalnızca yayinci-c'de moderatör
-MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set()}
+MODS = {1: {10}, 2: set(), 3: {22}, 20: set(), 30: {31}, 40: set(), 41: {40}, 42: set(), 90: {91, 92}}
 BANNED = set()               # (broadcaster_id, user_id)
 LOOKUPS = []                 # her kullanıcı sorgusunda istenen slug listesi
 REVOKED = set()              # hesap silinince geri alınan tokenlar
+PROBE = {"open": False}      # True iken kanal ekleme yoklaması (kişinin kendi banını kaldırması) geçer
+
+
+@contextlib.contextmanager
+def as_channel_mod():
+    """Kanal eklenirken ekleyen kişi o kanalda Kick moderatörüdür, sonrasında değildir.
+
+    Sunucu, yetkisi olmayan kanalın eklenmesini reddeder; "ekipte, ama ban tutmayan kanal" durumunu
+    sınayan testler kanalı böyle ekler (moderatörlüğü sonradan alınmış kişi).
+    """
+    PROBE["open"] = True
+    try:
+        yield
+    finally:
+        PROBE["open"] = False
 
 
 class FakeKick(BaseHTTPRequestHandler):
@@ -82,6 +102,8 @@ class FakeKick(BaseHTTPRequestHandler):
         body = json.loads(self.body())
         channel = body["broadcaster_user_id"]
         if self.uid() != channel and self.uid() not in MODS[channel]:
+            if not banned and body["user_id"] == self.uid() and PROBE["open"]:
+                return self.reply(200, {"data": {}})
             return self.reply(403, {"message": "Forbidden"})
         key = (channel, body["user_id"])
         BANNED.add(key) if banned else BANNED.discard(key)
@@ -170,7 +192,8 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", veli, {"slug": "yayinci-a"})[0], 403)
 
         for slug in ("yayinci-a", "Yayinci_B"):
-            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", ali, {"slug": slug})[0], 200)
+            with as_channel_mod():
+                self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", ali, {"slug": slug})[0], 200)
 
         # Ekip üyesi ve ekipteki yayıncı banlanamaz.
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans", ali, {"username": "mod-veli"})[0], 400)
@@ -265,7 +288,7 @@ class CrossBanTest(unittest.TestCase):
 
         # Güvenlik: tokenlar veritabanında şifreli durur.
         db = sqlite3.connect(app.CFG["db"])
-        for access, refresh in db.execute("SELECT access_token, refresh_token FROM users"):
+        for access, refresh in db.execute("SELECT access_token, refresh_token FROM users WHERE id != 0"):
             self.assertTrue(access.startswith("enc:") and refresh.startswith("enc:"))
             self.assertNotIn("tok-", access)
 
@@ -318,7 +341,7 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}", ali)[0], 404)
         self.assertEqual(call(self.base, "GET", "/me", ali)[1]["teams"], [])
         db = sqlite3.connect(app.CFG["db"])
-        for table in ("teams", "members", "channels", "bans", "ban_results", "queue"):
+        for table in ("teams", "members", "channels", "bans", "ban_results", "queue", "former_members"):
             self.assertEqual(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0], 0, table)
         db.close()
         self.assertEqual(BANNED, banned_before)
@@ -337,7 +360,8 @@ class CrossBanTest(unittest.TestCase):
 
         # Sıra ekipler arasında dönüşümlüdür: A'nın uzun listesi B'nin tek kaydını bekletmez.
         call(self.base, "POST", f"/teams/{a}/channels", ali, {"slug": "yayinci-a"})
-        call(self.base, "POST", f"/teams/{b}/channels", veli, {"slug": "yayinci-a"})
+        with as_channel_mod():
+            call(self.base, "POST", f"/teams/{b}/channels", veli, {"slug": "yayinci-a"})
         call(self.base, "POST", f"/teams/{a}/imports", ali, {"usernames": ["yok-1", "yok-2", "yok-3"]})
         call(self.base, "POST", f"/teams/{b}/imports", veli, {"usernames": ["yok-4"]})
         app.process_next()
@@ -406,7 +430,8 @@ class CrossBanTest(unittest.TestCase):
         for token in (mod, izleyici):
             call(self.base, "POST", "/teams/join", token, {"invite_code": code})
         call(self.base, "POST", f"/teams/{tid}/members/32/role", sahip, {"role": "viewer"})
-        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-b"})
+        with as_channel_mod():
+            call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-b"})
         unban = lambda token, name: call(self.base, "POST", f"/teams/{tid}/unbans", token, {"username": name})
 
         # Magnetosphere'den önce Kick'te elle atılmış ban: listede yok ama adıyla kaldırılır.
@@ -570,7 +595,8 @@ class CrossBanTest(unittest.TestCase):
         # Kanal, adıyla da kick.com bağlantısıyla da eklenir.
         self.assertEqual([app.to_slug(v) for v in ("Yayinci_A", "@yayinci-a", "kick.com/yayinci-a",
                                                    "https://www.kick.com/Yayinci_A/videos?x=1")], ["yayinci-a"] * 4)
-        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": "kick.com/Yayinci_A"})[0], 200)
+        with as_channel_mod():
+            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": "kick.com/Yayinci_A"})[0], 200)
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", user, {"slug": "yayinci-b"})[0], 400)
         app.MAX_CHANNELS_PER_TEAM = 50
 
@@ -940,14 +966,216 @@ class CrossBanTest(unittest.TestCase):
             ban = call(self.base, "POST", bans, sahip, {"username": "trol-iki", "duration": 60})[1]
             self.assertEqual(edit(mod, {"duration": 10})[0], 400)
             status, body, _ = edit(mod, {"duration": None})
-            self.assertEqual((status, body["duration"], body["created_by"]), (200, None, "mod-y"))
+            # Ağırlaştıran banın sahibi olmaz: ban ilk atanın kalır, moderatör onu kaldıramaz.
+            self.assertEqual((status, body["duration"], body["created_by"]), (200, None, "sahip-y"))
             self.assertEqual(sent, [60, None])
+            self.assertEqual(call(self.base, "DELETE", f"{bans}/{ban['id']}", mod)[0], 403)
             self.assertEqual(edit(mod, {"duration": None})[0], 400)        # zaten kalıcı
         finally:
             app.call_channel = real
             MODS.pop(72, None)
             BANNED.difference_update({b for b in BANNED if b[0] == 72})
             app.LOGIN_HITS.clear()
+
+    def audit_team(self):
+        """Denetim testleri için: 90'ın kurduğu ekip; (sahibin oturumu, ekip kimliği, davet kodu)."""
+        app.LOGIN_HITS.clear()
+        owner = self.login(90)
+        tid = call(self.base, "POST", "/teams", owner, {"name": "Denetim"})[1]["id"]
+        return owner, tid, call(self.base, "GET", f"/teams/{tid}", owner)[1]["invite_code"]
+
+    def test_guvenlik_channel_add(self):
+        """Kanalı, orada yetkisi olan ekler: kanalın moderatörü, yayıncının kendisi ya da yayıncı ekipteyse yönetici."""
+        owner, tid, code = self.audit_team()
+        add = lambda token, slug: call(self.base, "POST", f"/teams/{tid}/channels", token, {"slug": slug})
+        status, res, _ = add(owner, "yayinci-b")          # 90, yayinci-b'de moderatör değil
+        self.assertEqual((status, "moderatör değilsin" in res["error"]), (403, True))
+        self.assertEqual(add(owner, "yayinci-b")[0], 403)
+        self.assertEqual([c["slug"] for c in call(self.base, "GET", f"/teams/{tid}", owner)[1]["channels"]], ["sahip-z"])
+        self.assertIn("not a moderator", call(self.base, "POST", f"/teams/{tid}/channels", owner,
+                                              {"slug": "yayinci-b"}, lang="en")[1]["error"])
+        # Yoklama kimsenin banını kaldırmaz.
+        BANNED.add((2, 90))
+        add(owner, "yayinci-b")
+        self.assertIn((2, 90), BANNED)
+        BANNED.discard((2, 90))
+        MODS[2].add(90)
+        try:
+            self.assertEqual(add(owner, "yayinci-b")[0], 200)
+        finally:
+            MODS[2].discard(90)
+        # Yayıncı ekipteyse yönetici kanalını ekleyebilir; kendi kanalını eklemek de sorulmaz.
+        self.assertEqual(add(owner, "yayinci-c")[0], 403)
+        call(self.base, "POST", "/teams/join", self.login(3), {"invite_code": code})
+        self.assertEqual(add(owner, "yayinci-c")[0], 200)
+        call(self.base, "DELETE", f"/teams/{tid}/channels/90", owner)
+        self.assertEqual(add(owner, "sahip-z")[0], 200)
+        app.LOGIN_HITS.clear()
+
+    def test_guvenlik_ban_ownership(self):
+        """Moderatör, başkasının uzaklaştırmasını ağırlaştırarak sahiplenemez; sebebini de ezemez."""
+        owner, tid, code = self.audit_team()
+        m1, m2 = self.login(91), self.login(92)
+        for m in (m1, m2):
+            call(self.base, "POST", "/teams/join", m, {"invite_code": code})
+        bans = f"/teams/{tid}/bans"
+        try:
+            ban = call(self.base, "POST", bans, m1, {"username": "hedef-z", "duration": 10080, "reason": "asil sebep"})[1]
+            self.assertEqual(call(self.base, "DELETE", f"{bans}/{ban['id']}", m2)[0], 403)
+            self.assertEqual(call(self.base, "PATCH", f"{bans}/{ban['id']}", m2, {"duration": None})[0], 200)
+            self.assertEqual(call(self.base, "DELETE", f"{bans}/{ban['id']}", m2)[0], 403)
+            ban = call(self.base, "POST", bans, m1, {"username": "eski-trol", "duration": 60, "reason": "asil sebep"})[1]
+            after = call(self.base, "POST", bans, m2, {"username": "eski-trol", "reason": "ezildi"})[1]
+            self.assertEqual((after["duration"], after["reason"], after["created_by_id"]), (None, "asil sebep", 91))
+            # Sebepsiz atılmış bana ağırlaştırırken verilen sebep kayda geçer.
+            call(self.base, "POST", bans, m1, {"username": "trol", "duration": 60})
+            after = call(self.base, "POST", bans, m2, {"username": "trol", "reason": "sonradan"})[1]
+            self.assertEqual(after["reason"], "sonradan")
+        finally:
+            BANNED.difference_update({b for b in BANNED if b[0] == 90})
+            app.LOGIN_HITS.clear()
+
+    def test_guvenlik_rejoin(self):
+        """Rolü düşürülen üye eski kodla yükselemez; çıkarılan üye kod yenilenene kadar dönemez."""
+        owner, tid, code = self.audit_team()
+        v, x = self.login(93), self.login(94)
+        join = lambda token, c: call(self.base, "POST", "/teams/join", token, {"invite_code": c})[0]
+        role_of = lambda token: call(self.base, "GET", f"/teams/{tid}", token)[1].get("role")
+        self.assertEqual((join(v, code), join(x, code)), (200, 200))
+        call(self.base, "POST", f"/teams/{tid}/members/93/role", owner, {"role": "viewer"})
+        call(self.base, "POST", f"/teams/{tid}/leave", v)
+        self.assertEqual((join(v, code), role_of(v)), (200, "viewer"))
+        # Kendi isteğiyle ayrılan moderatör moderatör olarak döner.
+        call(self.base, "POST", f"/teams/{tid}/leave", x)
+        self.assertEqual((join(x, code), role_of(x)), (200, "mod"))
+        # Çıkarılan üye için eski kod geçersizdir; önizleme de ekibi göstermeye devam etse katılamaz.
+        self.assertEqual(call(self.base, "DELETE", f"/teams/{tid}/members/94", owner)[0], 200)
+        self.assertEqual(join(x, code), 404)
+        # Kod yenilenince eskisi kimse için çalışmaz; yenisini alan çıkarılmış üye katılabilir.
+        fresh = call(self.base, "POST", f"/teams/{tid}/invite", owner)[1]["invite_code"]
+        self.assertEqual((join(x, code), join(x, fresh), role_of(x)), (404, 200, "mod"))
+        # Hesabını silip yeniden giriş yapan izleyici de eski kodla moderatör olamaz: kod yenilenir.
+        self.assertEqual(call(self.base, "DELETE", "/me", v)[1], {"kick_revoked": True})
+        self.assertEqual(join(self.login(93), fresh), 404)
+        self.assertNotEqual(call(self.base, "GET", f"/teams/{tid}", owner)[1]["invite_code"], fresh)
+        app.LOGIN_HITS.clear()
+
+    def test_guvenlik_lend_default_and_invite_storage(self):
+        """Kurucunun yayıncı yetkisi kendisi açmadan kullanılmaz; davet kodu veritabanında düz metin durmaz."""
+        owner, tid, code = self.audit_team()
+        self.assertFalse(call(self.base, "GET", f"/teams/{tid}", owner)[1]["lend"])
+        x = self.login(94)                      # Kick'te 90'ın kanalında moderatör değil
+        self.assertEqual(call(self.base, "POST", "/teams/join", x, {"invite_code": code})[0], 200)
+        ban = call(self.base, "POST", f"/teams/{tid}/bans", x, {"username": "trol"})[1]
+        self.assertEqual([r["status"] for r in ban["results"]], ["failed"])
+        self.assertNotIn((90, 99), BANNED)
+        db = sqlite3.connect(app.CFG["db"])
+        row = db.execute("SELECT * FROM teams WHERE id = ?", (tid,)).fetchone()
+        db.close()
+        self.assertNotIn(code, [str(v) for v in row])
+        # Eski veritabanı: düz metin kod açılışta özetlenir ve şifrelenir, aynı kodla katılmak sürer.
+        db = sqlite3.connect(app.CFG["db"])
+        db.execute("UPDATE teams SET invite_code = 'eski-duz-kod', invite_hash = NULL WHERE id = ?", (tid,))
+        db.commit()
+        db.close()
+        app.init_db()
+        db = sqlite3.connect(app.CFG["db"])
+        stored = db.execute("SELECT invite_code FROM teams WHERE id = ?", (tid,)).fetchone()[0]
+        db.close()
+        self.assertTrue(stored.startswith(app.SEALED))
+        self.assertEqual(call(self.base, "GET", f"/teams/{tid}", owner)[1]["invite_code"], "eski-duz-kod")
+        self.assertEqual(call(self.base, "POST", "/teams/join/preview", x, {"invite_code": "eski-duz-kod"})[0], 200)
+        app.LOGIN_HITS.clear()
+
+    def test_guvenlik_deleted_account_and_expired_retry(self):
+        """Silinen hesabın Kick kimliği kayıtlarda kalmaz; süresi dolmuş uzaklaştırma yeniden denenemez."""
+        owner, tid, code = self.audit_team()
+        d = self.login(95)
+        call(self.base, "POST", "/teams/join", d, {"invite_code": code})
+        MODS[90].add(95)
+        try:
+            ban = call(self.base, "POST", f"/teams/{tid}/bans", d, {"username": "trol-iki", "duration": 1})[1]
+            db = sqlite3.connect(app.CFG["db"])
+            db.execute("UPDATE bans SET created_at = created_at - 7200 WHERE id = ?", (ban["id"],))
+            db.execute("UPDATE ban_results SET updated_at = updated_at - 7200 WHERE ban_id = ?", (ban["id"],))
+            db.commit()
+            db.close()
+            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/bans/{ban['id']}/retry", d)[0], 400)
+            self.assertEqual(call(self.base, "DELETE", "/me", d)[0], 200)
+            listing = call(self.base, "GET", f"/teams/{tid}/bans?view=history", owner)[1]["bans"]
+            self.assertEqual([(b["created_by"], b["created_by_id"]) for b in listing], [("silinmiş kullanıcı", 0)])
+            db = sqlite3.connect(app.CFG["db"])
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE id = 95").fetchone())
+            # Eski sürümün bıraktığı adsız satır açılışta ortak satıra taşınır.
+            db.execute("INSERT INTO users VALUES (95, 'silinmiş kullanıcı', '', '', 0)")
+            db.execute("UPDATE bans SET created_by = 95 WHERE id = ?", (ban["id"],))
+            db.commit()
+            app.init_db()
+            self.assertEqual(db.execute("SELECT created_by FROM bans WHERE id = ?", (ban["id"],)).fetchone()[0], 0)
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE id = 95").fetchone())
+            db.close()
+        finally:
+            MODS[90].discard(95)
+            BANNED.difference_update({b for b in BANNED if b[0] == 90})
+            app.LOGIN_HITS.clear()
+
+    def test_guvenlik_http_hardening(self):
+        """Gövde oturumdan önce okunmaz, yanıtlar önbelleğe alınmaz, damla damla başlık bağlantıyı tutamaz."""
+        conn = http.client.HTTPConnection(*self.server.server_address)
+        conn.request("POST", "/teams", body=b"{" * 1000, headers={"Content-Type": "application/json"})
+        res = conn.getresponse()
+        self.assertEqual((res.status, res.getheader("X-Content-Type-Options"), res.getheader("Cache-Control")),
+                         (401, "nosniff", "no-store"))
+        res.read()
+        # Okunmayan gövde boşaltılır; aynı bağlantıdaki sonraki istek bozulmaz.
+        conn.request("GET", "/health")
+        self.assertEqual(conn.getresponse().status, 200)
+        conn.close()
+        _, _, headers = call(self.base, "GET", "/auth/login?redirect=" + urllib.parse.quote(REDIRECT))
+        self.assertEqual(headers["Cache-Control"], "no-store")
+        app.LOGIN_HITS.clear()
+
+        self.assertEqual(app.login_key("2001:db8::1"), app.login_key("2001:db8::ffff:1"))
+        self.assertNotEqual(app.login_key("2001:db8::1"), app.login_key("2001:db8:1::1"))
+        self.assertEqual(app.login_key("203.0.113.7"), "203.0.113.7")
+
+        app.HEADER_DEADLINE = 1
+        try:
+            s = socket.create_connection(self.server.server_address)
+            s.sendall(b"GET /health HTTP/1.1\r\n")
+            s.settimeout(5)
+            started = time.time()
+            try:
+                closed = s.recv(1) == b""
+            except ConnectionError:
+                closed = True
+            except socket.timeout:
+                closed = False
+            s.close()
+            self.assertTrue(closed and time.time() - started < 4)
+        finally:
+            app.HEADER_DEADLINE = 5
+
+        # Bağlantı sınırı dolunca yeni bağlantı iş parçacığı açılmadan kapatılır.
+        limited = app.Server(("127.0.0.1", 0), app.Handler)
+        limited.slots = threading.BoundedSemaphore(1)
+        threading.Thread(target=limited.serve_forever, daemon=True).start()
+        try:
+            first = socket.create_connection(limited.server_address)
+            first.sendall(b"GET /hea")
+            time.sleep(0.3)
+            second = socket.create_connection(limited.server_address)
+            second.settimeout(5)
+            try:
+                refused = second.recv(1) == b""
+            except ConnectionError:
+                refused = True
+            self.assertTrue(refused)
+            second.close()
+            first.close()
+        finally:
+            limited.shutdown()
+            limited.server_close()
 
     def test_review_stale_lookup(self):
         """İptal edilen sıranın önceden sorgulanmış adları sonraki sırada eski Kick kimliğiyle kullanılmaz."""
@@ -982,7 +1210,7 @@ class CrossBanTest(unittest.TestCase):
         tid = team["id"]
         role = lambda token, uid: f"/teams/{tid}/members/{uid}/role"
         _, info, _ = call(self.base, "GET", f"/teams/{tid}", sahip)
-        self.assertEqual((info["role"], info["lend"], info["join_role"]), ("owner", True, "mod"))
+        self.assertEqual((info["role"], info["lend"], info["join_role"]), ("owner", False, "mod"))
         code = info["invite_code"]
         for token in (yonetici, mod, izleyici):
             self.assertEqual(call(self.base, "POST", "/teams/join", token, {"invite_code": code})[1]["name"], "Roller")
@@ -1006,7 +1234,8 @@ class CrossBanTest(unittest.TestCase):
 
         # Kanalları sahip ve yöneticiler yönetir.
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", mod, {"slug": "yayinci-c"})[0], 403)
-        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", yonetici, {"slug": "yayinci-c"})[0], 200)
+        with as_channel_mod():
+            self.assertEqual(call(self.base, "POST", f"/teams/{tid}/channels", yonetici, {"slug": "yayinci-c"})[0], 200)
 
         # İzleyici listeyi görür ama ban atamaz, sıraya ekleyemez.
         self.assertEqual(call(self.base, "GET", f"/teams/{tid}/bans", izleyici)[0], 200)
@@ -1014,7 +1243,8 @@ class CrossBanTest(unittest.TestCase):
         self.assertEqual(call(self.base, "POST", f"/teams/{tid}/imports", izleyici, {"usernames": ["trol"]})[0], 403)
 
         # Moderatör banlar: kendi moderatör olduğu kanalda kendi yetkisiyle, ekibi kuranın kanalında
-        # sahibin paylaştığı yayıncı yetkisiyle tutar.
+        # sahibin paylaştığı yayıncı yetkisiyle tutar. Paylaşım kuran için de kapalı başlar; kendisi açar.
+        self.assertEqual(call(self.base, "POST", f"/teams/{tid}/lend", sahip, {"lend": True})[1], {"lend": True})
         _, ban, _ = call(self.base, "POST", f"/teams/{tid}/bans", mod, {"username": "trol"})
         self.assertEqual(ban["created_by_id"], 22)
         self.assertEqual({r["slug"]: (r["status"], r["via"]) for r in ban["results"]},
@@ -1069,7 +1299,9 @@ class CrossBanTest(unittest.TestCase):
         _, listing, _ = call(self.base, "GET", f"/teams/{tid}/bans?revoked=1", yonetici)
         self.assertEqual({b["created_by"] for b in listing["bans"]}, {"silinmiş kullanıcı"})
         db = sqlite3.connect(app.CFG["db"])
-        self.assertEqual(db.execute("SELECT access_token, refresh_token FROM users WHERE id = 22").fetchone(), ("", ""))
+        # Satırı da silinir: Kick kimliği kayıtlarda kalmaz, banları ortak "silinmiş kullanıcı" satırına bağlanır.
+        self.assertIsNone(db.execute("SELECT 1 FROM users WHERE id = 22").fetchone())
+        self.assertEqual({b["created_by_id"] for b in listing["bans"]}, {0})
         db.close()
         # Yeniden giriş yapınca boş bir hesapla başlar.
         self.assertEqual(call(self.base, "GET", "/me", self.login(22))[1]["teams"], [])
@@ -1119,7 +1351,8 @@ class CrossBanTest(unittest.TestCase):
         sahip = self.login(67)
         tid = call(self.base, "POST", "/teams", sahip, {"name": "Kapsam"})[1]["id"]
         for slug in ("yayinci-a", "yayinci-b"):
-            call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": slug})
+            with as_channel_mod():
+                call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": slug})
         for channel in (1, 2, 3):
             MODS[channel].add(67)
         team = call(self.base, "GET", f"/teams/{tid}", sahip)[1]
@@ -1156,7 +1389,8 @@ class CrossBanTest(unittest.TestCase):
         drain = lambda: [None for _ in iter(app.process_next, False)]
         counts = lambda: call(self.base, "GET", f"/teams/{tid}/imports", sahip)[1]
         self.assertEqual(queue(["trol-iki", "eski-trol"], reason="liste")[1], {"added": 2, "skipped": 0})
-        call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-c"})
+        with as_channel_mod():
+            call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": "yayinci-c"})
         drain()
         self.assertEqual(counts()["counts"], {"done": 2})
         self.assertEqual((banned(97), banned(98)), ({1, 2, 67}, {1, 2, 67}))
@@ -1198,7 +1432,8 @@ class CrossBanTest(unittest.TestCase):
         sahip = self.login(69)
         tid = call(self.base, "POST", "/teams", sahip, {"name": "Kısmi kaldırma"})[1]["id"]
         for slug in ("yayinci-a", "yayinci-b"):
-            call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": slug})
+            with as_channel_mod():
+                call(self.base, "POST", f"/teams/{tid}/channels", sahip, {"slug": slug})
         for channel in (1, 2, 3):
             MODS[channel].add(69)
         api = lambda method, path, body=None, **kw: call(self.base, method, f"/teams/{tid}{path}", sahip, body, **kw)
@@ -1249,7 +1484,8 @@ class CrossBanTest(unittest.TestCase):
         api("POST", "/bans", {"username": "yeni-n"})
         self.assertEqual(queue(["trol-iki"], channels=[69])[1], {"added": 1, "skipped": 0})
         self.assertEqual(queue(["yeni-n"])[1], {"added": 1, "skipped": 0})
-        api("POST", "/channels", {"slug": "yayinci-c"})
+        with as_channel_mod():
+            api("POST", "/channels", {"slug": "yayinci-c"})
         drain()
         self.assertEqual(counts()["counts"], {"unbanned": 2})
         self.assertEqual((banned(97), banned(24)), ({1, 2}, set()))
