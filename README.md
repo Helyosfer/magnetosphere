@@ -134,9 +134,12 @@ Bir ban her kanalda önce banı atan kişinin **kendi moderatör yetkisiyle** de
 ekipteyse ve **Ekip > Yayıncı yetkin** altındaki paylaşımı açtıysa, moderatörün yetkisi yetmediğinde ban
 yayıncının yetkisiyle uygulanır.
 
-- Paylaşım, ekibi kuran kişi için açık, davetle katılanlar için kapalı başlar.
+- Paylaşım herkes için kapalı başlar; ekibi kuran da kendi kanalı için kendisi açar. (0.15.1 öncesinde
+  kurulmuş ekiplerde kuranın paylaşımı açıktır; istersen kapat.)
 - Yalnızca yayıncının kendisi açıp kapatabilir; davet koduyla bir ekibe katılmak tek başına bu yetkiyi vermez.
 - Moderatörü olmadığın ve yayıncısı yetkisini paylaşmayan bir kanalda ban uygulanmaz; listede o kanal kırmızı görünür.
+- Ekibe kanal eklemek için o kanalda Kick moderatörü olman, kanalın senin olması ya da yayıncısının ekipte
+  olması gerekir (0.15.1). Yayıncının kanalını eklemek istiyorsan önce yayıncı ekibe katılsın.
 
 ## Nasıl çalışır
 
@@ -357,13 +360,16 @@ veritabanıyla çalışır. Yedeği yalnızca veri bozulduysa, servis durdurulmu
 - **Ekipler birbirinden yalıtılmıştır.** Bir ekibin kanallarını, üyelerini ve listesini yalnızca o
   ekibin üyeleri görür.
 - **Roller sunucuda denetlenir.** Her işlem sunucuda rol kontrolünden geçer; panelin düğmeyi gizlemesine
-  güvenilmez.
+  güvenilmez. Bir uzaklaştırmayı ağırlaştırmak banın sahibini ve sebebini değiştirmez; moderatör
+  başkasının banını bu yolla kaldıramaz.
 - **Davet kodu.** Rastgele 72 bitliktir; yalnızca sahip ve yöneticiler görür ve yeniler, eski kod anında
-  geçersiz olur.
+  geçersiz olur. Veritabanında yalnızca özeti ve (anahtar tanımlıysa) şifreli hâli durur. Ekipten ayrılan
+  üye aynı kodla son rolünden yükseğiyle dönemez; çıkarılan üye kod yenilenene kadar katılamaz.
 - **Yayıncı yetkisi rızayla kullanılır.** Bir yayıncının token'ı, başkasının attığı ban için ancak o
   yayıncı paylaşımı kendisi açtıysa kullanılır.
 - **Hesap silme.** Kullanıcı hesabını sildiğinde oturumları, üyelikleri ve tokenları silinir, Kick'teki
-  erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır.
+  erişim geri alınır. Başka ekiplerin listesinde attığı banlar adsız olarak kalır; Kick kimliği de
+  kayıtlardan silinir. Kick'teki iptal başarısız olursa yanıt bunu bildirir (`kick_revoked: false`).
 - **Asgari izin.** Kick'ten yalnızca kullanıcı bilgisi, kanal bilgisi ve ban yetkisi istenir. Uzantı
   yalnızca `identity`, `storage` ve `contextMenus` izinlerini kullanır; hiçbir siteye içerik betiği eklemez.
 - **Sınırlar.** İstek gövdesi 1 MB ile, tek seferde yüklenen liste 6.000 adla, bir ekibin sırada

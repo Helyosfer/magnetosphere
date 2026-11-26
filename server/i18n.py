@@ -60,6 +60,8 @@ EN = {
         "You can create at most {n} teams; delete one you don't use and try again",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "New members can start as moderator or viewer",
     "Davet kodu geçersiz": "Invalid invite code",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "You can't add this channel: you're not a moderator there and its streamer isn't on the team",
     "Geçersiz işlem": "Invalid action",
     "Kanal seçimi geçersiz": "Invalid channel selection",
     "Seçilen kanallar bu ekipte yok": "The selected channels aren't on this team",
@@ -151,6 +153,8 @@ ES = {
         "Puedes crear como máximo {n} equipos; elimina uno que no uses y vuelve a intentarlo",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Los nuevos miembros pueden empezar como moderador o espectador",
     "Davet kodu geçersiz": "Código de invitación no válido",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "No puedes añadir este canal: no eres moderador allí y su streamer no está en el equipo",
     "Geçersiz işlem": "Acción no válida",
     "Kanal seçimi geçersiz": "Selección de canales no válida",
     "Seçilen kanallar bu ekipte yok": "Los canales seleccionados no están en este equipo",
@@ -242,6 +246,8 @@ PT = {
         "Você pode criar no máximo {n} equipes; exclua uma que não usa e tente de novo",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Novos membros podem começar como moderador ou espectador",
     "Davet kodu geçersiz": "Código de convite inválido",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "Você não pode adicionar este canal: você não é moderador nele e o streamer não está na equipe",
     "Geçersiz işlem": "Ação inválida",
     "Kanal seçimi geçersiz": "Seleção de canais inválida",
     "Seçilen kanallar bu ekipte yok": "Os canais selecionados não estão nesta equipe",
@@ -333,6 +339,8 @@ AR = {
         "يمكنك إنشاء {n} فرق كحد أقصى؛ احذف فريقًا لا تستخدمه ثم حاول مجددًا",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "يمكن للأعضاء الجدد البدء مشرفين أو مشاهدين",
     "Davet kodu geçersiz": "رمز الدعوة غير صالح",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "لا يمكنك إضافة هذه القناة: لست مشرفًا فيها وصاحبها ليس في الفريق",
     "Geçersiz işlem": "إجراء غير صالح",
     "Kanal seçimi geçersiz": "اختيار القنوات غير صالح",
     "Seçilen kanallar bu ekipte yok": "القنوات المحددة غير موجودة في هذا الفريق",
@@ -423,6 +431,8 @@ DE = {
         "Du kannst höchstens {n} Teams erstellen; lösche eines, das du nicht nutzt, und versuche es erneut",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Neue Mitglieder können als Moderator oder Zuschauer starten",
     "Davet kodu geçersiz": "Ungültiger Einladungscode",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "Du kannst diesen Kanal nicht hinzufügen: Du bist dort kein Moderator und der Streamer ist nicht im Team",
     "Geçersiz işlem": "Ungültige Aktion",
     "Kanal seçimi geçersiz": "Ungültige Kanalauswahl",
     "Seçilen kanallar bu ekipte yok": "Die ausgewählten Kanäle gehören nicht zu diesem Team",
@@ -513,6 +523,8 @@ FR = {
         "Tu peux créer au plus {n} équipes ; supprimes-en une que tu n'utilises pas et réessaie",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Les nouveaux membres peuvent commencer comme modérateur ou spectateur",
     "Davet kodu geçersiz": "Code d'invitation invalide",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "Tu ne peux pas ajouter cette chaîne : tu n'y es pas modérateur et son streamer n'est pas dans l'équipe",
     "Geçersiz işlem": "Action invalide",
     "Kanal seçimi geçersiz": "Sélection de chaînes invalide",
     "Seçilen kanallar bu ekipte yok": "Les chaînes sélectionnées ne font pas partie de cette équipe",
@@ -603,6 +615,8 @@ RU = {
         "Можно создать не больше {n} команд; удали ненужную и попробуй снова",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Новые участники могут начинать модераторами или зрителями",
     "Davet kodu geçersiz": "Неверный код приглашения",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "Этот канал добавить нельзя: ты там не модератор, а стример не состоит в команде",
     "Geçersiz işlem": "Неверное действие",
     "Kanal seçimi geçersiz": "Неверный выбор каналов",
     "Seçilen kanallar bu ekipte yok": "Выбранных каналов нет в этой команде",
@@ -693,6 +707,8 @@ ID = {
         "Kamu bisa membuat maksimal {n} tim; hapus tim yang tidak dipakai lalu coba lagi",
     "Yeni katılanlar moderatör ya da izleyici olarak başlayabilir": "Anggota baru bisa mulai sebagai moderator atau penonton",
     "Davet kodu geçersiz": "Kode undangan tidak valid",
+    "Bu kanalı ekleyemezsin: kanalda moderatör değilsin ve yayıncısı ekipte değil":
+        "Kamu tidak bisa menambahkan channel ini: kamu bukan moderator di sana dan streamernya tidak ada di tim",
     "Geçersiz işlem": "Tindakan tidak valid",
     "Kanal seçimi geçersiz": "Pilihan channel tidak valid",
     "Seçilen kanallar bu ekipte yok": "Channel yang dipilih tidak ada di tim ini",
