@@ -71,6 +71,15 @@
   .small h1 { font-size: 36px; letter-spacing: -.8px; margin-top: 14px; }
   .small p { margin: 10px 0 0; font-size: 15px; color: #9aa6b8; }
   .promo.big { background: none; }
+  /* Güvenlik rozeti: tanıtım kutularında sloganın altında. */
+  .badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 7px 13px; border: 1px solid #2c6b55;
+    border-radius: 999px; background: rgba(18, 36, 31, .85); color: #bfeedd; font-size: 14px; font-weight: 600; }
+  .badge svg { width: 16px; height: 16px; flex: none; }
+  .small .badge { font-size: 12px; padding: 5px 11px; margin-top: 14px; }
+  .small .badge svg { width: 13px; height: 13px; }
+  .big .copy .badge { font-size: 20px; padding: 10px 18px; margin-top: 30px; align-self: flex-start; }
+  .big .copy .badge svg { width: 22px; height: 22px; margin: 0; }
+  [dir="rtl"] .big .copy .badge { align-self: flex-end; }
   .big .copy { left: 110px; }
   .big .copy svg { width: 72px; height: 72px; margin-bottom: 30px; }
   .big h1 { font-size: 82px; letter-spacing: -3px; line-height: 1; }
@@ -121,6 +130,7 @@ const TEXT = {
     ekip: ["İster tek başına yönet,\nister ekibinle", "Kanallarını ekle, davet koduyla modlarını çağır.\nHerkes aynı listeyi görür; rolleri sen dağıtırsın."],
     sagtik: ["Sağ tıkla,\nher kanalda banla", "Sohbette kullanıcının kartını aç,\nadına sağ tıkla. Panel o adla\naçılır; tek düğmeyle listendeki\nbütün kanallarda banlarsın."],
     tagline: "Kick mod ekipleri için ortak ban listesi",
+    badge: "Şifreli veriler · Yapay zekâ destekli güvenlik",
     channel: "ornek_kanal", live: "Canlı", send: "Mesaj gönder",
     account: "Hesap", accountAge: "2 gün önce", messages: "Mesaj",
     menu: ["Bağlantıyı yeni sekmede aç", "Bağlantı adresini kopyala", "Ekibin tüm kanallarında banla", "İncele"],
@@ -140,6 +150,7 @@ const TEXT = {
     ekip: ["Go solo,\nor bring your team", "Add your channels and invite your mods with a code.\nEveryone sees the same list; you hand out the roles."],
     sagtik: ["Right-click,\nban everywhere", "Open the user's card in chat and\nright-click their name. The panel\nopens with that name; one button\nbans them on every channel\non your list."],
     tagline: "A shared ban list for Kick mod teams",
+    badge: "Encrypted data · AI-assisted security",
     channel: "example_channel", live: "Live", send: "Send a message",
     account: "Account", accountAge: "2 days ago", messages: "Messages",
     menu: ["Open link in new tab", "Copy link address", "Ban on all team channels", "Inspect"],
@@ -159,6 +170,7 @@ const TEXT = {
     ekip: ["Solo\no con tu equipo", "Agrega tus canales e invita a tus mods con un código.\nTodos ven la misma lista; tú repartes los roles."],
     sagtik: ["Clic derecho,\nbaneo en todos", "Abre la tarjeta del usuario en el\nchat y haz clic derecho en su\nnombre. El panel se abre con ese\nnombre; un botón lo banea en\ntodos los canales de tu lista."],
     tagline: "Lista de baneos compartida para mods de Kick",
+    badge: "Datos cifrados · Seguridad con apoyo de IA",
     channel: "canal_ejemplo", live: "En vivo", send: "Enviar mensaje",
     account: "Cuenta", accountAge: "hace 2 días", messages: "Mensajes",
     menu: ["Abrir enlace en una pestaña nueva", "Copiar dirección del enlace", "Banear en todos los canales del equipo", "Inspeccionar"],
@@ -178,6 +190,7 @@ const TEXT = {
     ekip: ["Sozinho\nou com a sua equipe", "Adicione seus canais e chame seus mods com um código.\nTodos veem a mesma lista; você distribui os cargos."],
     sagtik: ["Clique direito,\nban em todos", "Abra o cartão do usuário no chat\ne clique com o botão direito no\nnome. O painel abre com esse\nnome; um botão bane em todos\nos canais da sua lista."],
     tagline: "Lista de bans compartilhada para mods da Kick",
+    badge: "Dados criptografados · Segurança com apoio de IA",
     channel: "canal_exemplo", live: "Ao vivo", send: "Enviar mensagem",
     account: "Conta", accountAge: "há 2 dias", messages: "Mensagens",
     menu: ["Abrir link em nova guia", "Copiar endereço do link", "Banir em todos os canais da equipe", "Inspecionar"],
@@ -197,6 +210,7 @@ const TEXT = {
     ekip: ["وحدك\nأو مع فريقك", "أضف قنواتك وادعُ مشرفيك برمز دعوة.\nالجميع يرى القائمة نفسها، وأنت توزّع الأدوار."],
     sagtik: ["نقرة يمين،\nوحظر في كل مكان", "افتح بطاقة المستخدم في الدردشة\nوانقر بالزر الأيمن على اسمه. تُفتح\nاللوحة بذلك الاسم، وبزر واحد تحظره\nفي كل القنوات في قائمتك."],
     tagline: "قائمة حظر مشتركة لفرق مشرفي Kick",
+    badge: "بيانات مشفّرة · أمان بمساعدة الذكاء الاصطناعي",
     channel: "example_channel", live: "مباشر", send: "أرسل رسالة",
     account: "الحساب", accountAge: "منذ يومين", messages: "الرسائل",
     menu: ["فتح الرابط في علامة تبويب جديدة", "نسخ عنوان الرابط", "حظر في كل قنوات الفريق", "فحص"],
@@ -215,6 +229,9 @@ const SCENE = { banla: "ban", liste: "list", sira: "queue", ekip: "crew" };
 const COLORS = ["#6fd7b6", "#f0a37a", "#8fb1ff", "#f3cf6b", "#c39bff"];
 const stage = document.getElementById("stage");
 const logo = '<svg><use href="#logo"/></svg>';
+const shield = '<svg viewBox="0 0 24 24" fill="none" stroke="#5cf2a5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M12 3l7 3v5c0 4.5-3 8.300-7 10-4-1.700-7-5.500-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>';
+const badge = () => `<div class="badge">${shield}${esc(TEXT.badge)}</div>`;
 const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const panel = (scene) => `<div class="frame"><iframe src="/panel.html?scene=${scene}&lang=${LANG}"></iframe></div>`;
 const copy = ([title, sub]) =>
@@ -249,9 +266,12 @@ if (SCENE[SHOT]) {
   // Sohbet satırları sığmazsa en eskiler görünmez kalsın (gerçek sohbet gibi alttan dolar).
   document.querySelector(".lines").style.overflow = "hidden";
 } else if (SHOT === "kucuk") {
-  stage.innerHTML = `<div class="promo"><div class="small">${logo}<h1>Magnetosphere</h1><p>${TEXT.tagline}</p></div></div>`;
+  // Bazı sistemlerde (Windows'ta Chrome) pencere 500 pikselden dar açılamaz; sahne kutunun boyuna sabitlenir.
+  // Sağdan sola dillerde de çekim sol üstten alındığı için kutu sol kenara yaslanır.
+  Object.assign(document.body.style, { position: "absolute", left: "0", top: "0", width: "440px", height: "280px" });
+  stage.innerHTML = `<div class="promo"><div class="small">${logo}<h1>Magnetosphere</h1><p>${TEXT.tagline}</p>${badge()}</div></div>`;
 } else if (SHOT === "buyuk") {
-  stage.innerHTML = `<div class="promo big"><div class="copy">${logo}<h1>Magnetosphere</h1><p class="sub">${TEXT.tagline}</p></div>${panel("list")}</div>`;
+  stage.innerHTML = `<div class="promo big"><div class="copy">${logo}<h1>Magnetosphere</h1><p class="sub">${TEXT.tagline}</p>${badge()}</div>${panel("list")}</div>`;
 }
 </script>
 </body>

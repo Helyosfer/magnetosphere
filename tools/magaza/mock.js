@@ -83,7 +83,7 @@
   const store = { token: "demo", teamId: 1, lang: L, server: "https://magnetosphere.helyosfer.me" };
   window.chrome = {
     i18n: { getUILanguage: () => L },
-    runtime: { sendMessage: async () => ({ ok: true }) },
+    runtime: { sendMessage: async () => ({ ok: true }), getManifest: () => ({ version: "0.0.0" }) },
     storage: {
       local: {
         get: async (keys) => {

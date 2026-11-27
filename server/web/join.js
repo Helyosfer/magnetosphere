@@ -19,6 +19,7 @@
       sentOpened: "Eklenti açıldı; katılmayı oradan onayla.",
       failed: "Davet eklentiye iletilemedi. Kodu kopyalayıp eklentiye yapıştırabilirsin.",
       missing: "Bu bağlantıda davet kodu yok. Seni davet eden kişiden bağlantıyı yeniden iste.",
+      safety: "Güvenli: Giriş Kick'in kendi sayfasında yapılır, şifren kimseyle paylaşılmaz. Magnetosphere'in kodu siber güvenlik odaklı yapay zekâ modelleri desteğiyle denetlenir.",
     },
     en: {
       title: "You're invited to a Magnetosphere team",
@@ -36,6 +37,7 @@
       sentOpened: "The extension opened; confirm joining there.",
       failed: "Couldn't pass the invite to the extension. You can copy the code and paste it into the extension.",
       missing: "This link has no invite code. Ask the person who invited you to send it again.",
+      safety: "Safe to join: you sign in on Kick's own page and your password is never shared. Magnetosphere's code is audited with the help of cybersecurity-focused AI models.",
     },
     es: {
       title: "Te invitaron a un equipo de Magnetosphere",
@@ -53,6 +55,7 @@
       sentOpened: "La extensión se abrió; confirma allí que quieres unirte.",
       failed: "No se pudo pasar la invitación a la extensión. Puedes copiar el código y pegarlo en la extensión.",
       missing: "Este enlace no tiene código de invitación. Pide a quien te invitó que lo envíe de nuevo.",
+      safety: "Seguro: inicias sesión en la propia página de Kick y tu contraseña nunca se comparte. El código de Magnetosphere se audita con el apoyo de modelos de IA especializados en ciberseguridad.",
     },
     pt: {
       title: "Você foi convidado para uma equipe do Magnetosphere",
@@ -70,6 +73,7 @@
       sentOpened: "A extensão abriu; confirme a entrada por lá.",
       failed: "Não foi possível passar o convite para a extensão. Você pode copiar o código e colar na extensão.",
       missing: "Este link não tem código de convite. Peça para quem te convidou enviar de novo.",
+      safety: "Seguro: o login é feito na própria página da Kick e sua senha nunca é compartilhada. O código do Magnetosphere é auditado com o apoio de modelos de IA focados em cibersegurança.",
     },
     ar: {
       title: "تمت دعوتك إلى فريق في Magnetosphere",
@@ -87,6 +91,7 @@
       sentOpened: "فُتحت الإضافة؛ أكّد الانضمام من هناك.",
       failed: "تعذّر تمرير الدعوة إلى الإضافة. يمكنك نسخ الرمز ولصقه في الإضافة.",
       missing: "لا يحتوي هذا الرابط على رمز دعوة. اطلب من الشخص الذي دعاك إرساله مرة أخرى.",
+      safety: "آمن: يتم تسجيل الدخول في صفحة Kick نفسها ولا تُشارَك كلمة مرورك أبدًا. تُدقَّق شيفرة Magnetosphere بمساعدة نماذج ذكاء اصطناعي متخصصة في الأمن السيبراني.",
     },
     de: {
       title: "Du wurdest in ein Magnetosphere-Team eingeladen",
@@ -104,6 +109,7 @@
       sentOpened: "Die Erweiterung ist offen; bestätige dort den Beitritt.",
       failed: "Die Einladung konnte nicht an die Erweiterung übergeben werden. Du kannst den Code kopieren und in die Erweiterung einfügen.",
       missing: "Dieser Link enthält keinen Einladungscode. Bitte die Person, die dich eingeladen hat, ihn noch einmal zu schicken.",
+      safety: "Sicher: Du meldest dich auf Kicks eigener Seite an, dein Passwort wird nie weitergegeben. Der Code von Magnetosphere wird mit Unterstützung von auf Cybersicherheit spezialisierten KI-Modellen geprüft.",
     },
     fr: {
       title: "Tu es invité dans une équipe Magnetosphere",
@@ -121,6 +127,7 @@
       sentOpened: "L'extension est ouverte ; confirme ton arrivée depuis celle-ci.",
       failed: "Impossible de transmettre l'invitation à l'extension. Tu peux copier le code et le coller dans l'extension.",
       missing: "Ce lien ne contient pas de code d'invitation. Demande à la personne qui t'a invité de le renvoyer.",
+      safety: "En toute sécurité : tu te connectes sur la page de Kick et ton mot de passe n'est jamais partagé. Le code de Magnetosphere est audité avec l'aide de modèles d'IA spécialisés en cybersécurité.",
     },
     ru: {
       title: "Тебя пригласили в команду Magnetosphere",
@@ -138,6 +145,7 @@
       sentOpened: "Расширение открыто; подтверди вступление там.",
       failed: "Не удалось передать приглашение расширению. Можно скопировать код и вставить его в расширение.",
       missing: "В этой ссылке нет кода приглашения. Попроси пригласившего прислать её ещё раз.",
+      safety: "Безопасно: вход выполняется на странице самого Kick, пароль никому не передаётся. Код Magnetosphere проверяется с помощью ИИ-моделей, специализирующихся на кибербезопасности.",
     },
     id: {
       title: "Kamu diundang ke tim Magnetosphere",
@@ -155,6 +163,7 @@
       sentOpened: "Ekstensi sudah terbuka; konfirmasi bergabung di sana.",
       failed: "Undangan tidak bisa diteruskan ke ekstensi. Kamu bisa menyalin kodenya dan menempelkannya di ekstensi.",
       missing: "Tautan ini tidak berisi kode undangan. Minta orang yang mengundangmu mengirimkannya lagi.",
+      safety: "Aman: kamu masuk di halaman Kick sendiri dan kata sandimu tidak pernah dibagikan. Kode Magnetosphere diaudit dengan bantuan model AI yang berfokus pada keamanan siber.",
     },
   };
   const STORE_ID = "kjbbjooackbcfeeoolkfpmdbkomjiflh";
@@ -188,6 +197,7 @@
   $("copy-link").textContent = t.copyLink;
   $("reload-hint").textContent = t.reloadHint;
   $("reload").textContent = t.reload;
+  $("safety").textContent = t.safety;
   $("invite").hidden = false;
 
   async function copyText(text, button, done, idle) {

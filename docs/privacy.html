@@ -21,7 +21,7 @@
 <body>
 <main>
   <h1>Magnetosphere Gizlilik Politikası</h1>
-  <p class="muted">Son güncelleme: 19 Kasım 2026 · <a href="#en">English</a></p>
+  <p class="muted">Son güncelleme: 27 Kasım 2026 · <a href="#en">English</a></p>
 
   <p>Magnetosphere, Kick moderatörleri ve moderasyon ekipleri için ortak ban listesi tutan bir tarayıcı uzantısı ve ona bağlı bir sunucudur (magnetosphere.helyosfer.me). Kick ile bağlantılı ya da Kick tarafından onaylanmış değildir. Bu politika, uzantıyı ve sunucuyu kullandığında hangi verilerin işlendiğini anlatır.</p>
   <p>Magnetosphere açık kaynaklıdır ve herkes kendi sunucusunu kurabilir. Uzantıyı başka bir sunucuya bağlarsan verilerin o sunucuyu işleten kişide tutulur; bu politika yalnızca magnetosphere.helyosfer.me için geçerlidir.</p>
@@ -50,6 +50,13 @@
   <p><strong>Davet bağlantısı:</strong> davet bağlantısında kod adresin <code>#</code> işaretinden sonraki kısmında durur. Tarayıcı bu kısmı sunucuya göndermez; davet sayfası kodu yalnızca bilgisayarındaki Magnetosphere eklentisine verir. Eklenti, giriş yaptığın sunucuya kodu gönderip ekibin adını ve sahibini öğrenir, bunları gösterip katılmadan önce sana sorar; bu sorgu seni ekibe eklemez. Davet sayfası çerez kullanmaz, bir şey kaydetmez.</p>
   <p><strong>Yayıncı yetkisi paylaşımı:</strong> token'ın normalde yalnızca senin başlattığın işlemler için kullanılır. Bir ekipte, kendi kanalın için "yayıncı yetkisi paylaşımı"nı açarsan, o ekibin moderatörlerinin attığı banlar kanalında senin yetkinle de uygulanır. Bu ayar kapalı başlar; yalnızca sen değiştirebilirsin ve istediğin an kapatabilirsin.</p>
 
+  <h2>Güvenlik</h2>
+  <ul>
+    <li><strong>Şifreleme:</strong> Kick erişim tokenları ve ekip davet kodları sunucuda şifreli saklanır; oturum anahtarlarının yalnızca özeti tutulur. Uzantıyla sunucu arasındaki bağlantı her zaman HTTPS ile şifrelidir.</li>
+    <li><strong>Yapay zekâ destekli güvenlik incelemesi:</strong> sunucu altyapısı, veritabanı ve kod, siber güvenlik odaklı yapay zekâ modelleri desteğiyle denetlenir ve güncellenir; bulunan açıklar yeni sürümlerde kapatılır. Bu incelemeler kod ve sunucu yapılandırması üzerinde yapılır; ekip ve ban kayıtların yapay zekâ modellerine gönderilmez.</li>
+    <li><strong>Açık bildirme:</strong> bir güvenlik açığı bulursan <a href="mailto:destek@helyosfer.me">destek@helyosfer.me</a> adresine yaz.</li>
+  </ul>
+
   <h2>Paylaşım ve hizmet sağlayıcılar</h2>
   <p>Verileri satmayız ve reklam ya da analiz amacıyla kimseyle paylaşmayız. Hizmeti sunmak için yalnızca şu taraflar devreye girer:</p>
   <ul>
@@ -61,7 +68,7 @@
 
   <h2>Saklama ve silme</h2>
   <ul>
-    <li><strong>Hesabını silmek:</strong> uzantının altındaki "Hesabımı sil" bağlantısıyla hesabını kendin silebilirsin. Oturumların, üyeliklerin, tokenların, sırada bekleyen yüklemelerin ve yalnızca senin üyesi olduğun ekipler hemen silinir; Kick'e verdiğin erişimin geri alınması da Kick'ten istenir. Başka ekiplerin ortak listesinde senin attığın ya da kaldırdığın banlar, o ekibin kaydı bozulmasın diye kalır; bu kayıtlarda adın yerine "silinmiş kullanıcı" görünür, yalnızca Kick kullanıcı kimlik numaran saklanır. Başkalarının da üyesi olduğu bir ekibin sahibiysen, önce sahipliği devretmen ya da ekibi silmen gerekir.</li>
+    <li><strong>Hesabını silmek:</strong> uzantının altındaki "Hesabımı sil" bağlantısıyla hesabını kendin silebilirsin. Oturumların, üyeliklerin, tokenların, sırada bekleyen yüklemelerin ve yalnızca senin üyesi olduğun ekipler hemen silinir; Kick'e verdiğin erişimin geri alınması da Kick'ten istenir. Başka ekiplerin ortak listesinde senin attığın ya da kaldırdığın banlar, o ekibin kaydı bozulmasın diye kalır; bu kayıtlarda adın yerine "silinmiş kullanıcı" görünür; Kick kullanıcı kimlik numaran da bu kayıtlardan silinir. Başkalarının da üyesi olduğu bir ekibin sahibiysen, önce sahipliği devretmen ya da ekibi silmen gerekir.</li>
     <li><strong>Ekip:</strong> ekip sahibi ekibi sildiğinde ekibe ait tüm kayıtlar silinir. Ekip sahibi ve yöneticiler, kaldırılan banları ve süresi dolan uzaklaştırmaları "Geçmişi sil" ile de silebilir. Bir ekipten istediğin an ayrılabilirsin.</li>
     <li><strong>Oturum:</strong> çıkış yaptığında oturumların kapanır; kullanılmayan oturumlar 30 gün sonra geçersiz olur.</li>
     <li><strong>Yedekler:</strong> veritabanı yedekleri sunucuda 14 gün, Google Drive'da 90 gün; sunucunun tam yedeği Google Drive'da 20 gün tutulur ve sonra kendiliğinden silinir. Silinen bir hesap ya da ekip, bu süre dolana kadar yalnızca yedeklerde kalır ve yalnızca bir arızadan sonra geri yükleme için kullanılır.</li>
@@ -81,7 +88,7 @@
 
   <div lang="en" id="en">
     <h1>Privacy Policy</h1>
-    <p class="muted">Last updated: 19 November 2026</p>
+    <p class="muted">Last updated: 27 November 2026</p>
     <p>Magnetosphere is a browser extension and companion server (magnetosphere.helyosfer.me) that keeps a shared ban list for Kick moderators and moderation teams. It is not affiliated with or endorsed by Kick. This policy explains what data is processed when you use the extension and the server.</p>
     <p>Magnetosphere is open source, and anyone can run their own server. If you connect the extension to a different server, your data is held by whoever runs that server; this policy covers magnetosphere.helyosfer.me only.</p>
 
@@ -107,7 +114,14 @@
     <h2>How data is used</h2>
     <p>Solely to provide the service: signing in, issuing and revoking bans in the channels on your list, and showing the shared list to team members. Team data is visible only to members of that team, as far as their role allows; only the team owner and admins can see the invite code.</p>
     <p><strong>Invite link:</strong> in an invite link, the code sits after the <code>#</code> in the address. Browsers don't send that part to the server; the invite page hands the code only to the Magnetosphere extension on your computer. The extension sends the code to the server you're signed in to, learns the team's name and owner, and shows them to you before asking whether to join; that lookup doesn't add you to the team. The invite page uses no cookies and stores nothing.</p>
-    <p><strong>Broadcaster authority sharing:</strong> your token is normally used only for actions you start yourself. If you turn on "broadcaster authority sharing" for your own channel in a team, bans issued by that team's moderators are also applied in your channel using your authority. The setting starts on for teams you create and off for teams you join by invite; only you can change it, at any time.</p>
+    <p><strong>Broadcaster authority sharing:</strong> your token is normally used only for actions you start yourself. If you turn on "broadcaster authority sharing" for your own channel in a team, bans issued by that team's moderators are also applied in your channel using your authority. The setting starts off; only you can change it, at any time.</p>
+
+    <h2>Security</h2>
+    <ul>
+      <li><strong>Encryption:</strong> Kick access tokens and team invite codes are stored encrypted on the server, and only a hash of each session token is kept. The connection between the extension and the server is always encrypted with HTTPS.</li>
+      <li><strong>AI-assisted security review:</strong> the server infrastructure, database and code are audited and updated with the help of cybersecurity-focused AI models, and vulnerabilities that are found are fixed in new releases. These reviews cover the code and server configuration; your team and ban records are not sent to AI models.</li>
+      <li><strong>Reporting a vulnerability:</strong> if you find a security issue, write to <a href="mailto:destek@helyosfer.me">destek@helyosfer.me</a>.</li>
+    </ul>
 
     <h2>Sharing and service providers</h2>
     <p>We never sell data, and never share it for advertising or analytics. Only the following parties are involved in providing the service:</p>
@@ -120,7 +134,7 @@
 
     <h2>Retention and deletion</h2>
     <ul>
-      <li><strong>Deleting your account:</strong> use the "Delete my account" link at the bottom of the extension. Your sessions, memberships, tokens, pending uploads and any team of which you are the only member are deleted immediately, and Kick is asked to revoke the access you granted. Bans you issued or lifted that appear in other teams' shared lists are kept so those teams' records stay intact; they show "deleted user" instead of your name, and only your numeric Kick user ID is kept. If you own a team that has other members, you need to transfer ownership or delete the team first.</li>
+      <li><strong>Deleting your account:</strong> use the "Delete my account" link at the bottom of the extension. Your sessions, memberships, tokens, pending uploads and any team of which you are the only member are deleted immediately, and Kick is asked to revoke the access you granted. Bans you issued or lifted that appear in other teams' shared lists are kept so those teams' records stay intact; they show "deleted user" instead of your name, and your numeric Kick user ID is removed from them as well. If you own a team that has other members, you need to transfer ownership or delete the team first.</li>
       <li><strong>Teams:</strong> when a team owner deletes a team, all of its records are deleted. The team owner and admins can also delete removed bans and ended timeouts with "Delete history". You can leave a team at any time.</li>
       <li><strong>Sessions:</strong> signing out ends your sessions; unused sessions expire after 30 days.</li>
       <li><strong>Backups:</strong> database backups are kept for 14 days on the server and 90 days on Google Drive, and full server backups for 20 days on Google Drive, then deleted automatically. A deleted account or team remains only in backups until that period ends, and backups are used only to restore service after a failure.</li>
