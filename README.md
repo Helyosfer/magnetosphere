@@ -1,5 +1,7 @@
 <div align="center">
 
+<sub>[Türkçe](README.md) · [English](README.en.md) · [Español](README.es.md) · [Português (Brasil)](README.pt-BR.md) · [العربية](README.ar.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Bahasa Indonesia](README.id.md) · [Русский](README.ru.md)</sub>
+
 <img src="store/tanitim-buyuk-1400x560.png" alt="Magnetosphere: Kick mod ekipleri için ortak ban listesi" width="100%">
 
 **Kick moderatörleri ve mod ekipleri için ortak ban listesi.**<br>
